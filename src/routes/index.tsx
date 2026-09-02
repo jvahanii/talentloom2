@@ -1,9 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Briefcase, UserRound } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import heroImage from "@/assets/hero-team-review.jpg.asset.json";
 
-export const Route = createFileRoute("/")({ component: Landing });
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Talently — Recruitment pipeline for teams and candidates" },
+      { name: "description", content: "One shared hiring pipeline for recruiters, and a simple way for candidates to find open roles and apply." },
+      { property: "og:title", content: "Talently — Recruitment pipeline for teams and candidates" },
+      { property: "og:description", content: "One shared hiring pipeline for recruiters, and a simple way for candidates to find open roles and apply." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: Landing,
+});
 
 function Landing() {
   return (
