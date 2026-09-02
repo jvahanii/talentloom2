@@ -37,10 +37,10 @@ function Landing() {
           />
           <div className="relative">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
-              Stop losing candidates in <span className="italic">spreadsheets and inboxes</span>.
+              Welcome to the best place to find work and workers
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              Talently gives your hiring team one shared pipeline. Track every candidate, every requisition, every stage — without another SaaS bill.
+              TalentLoom is the place that brings together recruiters and candidates.
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
@@ -50,7 +50,7 @@ function Landing() {
                 <Briefcase className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">I'm a Recruiter</span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Sign in to manage your pipeline, requisitions and team.
+                  Sign in to manage your pipeline, positions and team.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
                   Recruiter sign in
@@ -66,7 +66,7 @@ function Landing() {
                   Browse open roles and apply with your CV — no account needed.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Find a role
+                  Find a position
                 </span>
               </Link>
             </div>
