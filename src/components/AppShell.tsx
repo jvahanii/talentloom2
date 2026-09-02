@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { KanbanSquare, Users, Briefcase, Settings, BarChart3, Download, Upload, LogOut, Building2, Plus } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { OrgProvider, useOrg } from "@/lib/org";
@@ -50,13 +51,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function NavUser({ user }: { user: User | null }) {
+function NavUser({ user, fullName }: { user: User | null; fullName?: string | null }) {
   const navigate = useNavigate();
   if (!user) return null;
   return (
     <div className="mt-auto flex items-center gap-2 border-t border-border px-2 pt-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium">{user.user_metadata?.full_name ?? "You"}</p>
+        <p className="truncate text-xs font-medium">{fullName || user.user_metadata?.full_name || user.email || "Account"}</p>
         <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>
       </div>
       <button
@@ -128,6 +129,19 @@ function OrgSwitcher() {
 function ShellInner({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: profile } = useQuery({
+    queryKey: ["profile", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-card p-4 md:flex">
@@ -136,7 +150,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           <span className="text-lg font-bold tracking-tight">Talently</span>
         </Link>
         <NavLinks />
-        <NavUser user={user} />
+        <NavUser user={user} fullName={profile?.full_name} />
       </aside>
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -147,7 +161,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               <span className="text-lg font-bold tracking-tight">Talently</span>
             </Link>
             <NavLinks onNavigate={() => setMobileOpen(false)} />
-            <NavUser user={user} />
+            <NavUser user={user} fullName={profile?.full_name} />
           </aside>
         </div>
       )}
