@@ -124,7 +124,7 @@ export const getApplyContext = createServerFn({ method: "POST" })
     if (!org) return { org: null, roles: [] as { id: string; title: string }[] };
     const { data: reqs } = await supabaseAdmin
       .from("requisitions")
-      .select("id, title")
+      .select("id, title, department, description")
       .eq("org_id", data.org_id)
       .eq("status", "open")
       .order("title");
