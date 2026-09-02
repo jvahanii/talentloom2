@@ -79,6 +79,12 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
               {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
             </select>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FilePick label="CV" file={cv} onPick={(f) => pickFile(f, setCv)} />
+            <FilePick label="Cover letter" file={cover} onPick={(f) => pickFile(f, setCover)} />
+          </div>
+          <p className="text-xs text-muted-foreground">PDF, DOC or DOCX · up to 10 MB per file</p>
+
           <button disabled={saving} type="submit" className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
             {saving ? "Saving…" : "Add candidate"}
           </button>
