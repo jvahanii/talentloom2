@@ -361,10 +361,12 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
   };
 
   const togglePerm = async (t: OrgTitle, p: Permission, value: boolean) => {
+    const patch = { [permColumn(p)]: value } as Record<string, boolean>;
     const { error } = await supabase
       .from("organization_titles")
-      .update({ [permColumn(p)]: value })
+      .update(patch as never)
       .eq("id", t.id);
+
     if (error) toast.error(error.message);
     else reload();
   };
