@@ -280,11 +280,14 @@ export function OrgSettings() {
               onChange={(e) => setInviteTitle(e.target.value)}
               className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm dark:bg-white/5"
             >
-              {(titles.data ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              {(titles.data ?? [])
+                .filter((t) => (isOwner ? t.name !== "Owner" : !isProtectedTitle(t.name)))
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+
             </select>
             <button
               onClick={createInvite}
