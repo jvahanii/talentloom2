@@ -64,6 +64,7 @@ function ApplyDirectory() {
               <Link
                 to="/apply/$orgId"
                 params={{ orgId: org.id }}
+                search={{ req: undefined }}
                 className="btn-light mt-5 rounded-xl px-4 py-2.5 text-center text-sm font-semibold"
               >
                 View roles &amp; apply
