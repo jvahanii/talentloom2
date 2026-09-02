@@ -353,13 +353,14 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
     if (!newName.trim()) return;
     setBusy(true);
     try {
+      const allPerms = Object.fromEntries(PERMISSIONS.map((p) => [permColumn(p), true]));
       const { error } = await supabase.from("organization_titles").insert({
         org_id: orgId,
         name: newName.trim(),
         sort_order: 100,
-        can_view_candidates: true,
-        can_view_positions: true,
-      });
+        ...allPerms,
+      } as never);
+
       if (error) throw error;
       setNewName("");
       toast.success("Title added");
