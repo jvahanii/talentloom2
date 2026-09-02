@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/requisitions")({
 });
 
 type ReqStatus = "open" | "on_hold" | "filled" | "closed";
-interface Req { id: string; title: string; department: string | null; hiring_manager: string | null; status: ReqStatus; target_start_date: string | null; notes: string | null }
+interface Req { id: string; title: string; department: string | null; hiring_manager: string | null; status: ReqStatus; target_start_date: string | null; notes: string | null; description: string | null }
 
 function Reqs() {
   const qc = useQueryClient();
@@ -160,6 +160,7 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
   const [hiring_manager, setHM] = useState(editing?.hiring_manager ?? "");
   const [status, setStatus] = useState<ReqStatus>(editing?.status ?? "open");
   const [target_start_date, setStart] = useState(editing?.target_start_date ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -169,7 +170,7 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
-      const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, notes: notes || null };
+      const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, description: description || null, notes: notes || null };
       if (!editing && !orgId) throw new Error("No workspace selected");
       const { error } = editing
         ? await supabase.from("requisitions").update(payload).eq("id", editing.id)
@@ -177,7 +178,7 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
       if (error) throw error;
       toast.success(editing ? "Updated" : "Created");
       onSaved(); onOpenChange(false);
-      setTitle(""); setDepartment(""); setHM(""); setStatus("open"); setStart(""); setNotes("");
+      setTitle(""); setDepartment(""); setHM(""); setStatus("open"); setStart(""); setDescription(""); setNotes("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally { setSaving(false); }
@@ -199,7 +200,11 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
             </select>
             <input type="date" value={target_start_date} onChange={(e) => setStart(e.target.value)} className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           </div>
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" rows={3} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Job description (shown publicly to candidates)</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What the role involves, requirements, what you offer…" rows={6} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          </div>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes (private)" rows={3} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           <button disabled={saving} type="submit" className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
             {saving ? "Saving…" : editing ? "Save" : "Create"}
           </button>
