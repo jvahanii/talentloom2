@@ -485,7 +485,7 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
                       <label key={item.key} className="flex items-center gap-2 text-xs">
                         <input
                           type="checkbox"
-                          checked={Boolean(t[item.key])}
+                          checked={Boolean((t as unknown as Record<string, boolean>)[permColumn(item.key)])}
                           onChange={(e) => togglePerm(t, item.key, e.target.checked)}
                           className="h-3.5 w-3.5 rounded border-input accent-teal-600"
                         />
