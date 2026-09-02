@@ -117,7 +117,7 @@ export const submitApplication = createServerFn({ method: "POST" })
       .single();
     if (error || !inserted) throw new Error("Could not submit your application. Please try again.");
 
-    const uploads: Record<string, string> = {};
+    const uploads: { cv_path?: string; cover_letter_path?: string } = {};
     for (const [kind, file] of [
       ["cv", data.cv],
       ["cover_letter", data.cover_letter ?? null],
@@ -130,7 +130,10 @@ export const submitApplication = createServerFn({ method: "POST" })
           contentType: file.type || "application/octet-stream",
           upsert: false,
         });
-      if (!upErr) uploads[kind === "cv" ? "cv_path" : "cover_letter_path"] = path;
+      if (!upErr) {
+        if (kind === "cv") uploads.cv_path = path;
+        else uploads.cover_letter_path = path;
+      }
     }
     if (Object.keys(uploads).length > 0) {
       await supabaseAdmin.from("candidates").update(uploads).eq("id", inserted.id);
