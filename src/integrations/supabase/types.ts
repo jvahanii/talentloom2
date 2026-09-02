@@ -498,6 +498,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { _org: string; _user: string }; Returns: boolean }
+      is_org_owner: { Args: { _org: string; _user: string }; Returns: boolean }
       seed_org_titles: { Args: { _org: string }; Returns: undefined }
       seed_sample_data: { Args: never; Returns: undefined }
       shares_org_with: { Args: { _a: string; _b: string }; Returns: boolean }
