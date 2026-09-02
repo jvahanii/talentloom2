@@ -51,7 +51,9 @@ export type Database = {
       }
       candidates: {
         Row: {
+          cover_letter_path: string | null
           created_at: string
+          cv_path: string | null
           email: string | null
           id: string
           is_sample: boolean
@@ -69,7 +71,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cover_letter_path?: string | null
           created_at?: string
+          cv_path?: string | null
           email?: string | null
           id?: string
           is_sample?: boolean
@@ -87,7 +91,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cover_letter_path?: string | null
           created_at?: string
+          cv_path?: string | null
           email?: string | null
           id?: string
           is_sample?: boolean
