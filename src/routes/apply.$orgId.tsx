@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { SOURCES } from "@/lib/constants";
 import { getApplyContext, submitApplication } from "@/lib/apply.functions";
+import { myDocuments } from "@/lib/candidate-portal.functions";
 import { ACCEPTED_FILE_TYPES, validateCandidateFile } from "@/lib/candidate-files";
 import { CheckCircle2, Paperclip } from "lucide-react";
 
@@ -57,8 +59,30 @@ function ApplyPage() {
   const [notes, setNotes] = useState("");
   const [cv, setCv] = useState<File | null>(null);
   const [cover, setCover] = useState<File | null>(null);
+  const [savedCvId, setSavedCvId] = useState("");
+  const [savedCoverId, setSavedCoverId] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+
+  const docsFn = useServerFn(myDocuments);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      if (!u) return;
+      setSignedIn(true);
+      if (u.email) setEmail(u.email);
+      const fullName = (u.user_metadata as Record<string, unknown> | undefined)?.["full_name"];
+      if (typeof fullName === "string" && fullName.trim()) setName(fullName);
+    });
+  }, []);
+  const docs = useQuery({
+    queryKey: ["my-documents"],
+    queryFn: () => docsFn(),
+    enabled: signedIn,
+  });
+  const savedCvs = (docs.data ?? []).filter((d) => d.kind === "cv");
+  const savedCovers = (docs.data ?? []).filter((d) => d.kind === "cover_letter");
 
   const pickFile = (file: File | null, set: (f: File | null) => void) => {
     if (!file) return set(null);
@@ -69,7 +93,7 @@ function ApplyPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cv) { toast.error("Please attach your CV."); return; }
+    if (!cv && !savedCvId) { toast.error("Please attach your CV."); return; }
     setBusy(true);
     try {
       await submitFn({
@@ -81,8 +105,10 @@ function ApplyPage() {
           requisition_id: reqId || null,
           source: source as (typeof SOURCES)[number],
           notes: notes.trim(),
-          cv: await toBase64(cv),
+          cv: cv ? await toBase64(cv) : null,
           cover_letter: cover ? await toBase64(cover) : null,
+          saved_cv_id: cv ? null : savedCvId || null,
+          saved_cover_letter_id: cover ? null : savedCoverId || null,
         },
       });
       setDone(true);
@@ -113,6 +139,21 @@ function ApplyPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Thanks {name.split(" ")[0] || "for applying"} — the {ctx.data.org.name} team will be in touch by email.
         </p>
+        {signedIn ? (
+          <Link
+            to="/candidate/applications"
+            className="btn-teal mt-6 inline-block rounded-xl px-5 py-2.5 text-sm font-semibold"
+          >
+            Track this application
+          </Link>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            <Link to="/candidate/auth" className="text-teal-700 hover:underline">
+              Create a free candidate account
+            </Link>{" "}
+            to track this application and reuse your documents.
+          </p>
+        )}
       </Wrapper>
     );
   }
@@ -123,6 +164,17 @@ function ApplyPage() {
     <Wrapper>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Apply to {ctx.data.org.name}</h1>
       <p className="mt-1 text-sm text-muted-foreground">Tell us about yourself and attach your CV. It takes two minutes.</p>
+      {signedIn ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          You're signed in — your saved documents are available below and the application will appear in{" "}
+          <Link to="/candidate/applications" className="text-teal-700 hover:underline">My applications</Link>.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          <Link to="/candidate/auth" className="text-teal-700 hover:underline">Sign in as a candidate</Link>{" "}
+          to prefill your details and reuse saved documents.
+        </p>
+      )}
 
       {selectedRole?.description && (
         <div className="mt-5 rounded-xl border border-border bg-muted/50 p-4">
@@ -158,8 +210,36 @@ function ApplyPage() {
           </Field>
         </div>
 
-        <FilePicker label="CV (required)" file={cv} onPick={(f) => pickFile(f, setCv)} />
-        <FilePicker label="Cover letter (optional)" file={cover} onPick={(f) => pickFile(f, setCover)} />
+        {signedIn && savedCvs.length > 0 && (
+          <Field label="CV — use a saved document">
+            <select
+              value={savedCvId}
+              onChange={(e) => { setSavedCvId(e.target.value); if (e.target.value) setCv(null); }}
+              className={inputCls}
+            >
+              <option value="">Upload a new file instead</option>
+              {savedCvs.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+            </select>
+          </Field>
+        )}
+        {signedIn && savedCovers.length > 0 && (
+          <Field label="Cover letter — use a saved document">
+            <select
+              value={savedCoverId}
+              onChange={(e) => { setSavedCoverId(e.target.value); if (e.target.value) setCover(null); }}
+              className={inputCls}
+            >
+              <option value="">Upload a new file instead</option>
+              {savedCovers.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+            </select>
+          </Field>
+        )}
+        {!savedCvId && (
+          <FilePicker label={`CV${savedCvs.length === 0 ? " (required)" : ""}`} file={cv} onPick={(f) => pickFile(f, setCv)} />
+        )}
+        {!savedCoverId && (
+          <FilePicker label="Cover letter (optional)" file={cover} onPick={(f) => pickFile(f, setCover)} />
+        )}
 
         <div className="sm:col-span-2">
           <button disabled={busy} type="submit" className="btn-teal w-full rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60">

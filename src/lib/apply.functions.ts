@@ -20,8 +20,10 @@ const ApplicationSchema = z.object({
   requisition_id: z.string().uuid().optional().nullable(),
   source: z.enum(SOURCE_VALUES).default("Website"),
   notes: z.string().trim().max(2000).optional().default(""),
-  cv: FileSchema,
+  cv: FileSchema.nullable().optional(),
   cover_letter: FileSchema.nullable().optional(),
+  saved_cv_id: z.string().uuid().nullable().optional(),
+  saved_cover_letter_id: z.string().uuid().nullable().optional(),
 });
 
 const OrgIdSchema = z.object({ org_id: z.string().uuid() });
@@ -150,8 +152,24 @@ export const submitApplication = createServerFn({ method: "POST" })
       if (Buffer.from(f.data, "base64").byteLength > MAX_FILE_BYTES)
         throw new Error("Files must be 10 MB or smaller.");
     }
+    if (!data.cv && !data.saved_cv_id) throw new Error("Please attach your CV.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Signed-in candidates: attach the application to their account. The bearer
+    // token is optional — anonymous applicants submit without one.
+    let applicantUserId: string | null = null;
+    const bearer = getRequestHeader("authorization");
+    const token = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
+    if (token && token !== process.env["SUPABASE_PUBLISHABLE_KEY"]) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const userClient = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_PUBLISHABLE_KEY"]!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: userData } = await userClient.auth.getUser(token);
+      applicantUserId = userData.user?.id ?? null;
+    }
 
     const { data: owner } = await supabaseAdmin
       .from("organization_members")
@@ -186,27 +204,51 @@ export const submitApplication = createServerFn({ method: "POST" })
         source: data.source,
         stage: "applied" as const,
         notes: data.notes || null,
+        applicant_user_id: applicantUserId,
       })
       .select("id")
       .single();
     if (error || !inserted) throw new Error("Could not submit your application. Please try again.");
 
     const uploads: { cv_path?: string; cover_letter_path?: string } = {};
-    for (const [kind, file] of [
-      ["cv", data.cv],
-      ["cover_letter", data.cover_letter ?? null],
+    for (const [kind, file, savedId] of [
+      ["cv", data.cv ?? null, data.saved_cv_id ?? null],
+      ["cover_letter", data.cover_letter ?? null, data.saved_cover_letter_id ?? null],
     ] as const) {
-      if (!file) continue;
-      const path = `${data.org_id}/${inserted.id}/${kind}-${Date.now()}.${extOf(file.name)}`;
-      const { error: upErr } = await supabaseAdmin.storage
-        .from("candidate-files")
-        .upload(path, Buffer.from(file.data, "base64"), {
-          contentType: file.type || "application/octet-stream",
-          upsert: false,
-        });
-      if (!upErr) {
-        if (kind === "cv") uploads.cv_path = path;
-        else uploads.cover_letter_path = path;
+      let sourcePath: string | null = null;
+      if (savedId && applicantUserId) {
+        const { data: doc } = await supabaseAdmin
+          .from("candidate_documents")
+          .select("path")
+          .eq("id", savedId)
+          .eq("user_id", applicantUserId)
+          .eq("kind", kind)
+          .maybeSingle();
+        sourcePath = doc?.path ?? null;
+      }
+      if (file) {
+        const path = `${data.org_id}/${inserted.id}/${kind}-${Date.now()}.${extOf(file.name)}`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("candidate-files")
+          .upload(path, Buffer.from(file.data, "base64"), {
+            contentType: file.type || "application/octet-stream",
+            upsert: false,
+          });
+        if (!upErr) {
+          if (kind === "cv") uploads.cv_path = path;
+          else uploads.cover_letter_path = path;
+        }
+      } else if (sourcePath) {
+        // Copy the candidate's saved document into the org-owned prefix so the
+        // hiring team can open it under their storage policy.
+        const path = `${data.org_id}/${inserted.id}/${kind}-${Date.now()}.${extOf(sourcePath)}`;
+        const { error: cpErr } = await supabaseAdmin.storage
+          .from("candidate-files")
+          .copy(sourcePath, path);
+        if (!cpErr) {
+          if (kind === "cv") uploads.cv_path = path;
+          else uploads.cover_letter_path = path;
+        }
       }
     }
     if (Object.keys(uploads).length > 0) {

@@ -69,6 +69,11 @@ function Landing() {
                   Find a position
                 </span>
               </Link>
+              <div className="-mt-2 text-center">
+                <Link to="/candidate/auth" className="text-xs text-white/80 underline-offset-2 hover:underline">
+                  Candidate sign in — track your applications
+                </Link>
+              </div>
             </div>
           </div>
         </div>
