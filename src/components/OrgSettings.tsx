@@ -373,14 +373,26 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
   };
 
   const togglePerm = async (t: OrgTitle, p: Permission, value: boolean) => {
-    const patch = { [permColumn(p)]: value } as Record<string, boolean>;
+    const col = permColumn(p);
+    const key = ["org-titles", orgId] as const;
+    const previous = qc.getQueryData<OrgTitle[]>(key);
+
+    // optimistic update
+    qc.setQueryData<OrgTitle[]>(key, (old) =>
+      (old ?? []).map((row) => (row.id === t.id ? { ...row, [col]: value } : row)),
+    );
+
     const { error } = await supabase
       .from("organization_titles")
-      .update(patch as never)
+      .update({ [col]: value } as never)
       .eq("id", t.id);
 
-    if (error) toast.error(error.message);
-    else reload();
+    if (error) {
+      qc.setQueryData<OrgTitle[]>(key, previous);
+      toast.error(error.message);
+    } else {
+      reload();
+    }
   };
 
   const renameTitle = async (t: OrgTitle, value: string) => {
@@ -473,7 +485,7 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
                       <label key={item.key} className="flex items-center gap-2 text-xs">
                         <input
                           type="checkbox"
-                          checked={Boolean(t[item.key])}
+                          checked={Boolean((t as unknown as Record<string, boolean>)[permColumn(item.key)])}
                           onChange={(e) => togglePerm(t, item.key, e.target.checked)}
                           className="h-3.5 w-3.5 rounded border-input accent-teal-600"
                         />
