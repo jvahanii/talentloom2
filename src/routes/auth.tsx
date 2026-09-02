@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { MarketingShell } from "@/components/MarketingShell";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — Talently" }] }),
+  head: () => ({ meta: [{ title: "Sign in — TalentLoom" }] }),
   component: AuthPage,
 });
 
@@ -34,7 +34,7 @@ function AuthPage() {
         });
         if (error) throw error;
         if (data.session) {
-          toast.success("Welcome to Talently");
+          toast.success("Welcome to TalentLoom");
           navigate({ to: "/pipeline", replace: true });
         } else {
           toast.success("Account created — check your email to confirm.");

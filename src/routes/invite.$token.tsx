@@ -6,8 +6,8 @@ export const Route = createFileRoute("/invite/$token")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Accept invite — Talently" },
-      { name: "description", content: "Accept your invitation to join a hiring workspace on Talently." },
+      { title: "Accept invite — TalentLoom" },
+      { name: "description", content: "Accept your invitation to join a hiring workspace on TalentLoom." },
       { name: "robots", content: "noindex" },
     ],
   }),

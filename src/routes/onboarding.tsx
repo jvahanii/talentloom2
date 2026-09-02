@@ -9,7 +9,7 @@ import { ArrowLeft, ArrowRight, Check, LogOut, Upload, Sparkles, Download } from
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Get started — Talently" }] }),
+  head: () => ({ meta: [{ title: "Get started — TalentLoom" }] }),
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
@@ -203,7 +203,7 @@ function Onboarding() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5 sm:px-6">
-        <div className="font-display text-lg font-bold">Talently</div>
+        <div className="font-display text-lg font-bold">TalentLoom</div>
         <button
           onClick={signOut}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
@@ -322,7 +322,7 @@ function Step1({ state, onChange }: { state: ProfileState; onChange: (patch: Par
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Tell us about you</h1>
-      <p className="mt-1 text-sm text-muted-foreground">A couple of quick details so we can personalise Talently.</p>
+      <p className="mt-1 text-sm text-muted-foreground">A couple of quick details so we can personalise TalentLoom.</p>
       <div className="mt-6 space-y-4">
         <Field label="Full name">
           <input
@@ -483,7 +483,7 @@ function Step3({
   const downloadTemplate = () => {
     const blob = new Blob([TEMPLATE], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "talently-template.csv"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "talentloom-template.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 

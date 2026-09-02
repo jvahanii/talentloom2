@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Pencil, Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
-  head: () => ({ meta: [{ title: "Positions — Talently" }] }),
+  head: () => ({ meta: [{ title: "Positions — TalentLoom" }] }),
   component: Reqs,
 });
 

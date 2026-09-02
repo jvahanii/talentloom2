@@ -7,10 +7,10 @@ import { listOpenPositions } from "@/lib/apply.functions";
 export const Route = createFileRoute("/apply/")({
   head: () => ({
     meta: [
-      { title: "Open positions — Talently" },
-      { name: "description", content: "Browse open positions from companies hiring on Talently and apply with your CV in minutes." },
-      { property: "og:title", content: "Open positions — Talently" },
-      { property: "og:description", content: "Browse open positions from companies hiring on Talently and apply with your CV in minutes." },
+      { title: "Open positions — TalentLoom" },
+      { name: "description", content: "Browse open positions from companies hiring on TalentLoom and apply with your CV in minutes." },
+      { property: "og:title", content: "Open positions — TalentLoom" },
+      { property: "og:description", content: "Browse open positions from companies hiring on TalentLoom and apply with your CV in minutes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

@@ -7,7 +7,7 @@ import { useOrg } from "@/lib/org";
 import { Download, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/import")({
-  head: () => ({ meta: [{ title: "Import — Talently" }] }),
+  head: () => ({ meta: [{ title: "Import — TalentLoom" }] }),
   component: ImportPage,
 });
 
@@ -101,7 +101,7 @@ function ImportPage() {
   const downloadTemplate = () => {
     const blob = new Blob([TEMPLATE], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "talently-template.csv"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "talentloom-template.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 

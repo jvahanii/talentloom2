@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/workspace")({
-  head: () => ({ meta: [{ title: "Ask — Talently" }] }),
+  head: () => ({ meta: [{ title: "Ask — TalentLoom" }] }),
   component: Workspace,
 });
 

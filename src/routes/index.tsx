@@ -7,9 +7,9 @@ import heroImage from "@/assets/hero-team-review.jpg.asset.json";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Talently — Recruitment pipeline for teams and candidates" },
+      { title: "TalentLoom — Recruitment pipeline for teams and candidates" },
       { name: "description", content: "One shared hiring pipeline for recruiters, and a simple way for candidates to find open roles and apply." },
-      { property: "og:title", content: "Talently — Recruitment pipeline for teams and candidates" },
+      { property: "og:title", content: "TalentLoom — Recruitment pipeline for teams and candidates" },
       { property: "og:description", content: "One shared hiring pipeline for recruiters, and a simple way for candidates to find open roles and apply." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

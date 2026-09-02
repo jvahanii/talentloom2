@@ -55,9 +55,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Talently — One shared recruiting pipeline" },
+      { title: "TalentLoom — One shared recruiting pipeline" },
       { name: "description", content: "Replace the spreadsheet-and-inbox recruiting process with one shared pipeline. Track candidates, positions, and hiring analytics in one place." },
-      { property: "og:title", content: "Talently — One shared recruiting pipeline" },
+      { property: "og:title", content: "TalentLoom — One shared recruiting pipeline" },
       { property: "og:description", content: "A clean, glass-morphism recruiting pipeline tracker for hiring teams." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

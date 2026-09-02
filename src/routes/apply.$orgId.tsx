@@ -11,7 +11,7 @@ import { CheckCircle2, Paperclip } from "lucide-react";
 export const Route = createFileRoute("/apply/$orgId")({
   head: () => ({
     meta: [
-      { title: "Apply for a role — Talently" },
+      { title: "Apply for a role — TalentLoom" },
       { name: "description", content: "Submit your application, CV and cover letter in a couple of minutes." },
       { property: "og:title", content: "Apply for a role" },
       { property: "og:description", content: "Submit your application, CV and cover letter in a couple of minutes." },
