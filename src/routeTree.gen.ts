@@ -26,6 +26,7 @@ import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedCandidatesIndexRouteImport } from './routes/_authenticated/candidates.index'
+import { Route as ApplyPositionIdRouteImport } from './routes/apply.position.$id'
 import { Route as AuthenticatedCandidatesIdRouteImport } from './routes/_authenticated/candidates.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -114,6 +115,11 @@ const AuthenticatedCandidatesIndexRoute =
     path: '/candidates/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApplyPositionIdRoute = ApplyPositionIdRouteImport.update({
+  id: '/position/$id',
+  path: '/position/$id',
+  getParentRoute: () => ApplyRoute,
+} as any)
 const AuthenticatedCandidatesIdRoute =
   AuthenticatedCandidatesIdRouteImport.update({
     id: '/candidates/$id',
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/invite/$token': typeof InviteTokenRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates/': typeof AuthenticatedCandidatesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/invite/$token': typeof InviteTokenRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates': typeof AuthenticatedCandidatesIndexRoute
 }
 export interface FileRoutesById {
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/apply/position/$id': typeof ApplyPositionIdRoute
   '/_authenticated/candidates/': typeof AuthenticatedCandidatesIndexRoute
 }
 export interface FileRouteTypes {
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/apply/$orgId'
     | '/invite/$token'
     | '/candidates/$id'
+    | '/apply/position/$id'
     | '/candidates/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/apply/$orgId'
     | '/invite/$token'
     | '/candidates/$id'
+    | '/apply/position/$id'
     | '/candidates'
   id:
     | '__root__'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/apply/$orgId'
     | '/invite/$token'
     | '/_authenticated/candidates/$id'
+    | '/apply/position/$id'
     | '/_authenticated/candidates/'
   fileRoutesById: FileRoutesById
 }
@@ -373,6 +385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCandidatesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/apply/position/$id': {
+      id: '/apply/position/$id'
+      path: '/position/$id'
+      fullPath: '/apply/position/$id'
+      preLoaderRoute: typeof ApplyPositionIdRouteImport
+      parentRoute: typeof ApplyRoute
+    }
     '/_authenticated/candidates/$id': {
       id: '/_authenticated/candidates/$id'
       path: '/candidates/$id'
@@ -412,10 +431,12 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface ApplyRouteChildren {
   ApplyOrgIdRoute: typeof ApplyOrgIdRoute
+  ApplyPositionIdRoute: typeof ApplyPositionIdRoute
 }
 
 const ApplyRouteChildren: ApplyRouteChildren = {
   ApplyOrgIdRoute: ApplyOrgIdRoute,
+  ApplyPositionIdRoute: ApplyPositionIdRoute,
 }
 
 const ApplyRouteWithChildren = ApplyRoute._addFileChildren(ApplyRouteChildren)
