@@ -16,15 +16,15 @@ export const Route = createFileRoute("/apply/")({
     ],
   }),
   validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search['q'] === "string" ? (search['q'] as string) : "",
-    org: typeof search['org'] === "string" ? (search['org'] as string) : "",
+    q: typeof search['q'] === "string" ? (search['q'] as string) : undefined,
+    org: typeof search['org'] === "string" ? (search['org'] as string) : undefined,
   }),
   component: JobBoard,
 });
 
 function JobBoard() {
-  const { q, org } = Route.useSearch();
-  const navigate = useNavigate({ from: "/apply" });
+  const { q = "", org = "" } = Route.useSearch();
+  const navigate = useNavigate({ from: "/apply/" });
 
   const { data: positions, isLoading } = useQuery({
     queryKey: ["open-positions"],
