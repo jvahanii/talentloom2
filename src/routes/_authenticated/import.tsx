@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
+import { useOrg } from "@/lib/org";
 import { Download, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/import")({
@@ -35,6 +36,7 @@ function parseCSV(text: string): string[][] {
 }
 
 function ImportPage() {
+  const { orgId } = useOrg();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -64,16 +66,18 @@ function ImportPage() {
       const text = await file.text();
       const rows = parseCSV(text);
       const data = rows.slice(1);
-      const { data: reqs } = await supabase.from("requisitions").select("id,title");
+      const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId!);
       const reqByTitle = new Map((reqs ?? []).map((r) => [r.title.toLowerCase(), r.id]));
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
+      if (!orgId) throw new Error("No workspace selected");
 
       const inserts = data.map((r) => {
         const get = (f: string) => { const i = mapping[f]; return i !== undefined && i !== "" ? (r[Number(i)] ?? "").trim() : ""; };
         const stage = (STAGES as readonly string[]).includes(get("stage").toLowerCase()) ? (get("stage").toLowerCase() as Stage) : "applied";
         return {
           user_id: u.user!.id,
+          org_id: orgId,
           name: get("name") || "Unnamed",
           email: get("email") || null,
           phone: get("phone") || null,

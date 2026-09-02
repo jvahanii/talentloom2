@@ -11,6 +11,7 @@ const HistoryMessage = z.object({
 const InputSchema = z.object({
   utterance: z.string().min(1).max(2000),
   history: z.array(HistoryMessage).max(20).default([]),
+  org_id: z.string().uuid(),
 });
 
 const DAILY_CALL_LIMIT = 50;
@@ -55,6 +56,16 @@ export const askAgent = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data, context }) => {
     const supabase = context.supabase;
+    const orgId = data.org_id;
+
+    // Verify the caller actually belongs to the requested workspace.
+    const { data: membership } = await supabase
+      .from("organization_members")
+      .select("role")
+      .eq("org_id", orgId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!membership) throw new Error("You are not a member of this workspace.");
 
     // Per-user daily cap, enforced in the database as the calling user.
     const { data: allowed, error: usageError } = await supabase.rpc("bump_ai_usage", {
@@ -96,6 +107,7 @@ export const askAgent = createServerFn({ method: "POST" })
             .select(
               "id, name, email, stage, source, rating, notes, last_activity_at, requisitions(title, department)",
             )
+            .eq("org_id", orgId)
             .order("last_activity_at", { ascending: false })
             .limit(limit ?? 25);
           if (stage) q = q.eq("stage", stage);
@@ -131,6 +143,7 @@ export const askAgent = createServerFn({ method: "POST" })
           let q = supabase
             .from("requisitions")
             .select("id, title, department, hiring_manager, status, target_start_date, notes, created_at")
+            .eq("org_id", orgId)
             .order("created_at", { ascending: false })
             .limit(limit ?? 25);
           if (status) q = q.eq("status", status);
@@ -156,9 +169,10 @@ export const askAgent = createServerFn({ method: "POST" })
             .describe("Optional: restrict to one requisition by title match."),
         }),
         execute: async ({ requisition_title }) => {
-          let q = supabase
+          const q = supabase
             .from("candidates")
-            .select("stage, requisitions(title)");
+            .select("stage, requisitions(title)")
+            .eq("org_id", orgId);
           const { data, error } = await q;
           if (error) {
             console.error(error);
@@ -179,7 +193,7 @@ export const askAgent = createServerFn({ method: "POST" })
         description: "Counts of candidates grouped by acquisition source (LinkedIn, referral, job board, etc.).",
         inputSchema: z.object({}),
         execute: async () => {
-          const { data, error } = await supabase.from("candidates").select("source, stage");
+          const { data, error } = await supabase.from("candidates").select("source, stage").eq("org_id", orgId);
           if (error) {
             console.error(error);
             return { error: "lookup failed" };
@@ -204,9 +218,10 @@ export const askAgent = createServerFn({ method: "POST" })
           limit: z.number().nullable(),
         }),
         execute: async ({ candidate_name, limit }) => {
-          let q = supabase
+          const q = supabase
             .from("stage_history")
             .select("changed_at, from_stage, to_stage, candidates(name, requisitions(title))")
+            .eq("org_id", orgId)
             .order("changed_at", { ascending: false })
             .limit(limit ?? 50);
           const { data, error } = await q;
@@ -230,7 +245,8 @@ export const askAgent = createServerFn({ method: "POST" })
         execute: async () => {
           const { data, error } = await supabase
             .from("candidates")
-            .select("stage, last_activity_at");
+            .select("stage, last_activity_at")
+            .eq("org_id", orgId);
           if (error) {
             console.error(error);
             return { error: "lookup failed" };

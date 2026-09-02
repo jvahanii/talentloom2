@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { REQ_STATUS_LABEL } from "@/lib/constants";
+import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 
 type Req = {
@@ -20,10 +21,12 @@ const STATUSES: readonly ReqStatus[] = ["open", "on_hold", "filled", "closed"] a
 
 export function RequisitionPanel({ query }: { query?: string | null }) {
   const qc = useQueryClient();
+  const { orgId } = useOrg();
   const reqs = useQuery({
-    queryKey: ["reqs"],
+    queryKey: ["reqs", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("requisitions").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as Req[];
     },
@@ -55,6 +58,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
+      if (!existing && !orgId) throw new Error("No workspace selected");
       const payload = {
         title,
         department: department || null,
@@ -67,7 +71,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         const { error } = await supabase.from("requisitions").update(payload).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id });
+        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! });
         if (error) throw error;
       }
     },

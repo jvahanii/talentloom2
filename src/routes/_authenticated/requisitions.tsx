@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
+import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil } from "lucide-react";
@@ -17,22 +18,26 @@ interface Req { id: string; title: string; department: string | null; hiring_man
 
 function Reqs() {
   const qc = useQueryClient();
+  const { orgId, role } = useOrg();
+  const canEdit = role !== "viewer";
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Req | null>(null);
   const [viewing, setViewing] = useState<Req | null>(null);
 
   const reqs = useQuery({
-    queryKey: ["reqs"],
+    queryKey: ["reqs", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("requisitions").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
       if (error) throw error; return data as Req[];
     },
   });
 
   const counts = useQuery({
-    queryKey: ["req-counts"],
+    queryKey: ["req-counts", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("candidates").select("requisition_id, stage");
+      const { data, error } = await supabase.from("candidates").select("requisition_id, stage").eq("org_id", orgId!);
       if (error) throw error;
       const m: Record<string, number> = {};
       (data ?? []).forEach((c) => { if (c.requisition_id) m[c.requisition_id] = (m[c.requisition_id] ?? 0) + 1; });
@@ -47,9 +52,11 @@ function Reqs() {
           <h1 className="font-display text-2xl font-bold sm:text-3xl">Requisitions</h1>
           <p className="text-sm text-muted-foreground">Open roles you're hiring for.</p>
         </div>
-        <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
-          <Plus className="h-4 w-4" /> New
-        </button>
+        {canEdit && (
+          <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
+            <Plus className="h-4 w-4" /> New
+          </button>
+        )}
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,7 +74,9 @@ function Reqs() {
                 <h3 className="font-display truncate text-lg font-semibold">{r.title}</h3>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{r.department || "—"} · {r.hiring_manager || "No hiring manager"}</p>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+              {canEdit && (
+                <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               <span className={`rounded-full px-2 py-1 font-medium border ${r.status === "open" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border"}`}>{REQ_STATUS_LABEL[r.status]}</span>
@@ -134,6 +143,7 @@ function ReqCandidatesDialog({ req, onOpenChange }: { req: Req | null; onOpenCha
 }
 
 function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; onOpenChange: (v: boolean) => void; editing: Req | null; onSaved: () => void }) {
+  const { orgId } = useOrg();
   const [title, setTitle] = useState(editing?.title ?? "");
   const [department, setDepartment] = useState(editing?.department ?? "");
   const [hiring_manager, setHM] = useState(editing?.hiring_manager ?? "");
@@ -141,8 +151,6 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
   const [target_start_date, setStart] = useState(editing?.target_start_date ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [saving, setSaving] = useState(false);
-  useEffect(() => {}, []);
-
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,9 +159,10 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
       const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, notes: notes || null };
+      if (!editing && !orgId) throw new Error("No workspace selected");
       const { error } = editing
         ? await supabase.from("requisitions").update(payload).eq("id", editing.id)
-        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id });
+        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! });
       if (error) throw error;
       toast.success(editing ? "Updated" : "Created");
       onSaved(); onOpenChange(false);

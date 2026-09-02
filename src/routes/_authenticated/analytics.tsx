@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGES, STAGE_LABEL, type Stage } from "@/lib/constants";
+import { useOrg } from "@/lib/org";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
@@ -12,17 +13,21 @@ export const Route = createFileRoute("/_authenticated/analytics")({
 const COLORS = ["#7C3AED", "#06B6D4", "#A78BFA", "#67E8F9", "#4C1D95", "#C4B5FD"];
 
 function Analytics() {
+  const { orgId } = useOrg();
   const cands = useQuery({
-    queryKey: ["candidates"],
-    queryFn: async () => (await supabase.from("candidates").select("*")).data ?? [],
+    queryKey: ["candidates", orgId],
+    enabled: !!orgId,
+    queryFn: async () => (await supabase.from("candidates").select("*").eq("org_id", orgId!)).data ?? [],
   });
   const hist = useQuery({
-    queryKey: ["all-history"],
-    queryFn: async () => (await supabase.from("stage_history").select("*").order("changed_at")).data ?? [],
+    queryKey: ["all-history", orgId],
+    enabled: !!orgId,
+    queryFn: async () => (await supabase.from("stage_history").select("*").eq("org_id", orgId!).order("changed_at")).data ?? [],
   });
   const reqs = useQuery({
-    queryKey: ["reqs"],
-    queryFn: async () => (await supabase.from("requisitions").select("*")).data ?? [],
+    queryKey: ["reqs", orgId],
+    enabled: !!orgId,
+    queryFn: async () => (await supabase.from("requisitions").select("*").eq("org_id", orgId!)).data ?? [],
   });
 
   const funnel = STAGES.map((s) => ({ stage: STAGE_LABEL[s], count: (cands.data ?? []).filter((c) => c.stage === s).length }));

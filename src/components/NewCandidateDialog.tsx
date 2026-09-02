@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useOrg } from "@/lib/org";
 
 interface Req { id: string; title: string }
 
 export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated }:
   { open: boolean; onOpenChange: (v: boolean) => void; requisitions: Req[]; onCreated: () => void }) {
+  const { orgId } = useOrg();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -22,8 +24,9 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
+      if (!orgId) throw new Error("No workspace selected");
       const { error } = await supabase.from("candidates").insert({
-        user_id: u.user.id, name, email: email || null, phone: phone || null,
+        user_id: u.user.id, org_id: orgId, name, email: email || null, phone: phone || null,
         requisition_id: reqId || null, source, stage,
       });
       if (error) throw error;

@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
+import { ensureOrg } from "@/lib/org";
+import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { ArrowLeft, ArrowRight, Check, LogOut, Upload, Sparkles, Download } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding")({
@@ -84,6 +86,7 @@ const EMPTY: ProfileState = {
 function Onboarding() {
   const navigate = useNavigate();
   const [uid, setUid] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [state, setState] = useState<ProfileState>(EMPTY);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -94,6 +97,21 @@ function Onboarding() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) { navigate({ to: "/auth" }); return; }
       setUid(u.user.id);
+      // Accept a pending workspace invite, if the user arrived via one
+      try {
+        const token = window.sessionStorage.getItem(PENDING_INVITE_KEY);
+        if (token) {
+          const { data: joinedOrg, error } = await supabase.rpc("accept_invite", { _token: token });
+          if (!error && joinedOrg) {
+            window.sessionStorage.removeItem(PENDING_INVITE_KEY);
+            window.localStorage.setItem("talently:current-org", joinedOrg as string);
+            setOrgId(joinedOrg as string);
+            toast.success("You joined the workspace");
+          }
+        }
+      } catch {
+        /* invite issues are non-fatal here */
+      }
       const { data: p } = await supabase
         .from("profiles")
         .select("full_name, job_title, job_title_other, company_name, company_industry, company_size, onboarding_step")
@@ -134,6 +152,11 @@ function Onboarding() {
     if (step === 2 && !step2Valid) return;
     const next = step + 1;
     await persist({ onboarding_step: next });
+    if (step === 2 && uid && !orgId) {
+      // Create the workspace as soon as we know the company name
+      const id = await ensureOrg(uid, state.company_name);
+      setOrgId(id);
+    }
     setStep(next);
   };
   const goBack = async () => {
@@ -146,6 +169,8 @@ function Onboarding() {
     if (!uid) return;
     setSaving(true);
     try {
+      const org = orgId ?? (await ensureOrg(uid, state.company_name));
+      setOrgId(org);
       if (opts.seedSamples) {
         const { error } = await supabase.rpc("seed_sample_data");
         if (error) throw error;
@@ -205,6 +230,7 @@ function Onboarding() {
           )}
           {step === 3 && (
             <Step3
+              orgId={orgId}
               onImport={async (count) => {
                 toast.success(`Imported ${count} candidates`);
                 await complete({ seedSamples: false });
@@ -385,8 +411,9 @@ function Step2({ state, onChange }: { state: ProfileState; onChange: (patch: Par
 }
 
 function Step3({
-  onImport, onSeedSamples, onSkip, onBack, busy,
+  orgId, onImport, onSeedSamples, onSkip, onBack, busy,
 }: {
+  orgId: string | null;
   onImport: (count: number) => Promise<void>;
   onSeedSamples: () => Promise<void>;
   onSkip: () => Promise<void>;
@@ -416,6 +443,7 @@ function Step3({
       if (nameI < 0) throw new Error("CSV needs a 'name' column");
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
+      if (!orgId) throw new Error("Workspace not ready yet — go back one step and continue again");
       const emailI = idx("email"), phoneI = idx("phone"), sourceI = idx("source"),
         stageI = idx("stage"), notesI = idx("notes"), reqI = idx("requisition_title");
       const inserts = rows.slice(1).map((r) => {
@@ -424,6 +452,7 @@ function Step3({
         const stage = (STAGES as readonly string[]).includes(stageRaw) ? (stageRaw as Stage) : "applied";
         return {
           user_id: u.user!.id,
+          org_id: orgId,
           name: get(nameI) || "Unnamed",
           email: get(emailI) || null,
           phone: get(phoneI) || null,
@@ -437,7 +466,7 @@ function Step3({
       if (inserts.length === 0) throw new Error("No valid rows found");
 
       // resolve requisition titles → ids if any exist
-      const { data: reqs } = await supabase.from("requisitions").select("id,title");
+      const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId);
       const reqByTitle = new Map((reqs ?? []).map((r) => [r.title.toLowerCase(), r.id]));
       const payload = inserts.map(({ _req, ...rest }) => ({
         ...rest,

@@ -386,6 +386,7 @@ export type Database = {
       }
       is_org_member: { Args: { _org: string; _user: string }; Returns: boolean }
       seed_sample_data: { Args: never; Returns: undefined }
+      shares_org_with: { Args: { _a: string; _b: string }; Returns: boolean }
     }
     Enums: {
       candidate_stage:
