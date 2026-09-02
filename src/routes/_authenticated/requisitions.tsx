@@ -18,8 +18,8 @@ interface Req { id: string; title: string; department: string | null; hiring_man
 
 function Reqs() {
   const qc = useQueryClient();
-  const { orgId, role } = useOrg();
-  const canEdit = role !== "viewer";
+  const { orgId, can } = useOrg();
+  const canEdit = can("edit_positions");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Req | null>(null);
   const [viewing, setViewing] = useState<Req | null>(null);

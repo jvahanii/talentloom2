@@ -17,9 +17,9 @@ function CandidateDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { orgId, role } = useOrg();
-  const canEdit = role !== "viewer";
-  const canDelete = role === "owner" || role === "admin";
+  const { orgId, can } = useOrg();
+  const canEdit = can("edit_candidates");
+  const canDelete = can("delete_candidates");
 
   const cand = useQuery({
     queryKey: ["candidate", id],
