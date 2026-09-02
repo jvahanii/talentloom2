@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useOrg } from "@/lib/org";
+import { ACCEPTED_FILE_TYPES, uploadCandidateFile, validateCandidateFile } from "@/lib/candidate-files";
+import { Paperclip } from "lucide-react";
 
 interface Req { id: string; title: string }
 
@@ -16,7 +18,16 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
   const [reqId, setReqId] = useState<string>("");
   const [source, setSource] = useState<string>(SOURCES[0]);
   const [stage, setStage] = useState<Stage>("applied");
+  const [cv, setCv] = useState<File | null>(null);
+  const [cover, setCover] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const pickFile = (file: File | null, set: (f: File | null) => void) => {
+    if (!file) return set(null);
+    const err = validateCandidateFile(file);
+    if (err) { toast.error(err); return; }
+    set(file);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,18 +36,28 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
       if (!orgId) throw new Error("No workspace selected");
-      const { error } = await supabase.from("candidates").insert({
+      const { data: created, error } = await supabase.from("candidates").insert({
         user_id: u.user.id, org_id: orgId, name, email: email || null, phone: phone || null,
         requisition_id: reqId || null, source, stage,
-      });
+      }).select("id").single();
       if (error) throw error;
+
+      const patch: { cv_path?: string; cover_letter_path?: string } = {};
+      if (cv) patch.cv_path = await uploadCandidateFile(orgId, created.id, "cv", cv);
+      if (cover) patch.cover_letter_path = await uploadCandidateFile(orgId, created.id, "cover_letter", cover);
+      if (Object.keys(patch).length > 0) {
+        const { error: upErr } = await supabase.from("candidates").update(patch).eq("id", created.id);
+        if (upErr) throw upErr;
+      }
+
       toast.success("Candidate added");
-      setName(""); setEmail(""); setPhone(""); setReqId(""); setStage("applied");
+      setName(""); setEmail(""); setPhone(""); setReqId(""); setStage("applied"); setCv(null); setCover(null);
       onCreated(); onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally { setSaving(false); }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
