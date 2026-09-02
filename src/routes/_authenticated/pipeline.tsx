@@ -15,8 +15,8 @@ export const Route = createFileRoute("/_authenticated/pipeline")({
 
 function Pipeline() {
   const qc = useQueryClient();
-  const { orgId, role } = useOrg();
-  const canEdit = role !== "viewer";
+  const { orgId, can } = useOrg();
+  const canEdit = can("edit_candidates");
   const [reqFilter, setReqFilter] = useState<string>("all");
   const [srcFilter, setSrcFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);

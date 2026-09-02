@@ -1,20 +1,18 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useOrg, type OrgRole } from "@/lib/org";
+import { useOrg, PERMISSION_GROUPS, permColumn, type OrgTitle, type Permission } from "@/lib/org";
 import { toast } from "sonner";
-import { Copy, Trash2, UserPlus } from "lucide-react";
+import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
 
-const INVITE_ROLES: OrgRole[] = ["admin", "member", "viewer"];
-const ALL_ROLES: OrgRole[] = ["owner", "admin", "member", "viewer"];
-
 interface MemberRow {
   id: string;
   user_id: string;
-  role: OrgRole;
+  title_id: string | null;
+  title_name: string | null;
   name: string | null;
   isSelf: boolean;
 }
@@ -22,24 +20,50 @@ interface MemberRow {
 interface InviteRow {
   id: string;
   email: string;
-  role: OrgRole;
+  title_id: string | null;
   token: string;
   expires_at: string;
 }
 
+function useTitles(orgId: string | null) {
+  return useQuery({
+    queryKey: ["org-titles", orgId],
+    enabled: !!orgId,
+    queryFn: async (): Promise<OrgTitle[]> => {
+      const { data, error } = await supabase
+        .from("organization_titles")
+        .select("*")
+        .eq("org_id", orgId!)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as OrgTitle[];
+    },
+  });
+}
+
 export function OrgSettings() {
   const qc = useQueryClient();
-  const { orgId, role, orgs, refresh } = useOrg();
-  const isAdmin = role === "owner" || role === "admin";
+  const { orgId, title, orgs, refresh, can } = useOrg();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
 
   const [name, setName] = useState(orgName);
   useEffect(() => setName(orgName), [orgName]);
 
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<OrgRole>("member");
+  const [inviteTitle, setInviteTitle] = useState<string>("");
   const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const titles = useTitles(orgId);
+  const titleById = new Map((titles.data ?? []).map((t) => [t.id, t]));
+
+  useEffect(() => {
+    if (!inviteTitle && titles.data?.length) {
+      const member = titles.data.find((t) => t.name === "Member") ?? titles.data[titles.data.length - 1];
+      setInviteTitle(member!.id);
+    }
+  }, [titles.data, inviteTitle]);
 
   const members = useQuery({
     queryKey: ["org-members", orgId],
@@ -48,7 +72,7 @@ export function OrgSettings() {
       const { data: u } = await supabase.auth.getUser();
       const { data: rows, error } = await supabase
         .from("organization_members")
-        .select("id, user_id, role")
+        .select("id, user_id, title_id, organization_titles(name)")
         .eq("org_id", orgId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -60,7 +84,8 @@ export function OrgSettings() {
       return (rows ?? []).map((r) => ({
         id: r.id,
         user_id: r.user_id,
-        role: r.role as OrgRole,
+        title_id: r.title_id,
+        title_name: (r as unknown as { organization_titles: { name: string } | null }).organization_titles?.name ?? null,
         name: nameById.get(r.user_id) ?? null,
         isSelf: r.user_id === u.user?.id,
       }));
@@ -69,11 +94,11 @@ export function OrgSettings() {
 
   const invites = useQuery({
     queryKey: ["org-invites", orgId],
-    enabled: !!orgId && isAdmin,
+    enabled: !!orgId && can("invite_users"),
     queryFn: async (): Promise<InviteRow[]> => {
       const { data, error } = await supabase
         .from("organization_invites")
-        .select("id, email, role, token, expires_at")
+        .select("id, email, title_id, token, expires_at")
         .eq("org_id", orgId!)
         .is("accepted_at", null)
         .gt("expires_at", new Date().toISOString())
@@ -89,7 +114,7 @@ export function OrgSettings() {
     try {
       const { error } = await supabase.from("organizations").update({ name: name.trim() }).eq("id", orgId);
       if (error) throw error;
-      toast.success("Workspace renamed");
+      toast.success("Organisation renamed");
       refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to rename");
@@ -99,14 +124,14 @@ export function OrgSettings() {
   };
 
   const createInvite = async () => {
-    if (!orgId || !inviteEmail.trim()) return;
+    if (!orgId || !inviteEmail.trim() || !inviteTitle) return;
     setBusy(true);
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from("organization_invites")
-        .insert({ org_id: orgId, email: inviteEmail.trim(), role: inviteRole, invited_by: u.user.id })
+        .insert({ org_id: orgId, email: inviteEmail.trim(), title_id: inviteTitle, invited_by: u.user.id })
         .select("token")
         .single();
       if (error) throw error;
@@ -122,22 +147,23 @@ export function OrgSettings() {
     }
   };
 
-  const changeRole = async (memberId: string, newRole: OrgRole) => {
-    const { error } = await supabase.from("organization_members").update({ role: newRole }).eq("id", memberId);
+  const changeTitle = async (memberId: string, titleId: string) => {
+    const { error } = await supabase.from("organization_members").update({ title_id: titleId }).eq("id", memberId);
     if (error) toast.error(error.message);
     else {
-      toast.success("Role updated");
+      toast.success("Title updated");
       qc.invalidateQueries({ queryKey: ["org-members", orgId] });
+      refresh();
     }
   };
 
   const removeMember = async (m: MemberRow) => {
-    const label = m.isSelf ? "Leave this workspace?" : `Remove ${m.name ?? "this member"}?`;
+    const label = m.isSelf ? "Leave this organisation?" : `Remove ${m.name ?? "this user"}?`;
     if (!window.confirm(label)) return;
     const { error } = await supabase.from("organization_members").delete().eq("id", m.id);
     if (error) toast.error(error.message);
     else {
-      toast.success(m.isSelf ? "You left the workspace" : "Member removed");
+      toast.success(m.isSelf ? "You left the organisation" : "User removed");
       if (m.isSelf) refresh();
       qc.invalidateQueries({ queryKey: ["org-members", orgId] });
     }
@@ -164,10 +190,11 @@ export function OrgSettings() {
     <div className="glass rounded-2xl p-5 lg:col-span-2">
       <h3 className="font-display font-semibold">Organisation</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Manage this organisation and who can access it. Your role here: <span className="font-medium capitalize">{role}</span>.
+        Manage this organisation and who can access it. Your title here:{" "}
+        <span className="font-medium">{title ?? "—"}</span>.
       </p>
 
-      {isAdmin && (
+      {can("rename_org") && (
         <div className="mt-4 flex flex-wrap items-end gap-2">
           <label className="block min-w-52 flex-1">
             <span className="mb-1 block text-xs font-medium text-muted-foreground">Organisation name</span>
@@ -194,26 +221,29 @@ export function OrgSettings() {
                   {m.isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
                 </p>
               </div>
-              {isAdmin && !(m.isSelf && m.role === "owner") ? (
+              {can("change_titles") ? (
                 <select
-                  value={m.role}
-                  onChange={(e) => changeRole(m.id, e.target.value as OrgRole)}
+                  value={m.title_id ?? ""}
+                  onChange={(e) => changeTitle(m.id, e.target.value)}
                   className="rounded-lg border border-input bg-white/70 px-2 py-1 text-xs dark:bg-white/5"
                 >
-                  {ALL_ROLES.map((r) => (
-                    <option key={r} value={r} className="capitalize">
-                      {r}
+                  {!m.title_id && <option value="">No title</option>}
+                  {(titles.data ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
               ) : (
-                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs capitalize">{m.role}</span>
+                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs">
+                  {m.title_name ?? "No title"}
+                </span>
               )}
-              {(isAdmin || m.isSelf) && !(m.isSelf && m.role === "owner") && (
+              {(can("remove_users") || m.isSelf) && (
                 <button
                   onClick={() => removeMember(m)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  aria-label={m.isSelf ? "Leave workspace" : "Remove member"}
+                  aria-label={m.isSelf ? "Leave organisation" : "Remove user"}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -223,7 +253,7 @@ export function OrgSettings() {
         </ul>
       </div>
 
-      {isAdmin && (
+      {can("invite_users") && (
         <div className="mt-6">
           <h4 className="text-sm font-semibold">Invite a teammate</h4>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -238,19 +268,19 @@ export function OrgSettings() {
               className={inputCls + " min-w-52 flex-1"}
             />
             <select
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as OrgRole)}
+              value={inviteTitle}
+              onChange={(e) => setInviteTitle(e.target.value)}
               className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm dark:bg-white/5"
             >
-              {INVITE_ROLES.map((r) => (
-                <option key={r} value={r} className="capitalize">
-                  {r}
+              {(titles.data ?? []).map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
                 </option>
               ))}
             </select>
             <button
               onClick={createInvite}
-              disabled={busy || !inviteEmail.trim()}
+              disabled={busy || !inviteEmail.trim() || !inviteTitle}
               className="btn-teal inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
             >
               <UserPlus className="h-4 w-4" /> Create invite
@@ -271,7 +301,8 @@ export function OrgSettings() {
               {(invites.data ?? []).map((inv) => (
                 <li key={inv.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="min-w-0 flex-1 truncate">
-                    {inv.email} · <span className="capitalize">{inv.role}</span> · expires {new Date(inv.expires_at).toLocaleDateString()}
+                    {inv.email} · {inv.title_id ? titleById.get(inv.title_id)?.name ?? "Title" : "No title"} · expires{" "}
+                    {new Date(inv.expires_at).toLocaleDateString()}
                   </span>
                   <button
                     onClick={() => copy(`${window.location.origin}/invite/${inv.token}`)}
@@ -289,6 +320,145 @@ export function OrgSettings() {
           )}
         </div>
       )}
+
+      {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
+    </div>
+  );
+}
+
+function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
+  const qc = useQueryClient();
+  const { refresh } = useOrg();
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const reload = () => {
+    qc.invalidateQueries({ queryKey: ["org-titles", orgId] });
+    qc.invalidateQueries({ queryKey: ["org-members", orgId] });
+    refresh();
+  };
+
+  const addTitle = async () => {
+    if (!newName.trim()) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("organization_titles").insert({
+        org_id: orgId,
+        name: newName.trim(),
+        sort_order: 100,
+        can_view_candidates: true,
+        can_view_positions: true,
+      });
+      if (error) throw error;
+      setNewName("");
+      toast.success("Title added");
+      reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to add title");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const togglePerm = async (t: OrgTitle, p: Permission, value: boolean) => {
+    const patch = { [permColumn(p)]: value } as Record<string, boolean>;
+    const { error } = await supabase
+      .from("organization_titles")
+      .update(patch as never)
+      .eq("id", t.id);
+
+    if (error) toast.error(error.message);
+    else reload();
+  };
+
+  const renameTitle = async (t: OrgTitle, value: string) => {
+    if (!value.trim() || value.trim() === t.name) return;
+    const { error } = await supabase.from("organization_titles").update({ name: value.trim() }).eq("id", t.id);
+    if (error) toast.error(error.message);
+    else reload();
+  };
+
+  const deleteTitle = async (t: OrgTitle) => {
+    if (!window.confirm(`Delete the "${t.name}" title?`)) return;
+    const { error } = await supabase.from("organization_titles").delete().eq("id", t.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Title deleted");
+      reload();
+    }
+  };
+
+  return (
+    <div className="mt-8">
+      <h4 className="text-sm font-semibold">Titles & permissions</h4>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        Define the titles used in this organisation and exactly what each one can do.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="New title, e.g. Talent Lead"
+          className={inputCls + " min-w-52 flex-1"}
+        />
+        <button
+          onClick={addTitle}
+          disabled={busy || !newName.trim()}
+          className="btn-teal inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
+        >
+          <Plus className="h-4 w-4" /> Add title
+        </button>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {titles.map((t) => (
+          <div key={t.id} className="rounded-xl border border-border p-4">
+            <div className="flex items-center gap-2">
+              <input
+                defaultValue={t.name}
+                onBlur={(e) => renameTitle(t, e.target.value)}
+                className="min-w-40 flex-1 rounded-lg border border-input bg-white/70 px-2 py-1 text-sm font-medium dark:bg-white/5"
+              />
+              {t.is_system && (
+                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                  built-in
+                </span>
+              )}
+              {!t.is_system && (
+                <button
+                  onClick={() => deleteTitle(t)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  aria-label={`Delete ${t.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {PERMISSION_GROUPS.map((g) => (
+                <div key={g.label}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</p>
+                  <div className="mt-1 space-y-1">
+                    {g.items.map((item) => (
+                      <label key={item.key} className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(t[item.key])}
+                          onChange={(e) => togglePerm(t, item.key, e.target.checked)}
+                          className="h-3.5 w-3.5 rounded border-input accent-teal-600"
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

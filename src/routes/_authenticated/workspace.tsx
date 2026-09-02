@@ -18,7 +18,7 @@ function makeId() {
 }
 
 function Workspace() {
-  const { orgId } = useOrg();
+  const { orgId, can } = useOrg();
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [busy, setBusy] = useState(false);
   const ask = useServerFn(askAgent);
@@ -58,6 +58,17 @@ function Workspace() {
     },
     [ask, busy, turns, orgId],
   );
+
+  if (!can("use_ai")) {
+    return (
+      <div className="glass mx-auto mt-10 max-w-md rounded-2xl p-6 text-center">
+        <h1 className="font-display text-lg font-semibold">Not available for your title</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your organisation title doesn't allow you to use the AI copilot. Ask an administrator to update it.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <LayoutGroup>
