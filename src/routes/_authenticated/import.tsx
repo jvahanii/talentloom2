@@ -36,7 +36,7 @@ function parseCSV(text: string): string[][] {
 }
 
 function ImportPage() {
-  const { orgId } = useOrg();
+  const { orgId, can } = useOrg();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -104,6 +104,17 @@ function ImportPage() {
     const a = document.createElement("a"); a.href = url; a.download = "talently-template.csv"; a.click();
     URL.revokeObjectURL(url);
   };
+
+  if (!can("import")) {
+    return (
+      <div className="glass mx-auto mt-10 max-w-md rounded-2xl p-6 text-center">
+        <h1 className="font-display text-lg font-semibold">Not available for your title</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your organisation title doesn't allow you to import candidates. Ask an administrator to update it.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
