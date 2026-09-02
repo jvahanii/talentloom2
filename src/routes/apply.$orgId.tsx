@@ -59,8 +59,30 @@ function ApplyPage() {
   const [notes, setNotes] = useState("");
   const [cv, setCv] = useState<File | null>(null);
   const [cover, setCover] = useState<File | null>(null);
+  const [savedCvId, setSavedCvId] = useState("");
+  const [savedCoverId, setSavedCoverId] = useState("");
+  const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+
+  const docsFn = useServerFn(myDocuments);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      if (!u) return;
+      setSignedIn(true);
+      if (u.email) setEmail(u.email);
+      const fullName = (u.user_metadata as Record<string, unknown> | undefined)?.["full_name"];
+      if (typeof fullName === "string" && fullName.trim()) setName(fullName);
+    });
+  }, []);
+  const docs = useQuery({
+    queryKey: ["my-documents"],
+    queryFn: () => docsFn(),
+    enabled: signedIn,
+  });
+  const savedCvs = (docs.data ?? []).filter((d) => d.kind === "cv");
+  const savedCovers = (docs.data ?? []).filter((d) => d.kind === "cover_letter");
 
   const pickFile = (file: File | null, set: (f: File | null) => void) => {
     if (!file) return set(null);
@@ -71,7 +93,7 @@ function ApplyPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cv) { toast.error("Please attach your CV."); return; }
+    if (!cv && !savedCvId) { toast.error("Please attach your CV."); return; }
     setBusy(true);
     try {
       await submitFn({
@@ -83,8 +105,10 @@ function ApplyPage() {
           requisition_id: reqId || null,
           source: source as (typeof SOURCES)[number],
           notes: notes.trim(),
-          cv: await toBase64(cv),
+          cv: cv ? await toBase64(cv) : null,
           cover_letter: cover ? await toBase64(cover) : null,
+          saved_cv_id: cv ? null : savedCvId || null,
+          saved_cover_letter_id: cover ? null : savedCoverId || null,
         },
       });
       setDone(true);
