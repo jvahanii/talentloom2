@@ -137,6 +137,7 @@ export type Database = {
           invited_by: string
           org_id: string
           role: Database["public"]["Enums"]["org_role"]
+          title_id: string | null
           token: string
         }
         Insert: {
@@ -148,6 +149,7 @@ export type Database = {
           invited_by: string
           org_id: string
           role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
           token?: string
         }
         Update: {
@@ -159,6 +161,7 @@ export type Database = {
           invited_by?: string
           org_id?: string
           role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
           token?: string
         }
         Relationships: [
@@ -169,6 +172,13 @@ export type Database = {
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "organization_invites_title_id_fkey"
+            columns: ["title_id"]
+            isOneToOne: false
+            referencedRelation: "organization_titles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       organization_members: {
@@ -177,6 +187,7 @@ export type Database = {
           id: string
           org_id: string
           role: Database["public"]["Enums"]["org_role"]
+          title_id: string | null
           user_id: string
         }
         Insert: {
@@ -184,6 +195,7 @@ export type Database = {
           id?: string
           org_id: string
           role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
           user_id: string
         }
         Update: {
@@ -191,11 +203,99 @@ export type Database = {
           id?: string
           org_id?: string
           role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "organization_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_title_id_fkey"
+            columns: ["title_id"]
+            isOneToOne: false
+            referencedRelation: "organization_titles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_titles: {
+        Row: {
+          can_change_titles: boolean
+          can_delete_candidates: boolean
+          can_delete_positions: boolean
+          can_edit_candidates: boolean
+          can_edit_positions: boolean
+          can_export: boolean
+          can_import: boolean
+          can_invite_users: boolean
+          can_manage_titles: boolean
+          can_remove_users: boolean
+          can_rename_org: boolean
+          can_use_ai: boolean
+          can_view_candidates: boolean
+          can_view_positions: boolean
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          org_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          can_change_titles?: boolean
+          can_delete_candidates?: boolean
+          can_delete_positions?: boolean
+          can_edit_candidates?: boolean
+          can_edit_positions?: boolean
+          can_export?: boolean
+          can_import?: boolean
+          can_invite_users?: boolean
+          can_manage_titles?: boolean
+          can_remove_users?: boolean
+          can_rename_org?: boolean
+          can_use_ai?: boolean
+          can_view_candidates?: boolean
+          can_view_positions?: boolean
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          org_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          can_change_titles?: boolean
+          can_delete_candidates?: boolean
+          can_delete_positions?: boolean
+          can_edit_candidates?: boolean
+          can_edit_positions?: boolean
+          can_export?: boolean
+          can_import?: boolean
+          can_invite_users?: boolean
+          can_manage_titles?: boolean
+          can_remove_users?: boolean
+          can_rename_org?: boolean
+          can_use_ai?: boolean
+          can_view_candidates?: boolean
+          can_view_positions?: boolean
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          org_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_titles_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -385,6 +485,10 @@ export type Database = {
       bump_ai_usage: { Args: { p_limit: number }; Returns: boolean }
       clear_sample_data: { Args: never; Returns: undefined }
       create_organization: { Args: { _name: string }; Returns: string }
+      has_org_permission: {
+        Args: { _org: string; _perm: string; _user: string }
+        Returns: boolean
+      }
       has_org_role: {
         Args: {
           _min: Database["public"]["Enums"]["org_role"]
@@ -394,6 +498,7 @@ export type Database = {
         Returns: boolean
       }
       is_org_member: { Args: { _org: string; _user: string }; Returns: boolean }
+      seed_org_titles: { Args: { _org: string }; Returns: undefined }
       seed_sample_data: { Args: never; Returns: undefined }
       shares_org_with: { Args: { _a: string; _b: string }; Returns: boolean }
     }
