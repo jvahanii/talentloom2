@@ -93,3 +93,13 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
     </Dialog>
   );
 }
+
+function FilePick({ label, file, onPick }: { label: string; file: File | null; onPick: (f: File | null) => void }) {
+  return (
+    <label className="glass flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-white/80">
+      <Paperclip className="h-4 w-4 shrink-0" />
+      <span className="truncate">{file ? file.name : label}</span>
+      <input type="file" accept={ACCEPTED_FILE_TYPES} className="hidden" onChange={(e) => onPick(e.target.files?.[0] ?? null)} />
+    </label>
+  );
+}
