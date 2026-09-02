@@ -26,7 +26,7 @@ export type Turn = {
 
 export const SLASH_COMMANDS = [
   { cmd: "/candidate", hint: "<name> — inspect and move a candidate" },
-  { cmd: "/req", hint: "[title] — create or edit a requisition" },
+  { cmd: "/req", hint: "[title] — create or edit a position" },
   { cmd: "/pipeline", hint: "interactive graph of stages" },
   { cmd: "/funnel", hint: "conversion funnel chart" },
   { cmd: "/sources", hint: "candidates by source" },

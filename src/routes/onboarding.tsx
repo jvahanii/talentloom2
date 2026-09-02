@@ -529,7 +529,7 @@ function Step3({
             <h3 className="font-display font-semibold">Explore with sample data</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            We'll seed a few example requisitions and candidates so you can click around. You can clear them from Settings anytime.
+            We'll seed a few example positions and candidates so you can click around. You can clear them from Settings anytime.
           </p>
           <button
             onClick={onSeedSamples}

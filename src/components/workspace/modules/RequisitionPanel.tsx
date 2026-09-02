@@ -77,7 +77,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reqs"] });
-      toast.success(existing ? "Requisition updated" : "Requisition created");
+      toast.success(existing ? "Position updated" : "Position created");
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -86,7 +86,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
     <motion.div layout className="glass rounded-2xl p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-display text-lg font-semibold text-foreground">
-          {existing ? "Edit requisition" : "New requisition"}
+          {existing ? "Edit position" : "New position"}
         </h3>
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
           {existing ? existing.id.slice(0, 6) : "draft"}

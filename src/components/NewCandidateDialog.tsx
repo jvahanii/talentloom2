@@ -68,7 +68,7 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           <select value={reqId} onChange={(e) => setReqId(e.target.value)} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm">
-            <option value="">No requisition</option>
+            <option value="">No position</option>
             {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
           </select>
           <div className="grid grid-cols-2 gap-3">

@@ -17,7 +17,7 @@ import {
 const NAV = [
   { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { to: "/candidates", label: "Candidates", icon: Users },
-  { to: "/requisitions", label: "Requisitions", icon: Briefcase },
+  { to: "/requisitions", label: "Positions", icon: Briefcase },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/import", label: "Import", icon: Upload },
   { to: "/export", label: "Export", icon: Download },

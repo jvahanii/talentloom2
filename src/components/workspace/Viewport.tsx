@@ -57,7 +57,7 @@ export function Viewport({ turns }: { turns: ChatTurn[] }) {
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
               Your organization's recruiting brain. Ask in plain English — I'll pull from
-              your pipeline, requisitions, candidates, and stage history to answer.
+              your pipeline, positions, candidates, and stage history to answer.
             </p>
 
             <div className="mx-auto mt-6 max-w-xl text-left">

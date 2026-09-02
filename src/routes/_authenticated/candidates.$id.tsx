@@ -116,7 +116,7 @@ function CandidateDetail() {
             <Field label="Email"><input value={String(form.email ?? "")} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} /></Field>
             <Field label="Phone"><input value={String(form.phone ?? "")} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} /></Field>
             <Field label="Rating (1-5)"><input type="number" min="1" max="5" value={String(form.rating ?? "")} onChange={(e) => setForm({ ...form, rating: e.target.value })} className={inputCls} /></Field>
-            <Field label="Requisition">
+            <Field label="Position">
               <select value={String(form.requisition_id ?? "")} onChange={(e) => setForm({ ...form, requisition_id: e.target.value })} className={inputCls}>
                 <option value="">None</option>
                 {reqs.data?.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}

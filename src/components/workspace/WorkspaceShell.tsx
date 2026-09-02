@@ -45,7 +45,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-48">
-                <DropdownMenuItem asChild><Link to="/requisitions"><FileText className="mr-2 h-4 w-4" />Requisitions</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to="/requisitions"><FileText className="mr-2 h-4 w-4" />Positions</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/import"><Upload className="mr-2 h-4 w-4" />Import CSV</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/export"><Download className="mr-2 h-4 w-4" />Export CSV</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/settings"><SettingsIcon className="mr-2 h-4 w-4" />Settings</Link></DropdownMenuItem>

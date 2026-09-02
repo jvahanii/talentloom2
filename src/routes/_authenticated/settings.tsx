@@ -63,7 +63,7 @@ function Settings() {
   };
 
   const clearSamples = async () => {
-    if (!confirm("Remove all sample candidates and requisitions?")) return;
+    if (!confirm("Remove all sample candidates and positions?")) return;
     setClearing(true);
     try {
       const { error } = await supabase.rpc("clear_sample_data");
@@ -152,7 +152,7 @@ function Settings() {
 
         <div className="glass rounded-2xl p-5">
           <h3 className="font-display font-semibold">Sample data</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Remove the seeded example candidates and requisitions. Your own data is untouched.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Remove the seeded example candidates and positions. Your own data is untouched.</p>
           <button onClick={clearSamples} disabled={clearing} className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20 disabled:opacity-60">
             {clearing ? "Clearing…" : "Clear sample data"}
           </button>
@@ -182,4 +182,3 @@ function Settings() {
     </div>
   );
 }
-
