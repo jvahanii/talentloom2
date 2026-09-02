@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useOrg, PERMISSION_GROUPS, permColumn, type OrgTitle, type Permission } from "@/lib/org";
+import { useOrg, PERMISSION_GROUPS, PERMISSIONS, permColumn, type OrgTitle, type Permission } from "@/lib/org";
 import { toast } from "sonner";
 import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
 
@@ -42,10 +42,15 @@ function useTitles(orgId: string | null) {
   });
 }
 
+const PROTECTED_TITLES = ["Owner", "Admin"];
+const isProtectedTitle = (n?: string | null) => !!n && PROTECTED_TITLES.includes(n);
+
 export function OrgSettings() {
   const qc = useQueryClient();
   const { orgId, title, orgs, refresh, can } = useOrg();
+  const isOwner = title === "Owner";
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
+
 
   const [name, setName] = useState(orgName);
   useEffect(() => setName(orgName), [orgName]);
@@ -221,25 +226,27 @@ export function OrgSettings() {
                   {m.isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
                 </p>
               </div>
-              {can("change_titles") ? (
+              {can("change_titles") && (isOwner || !isProtectedTitle(m.title_name)) ? (
                 <select
                   value={m.title_id ?? ""}
                   onChange={(e) => changeTitle(m.id, e.target.value)}
                   className="rounded-lg border border-input bg-white/70 px-2 py-1 text-xs dark:bg-white/5"
                 >
                   {!m.title_id && <option value="">No title</option>}
-                  {(titles.data ?? []).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
+                  {(titles.data ?? [])
+                    .filter((t) => isOwner || !isProtectedTitle(t.name) || t.id === m.title_id)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
                 </select>
               ) : (
                 <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs">
                   {m.title_name ?? "No title"}
                 </span>
               )}
-              {(can("remove_users") || m.isSelf) && (
+              {((can("remove_users") && (isOwner || !isProtectedTitle(m.title_name))) || m.isSelf) && (
                 <button
                   onClick={() => removeMember(m)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -248,6 +255,7 @@ export function OrgSettings() {
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
+
             </li>
           ))}
         </ul>
@@ -272,11 +280,14 @@ export function OrgSettings() {
               onChange={(e) => setInviteTitle(e.target.value)}
               className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm dark:bg-white/5"
             >
-              {(titles.data ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
+              {(titles.data ?? [])
+                .filter((t) => (isOwner ? t.name !== "Owner" : !isProtectedTitle(t.name)))
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+
             </select>
             <button
               onClick={createInvite}
@@ -342,13 +353,14 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
     if (!newName.trim()) return;
     setBusy(true);
     try {
+      const allPerms = Object.fromEntries(PERMISSIONS.map((p) => [permColumn(p), true]));
       const { error } = await supabase.from("organization_titles").insert({
         org_id: orgId,
         name: newName.trim(),
         sort_order: 100,
-        can_view_candidates: true,
-        can_view_positions: true,
-      });
+        ...allPerms,
+      } as never);
+
       if (error) throw error;
       setNewName("");
       toast.success("Title added");
@@ -412,7 +424,23 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
       </div>
 
       <div className="mt-4 space-y-3">
-        {titles.map((t) => (
+        {titles
+          .filter((t) => t.name === "Owner")
+          .map((t) => (
+            <div key={t.id} className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+              <span className="font-medium">{t.name}</span>
+              <span className="ml-2 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                always full access
+              </span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Owners have every permission, including creating and removing admins. This title can't be changed.
+              </p>
+            </div>
+          ))}
+        {titles
+          .filter((t) => t.name !== "Owner")
+          .map((t) => (
+
           <div key={t.id} className="rounded-xl border border-border p-4">
             <div className="flex items-center gap-2">
               <input
