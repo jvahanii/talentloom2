@@ -18,6 +18,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApplyIndexRouteImport } from './routes/apply.index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as CandidateAuthRouteImport } from './routes/candidate.auth'
+import { Route as CandidateApplicationsRouteImport } from './routes/candidate.applications'
 import { Route as ApplyOrgIdRouteImport } from './routes/apply.$orgId'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -72,6 +74,16 @@ const ApplyIndexRoute = ApplyIndexRouteImport.update({
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CandidateAuthRoute = CandidateAuthRouteImport.update({
+  id: '/candidate/auth',
+  path: '/candidate/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CandidateApplicationsRoute = CandidateApplicationsRouteImport.update({
+  id: '/candidate/applications',
+  path: '/candidate/applications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplyOrgIdRoute = ApplyOrgIdRouteImport.update({
@@ -148,6 +160,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
+  '/candidate/applications': typeof CandidateApplicationsRoute
+  '/candidate/auth': typeof CandidateAuthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
@@ -168,6 +182,8 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
+  '/candidate/applications': typeof CandidateApplicationsRoute
+  '/candidate/auth': typeof CandidateAuthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/apply': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
@@ -191,6 +207,8 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
+  '/candidate/applications': typeof CandidateApplicationsRoute
+  '/candidate/auth': typeof CandidateAuthRoute
   '/invite/$token': typeof InviteTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
@@ -214,6 +232,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/workspace'
     | '/apply/$orgId'
+    | '/candidate/applications'
+    | '/candidate/auth'
     | '/invite/$token'
     | '/apply/'
     | '/candidates/$id'
@@ -234,6 +254,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/workspace'
     | '/apply/$orgId'
+    | '/candidate/applications'
+    | '/candidate/auth'
     | '/invite/$token'
     | '/apply'
     | '/candidates/$id'
@@ -256,6 +278,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/workspace'
     | '/apply/$orgId'
+    | '/candidate/applications'
+    | '/candidate/auth'
     | '/invite/$token'
     | '/apply/'
     | '/_authenticated/candidates/$id'
@@ -271,6 +295,8 @@ export interface RootRouteChildren {
   DocsRoute: typeof DocsRoute
   OnboardingRoute: typeof OnboardingRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  CandidateApplicationsRoute: typeof CandidateApplicationsRoute
+  CandidateAuthRoute: typeof CandidateAuthRoute
   InviteTokenRoute: typeof InviteTokenRoute
 }
 
@@ -337,6 +363,20 @@ declare module '@tanstack/react-router' {
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/candidate/auth': {
+      id: '/candidate/auth'
+      path: '/candidate/auth'
+      fullPath: '/candidate/auth'
+      preLoaderRoute: typeof CandidateAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/candidate/applications': {
+      id: '/candidate/applications'
+      path: '/candidate/applications'
+      fullPath: '/candidate/applications'
+      preLoaderRoute: typeof CandidateApplicationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/apply/$orgId': {
@@ -470,6 +510,8 @@ const rootRouteChildren: RootRouteChildren = {
   DocsRoute: DocsRoute,
   OnboardingRoute: OnboardingRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  CandidateApplicationsRoute: CandidateApplicationsRoute,
+  CandidateAuthRoute: CandidateAuthRoute,
   InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport
