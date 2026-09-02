@@ -117,14 +117,6 @@ function Pipeline() {
                         {c.rating ? <span className="inline-flex items-center gap-0.5 text-amber-600"><Star className="h-3 w-3 fill-amber-500" /> {c.rating}</span> : null}
                       </div>
                     </Link>
-                    <select
-                      value={c.stage}
-                      disabled={!canEdit}
-                      onChange={(e) => mutStage.mutate({ id: c.id, stage: e.target.value as Stage })}
-                      className="mt-2 w-full rounded-lg border border-input bg-white/70 px-2 py-1 text-xs"
-                    >
-                      {STAGES.map((s) => <option key={s} value={s}>Move to {STAGE_LABEL[s]}</option>)}
-                    </select>
                   </div>
                 ))}
                 {list.length === 0 && <p className="px-1 py-4 text-center text-xs text-muted-foreground">Empty</p>}
