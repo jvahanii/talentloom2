@@ -42,6 +42,24 @@ function rateLimited(ip: string, limit = 5, windowMs = 10 * 60_000) {
   return recent.length > limit;
 }
 
+export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: reqs } = await supabaseAdmin
+    .from("requisitions")
+    .select("id, org_id")
+    .eq("status", "open");
+  const counts = new Map<string, number>();
+  for (const r of reqs ?? []) counts.set(r.org_id, (counts.get(r.org_id) ?? 0) + 1);
+  if (counts.size === 0) return [] as { id: string; name: string; openRoles: number }[];
+  const { data: orgs } = await supabaseAdmin
+    .from("organizations")
+    .select("id, name")
+    .in("id", [...counts.keys()]);
+  return (orgs ?? [])
+    .map((o) => ({ id: o.id, name: o.name, openRoles: counts.get(o.id) ?? 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+});
+
 export const getApplyContext = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => OrgIdSchema.parse(input))
   .handler(async ({ data }) => {
