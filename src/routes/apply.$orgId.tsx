@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { SOURCES } from "@/lib/constants";
 import { getApplyContext, submitApplication } from "@/lib/apply.functions";
+import { myDocuments } from "@/lib/candidate-portal.functions";
 import { ACCEPTED_FILE_TYPES, validateCandidateFile } from "@/lib/candidate-files";
 import { CheckCircle2, Paperclip } from "lucide-react";
 
