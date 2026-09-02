@@ -139,6 +139,21 @@ function ApplyPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Thanks {name.split(" ")[0] || "for applying"} — the {ctx.data.org.name} team will be in touch by email.
         </p>
+        {signedIn ? (
+          <Link
+            to="/candidate/applications"
+            className="btn-teal mt-6 inline-block rounded-xl px-5 py-2.5 text-sm font-semibold"
+          >
+            Track this application
+          </Link>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            <Link to="/candidate/auth" className="text-teal-700 hover:underline">
+              Create a free candidate account
+            </Link>{" "}
+            to track this application and reuse your documents.
+          </p>
+        )}
       </Wrapper>
     );
   }
@@ -149,6 +164,17 @@ function ApplyPage() {
     <Wrapper>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Apply to {ctx.data.org.name}</h1>
       <p className="mt-1 text-sm text-muted-foreground">Tell us about yourself and attach your CV. It takes two minutes.</p>
+      {signedIn ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          You're signed in — your saved documents are available below and the application will appear in{" "}
+          <Link to="/candidate/applications" className="text-teal-700 hover:underline">My applications</Link>.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          <Link to="/candidate/auth" className="text-teal-700 hover:underline">Sign in as a candidate</Link>{" "}
+          to prefill your details and reuse saved documents.
+        </p>
+      )}
 
       {selectedRole?.description && (
         <div className="mt-5 rounded-xl border border-border bg-muted/50 p-4">
