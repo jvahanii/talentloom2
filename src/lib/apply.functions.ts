@@ -20,8 +20,10 @@ const ApplicationSchema = z.object({
   requisition_id: z.string().uuid().optional().nullable(),
   source: z.enum(SOURCE_VALUES).default("Website"),
   notes: z.string().trim().max(2000).optional().default(""),
-  cv: FileSchema,
+  cv: FileSchema.nullable().optional(),
   cover_letter: FileSchema.nullable().optional(),
+  saved_cv_id: z.string().uuid().nullable().optional(),
+  saved_cover_letter_id: z.string().uuid().nullable().optional(),
 });
 
 const OrgIdSchema = z.object({ org_id: z.string().uuid() });
