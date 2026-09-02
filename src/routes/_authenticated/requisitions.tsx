@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Pencil, Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
-  head: () => ({ meta: [{ title: "Requisitions — Talently" }] }),
+  head: () => ({ meta: [{ title: "Positions — Talently" }] }),
   component: Reqs,
 });
 
@@ -49,7 +49,7 @@ function Reqs() {
     <div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold sm:text-3xl">Requisitions</h1>
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">Positions</h1>
           <p className="text-sm text-muted-foreground">Open roles you're hiring for.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -97,7 +97,7 @@ function Reqs() {
             {r.notes && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{r.notes}</p>}
           </div>
         ))}
-        {reqs.data && reqs.data.length === 0 && <p className="col-span-full glass rounded-2xl p-10 text-center text-sm text-muted-foreground">No requisitions yet.</p>}
+        {reqs.data && reqs.data.length === 0 && <p className="col-span-full glass rounded-2xl p-10 text-center text-sm text-muted-foreground">No positions yet.</p>}
       </div>
 
       <ReqCandidatesDialog req={viewing} onOpenChange={(v) => { if (!v) setViewing(null); }} />
@@ -129,7 +129,7 @@ function ReqCandidatesDialog({ req, onOpenChange }: { req: Req | null; onOpenCha
           <DialogTitle>{req?.title} · candidates</DialogTitle>
         </DialogHeader>
         {cands.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {cands.data && cands.data.length === 0 && <p className="text-sm text-muted-foreground">No candidates on this requisition yet.</p>}
+        {cands.data && cands.data.length === 0 && <p className="text-sm text-muted-foreground">No candidates on this position yet.</p>}
         <ul className="divide-y divide-border">
           {(cands.data ?? []).map((c) => (
             <li key={c.id}>
@@ -186,7 +186,7 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{editing ? "Edit requisition" : "New requisition"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{editing ? "Edit position" : "New position"}</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Role title" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           <div className="grid grid-cols-2 gap-3">

@@ -57,11 +57,11 @@ function ExportPage() {
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="glass rounded-2xl p-6">
           <h3 className="font-display text-lg font-semibold">Candidates</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Every candidate with stage, source, requisition, and timestamps.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Every candidate with stage, source, position, and timestamps.</p>
           <button onClick={exportCands} className="btn-teal mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold"><Download className="h-4 w-4" /> Download CSV</button>
         </div>
         <div className="glass rounded-2xl p-6">
-          <h3 className="font-display text-lg font-semibold">Requisitions</h3>
+          <h3 className="font-display text-lg font-semibold">Positions</h3>
           <p className="mt-1 text-sm text-muted-foreground">Open roles with status, hiring manager, and start dates.</p>
           <button onClick={exportReqs} className="btn-teal mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold"><Download className="h-4 w-4" /> Download CSV</button>
         </div>

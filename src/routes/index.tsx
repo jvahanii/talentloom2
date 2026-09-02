@@ -79,7 +79,7 @@ function Landing() {
         <h2 className="font-display text-3xl font-bold text-center">How it works</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {[
-            { t: "1. Open a requisition", d: "Add the role, hiring manager, and target start date. Your open roles live in one place." },
+            { t: "1. Open a position", d: "Add the role, hiring manager, and target start date. Your open roles live in one place." },
             { t: "2. Move candidates through stages", d: "Applied → Screen → Interview → Offer → Hired. Drag between columns on desktop or use the stage picker on mobile." },
             { t: "3. See the funnel at a glance", d: "Analytics shows time-in-stage, conversion, and candidates by source — no dashboards to build." },
           ].map((s) => (
@@ -97,7 +97,7 @@ function Landing() {
           <Accordion type="single" collapsible>
             <AccordionItem value="a">
               <AccordionTrigger>Is my data shared with other companies?</AccordionTrigger>
-              <AccordionContent>No. Each company works in its own isolated organisation. Row-level security scopes every candidate and requisition to your organisation's members only.</AccordionContent>
+              <AccordionContent>No. Each company works in its own isolated organisation. Row-level security scopes every candidate and position to your organisation's members only.</AccordionContent>
             </AccordionItem>
             <AccordionItem value="b">
               <AccordionTrigger>Do you integrate with LinkedIn or job boards?</AccordionTrigger>

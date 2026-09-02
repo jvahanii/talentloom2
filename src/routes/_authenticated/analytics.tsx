@@ -65,7 +65,7 @@ function Analytics() {
       <p className="text-sm text-muted-foreground">Pipeline health at a glance.</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Open requisitions" value={openReqs} />
+        <Stat label="Open positions" value={openReqs} />
         <Stat label="Candidates" value={totalCands} />
         <Stat label="Hired" value={hired} />
         <Stat label="Applied → Hired" value={`${conversion}%`} />

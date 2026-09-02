@@ -16,8 +16,8 @@ function Docs() {
 
           <h2>How it works</h2>
           <ul>
-            <li><strong>Requisitions</strong> are the roles you're hiring for.</li>
-            <li><strong>Candidates</strong> belong to a requisition and move through stages: Applied → Screen → Interview → Offer → Hired (or Rejected).</li>
+            <li><strong>Positions</strong> are the roles you're hiring for.</li>
+            <li><strong>Candidates</strong> belong to a position and move through stages: Applied → Screen → Interview → Offer → Hired (or Rejected).</li>
             <li><strong>Pipeline board</strong> is your default view — one column per stage.</li>
             <li><strong>Analytics</strong> summarises funnel conversion, time-in-stage, and source mix.</li>
           </ul>
@@ -26,13 +26,13 @@ function Docs() {
           <ol>
             <li>Sign up with email or Google.</li>
             <li>Complete the 3-step onboarding: <strong>Personal info</strong> (full name, role) → <strong>Company info</strong> (name, industry, size) → <strong>Bring in data</strong> (import your candidates via CSV, or start with sample data). Onboarding is resumable — if you leave and come back, you land on the last step you completed.</li>
-            <li>Add or edit requisitions and drop candidates into stages on the Pipeline board.</li>
+            <li>Add or edit positions and drop candidates into stages on the Pipeline board.</li>
             <li>If you chose sample data, clear it from Settings when you're done exploring. You can edit your profile fields there anytime.</li>
           </ol>
 
           <h2>Remix instructions</h2>
-          <p><strong>What carries over on remix:</strong> the schema (requisitions, candidates, stage history, profiles), row-level security policies, auth configuration, and the seed function.</p>
-          <p><strong>What does NOT carry over:</strong> your candidate and requisition data. Each remix gets a fresh backend.</p>
+          <p><strong>What carries over on remix:</strong> the schema (positions, candidates, stage history, profiles), row-level security policies, auth configuration, and the seed function.</p>
+          <p><strong>What does NOT carry over:</strong> your candidate and position data. Each remix gets a fresh backend.</p>
 
           <h2>Known gaps</h2>
           <ul>
