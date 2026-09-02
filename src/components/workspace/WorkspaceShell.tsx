@@ -29,7 +29,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           <Link to="/workspace" className="flex items-center gap-2 min-w-0">
             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground font-bold shadow-lg">T</div>
             <div className="min-w-0">
-              <div className="font-display text-sm font-bold tracking-tight text-foreground truncate">Talently</div>
+              <div className="font-display text-sm font-bold tracking-tight text-foreground truncate">TalentLoom</div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">workspace</div>
             </div>
           </Link>

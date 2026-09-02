@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MarketingShell } from "@/components/MarketingShell";
 
 export const Route = createFileRoute("/docs")({
-  head: () => ({ meta: [{ title: "Docs — Talently" }, { name: "description", content: "How Talently works, getting started, and remix instructions." }] }),
+  head: () => ({ meta: [{ title: "Docs — TalentLoom" }, { name: "description", content: "How TalentLoom works, getting started, and remix instructions." }] }),
   component: Docs,
 });
 
@@ -11,7 +11,7 @@ function Docs() {
     <MarketingShell>
       <article className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-16">
         <div className="glass rounded-3xl p-6 sm:p-10 prose prose-slate max-w-none">
-          <h1 className="font-display">Talently docs</h1>
+          <h1 className="font-display">TalentLoom docs</h1>
           <p className="lead">A single-user recruiting pipeline template. Everything you need to hire a team without a $500/mo ATS.</p>
 
           <h2>How it works</h2>

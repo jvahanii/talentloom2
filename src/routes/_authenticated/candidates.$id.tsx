@@ -9,7 +9,7 @@ import { ArrowLeft, Trash2, Paperclip, FileText } from "lucide-react";
 import { ACCEPTED_FILE_TYPES, openCandidateFile, uploadCandidateFile, validateCandidateFile, type CandidateFileKind } from "@/lib/candidate-files";
 
 export const Route = createFileRoute("/_authenticated/candidates/$id")({
-  head: () => ({ meta: [{ title: "Candidate — Talently" }] }),
+  head: () => ({ meta: [{ title: "Candidate — TalentLoom" }] }),
   component: CandidateDetail,
 });
 

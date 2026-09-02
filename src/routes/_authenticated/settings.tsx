@@ -8,7 +8,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { OrgSettings } from "@/components/OrgSettings";
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  head: () => ({ meta: [{ title: "Settings — Talently" }] }),
+  head: () => ({ meta: [{ title: "Settings — TalentLoom" }] }),
   component: Settings,
 });
 

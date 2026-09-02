@@ -147,7 +147,7 @@ function ShellInner({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-card p-4 md:flex">
         <Link to="/pipeline" className="mb-6 flex items-center gap-2 px-2">
           <KanbanSquare className="h-5 w-5 text-primary" />
-          <span className="text-lg font-bold tracking-tight">Talently</span>
+          <span className="text-lg font-bold tracking-tight">TalentLoom</span>
         </Link>
         <NavLinks />
         <NavUser user={user} fullName={profile?.full_name} />
@@ -158,7 +158,7 @@ function ShellInner({ children }: { children: ReactNode }) {
           <aside className="absolute inset-y-0 left-0 flex w-56 flex-col border-r border-border bg-card p-4">
             <Link to="/pipeline" className="mb-6 flex items-center gap-2 px-2" onClick={() => setMobileOpen(false)}>
               <KanbanSquare className="h-5 w-5 text-primary" />
-              <span className="text-lg font-bold tracking-tight">Talently</span>
+              <span className="text-lg font-bold tracking-tight">TalentLoom</span>
             </Link>
             <NavLinks onNavigate={() => setMobileOpen(false)} />
             <NavUser user={user} fullName={profile?.full_name} />
