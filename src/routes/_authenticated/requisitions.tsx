@@ -6,7 +6,7 @@ import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Requisitions — Talently" }] }),
@@ -52,11 +52,19 @@ function Reqs() {
           <h1 className="font-display text-2xl font-bold sm:text-3xl">Requisitions</h1>
           <p className="text-sm text-muted-foreground">Open roles you're hiring for.</p>
         </div>
-        {canEdit && (
-          <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
-            <Plus className="h-4 w-4" /> New
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => copyApplyLink(orgId)}
+            className="glass inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-white/80"
+          >
+            <Link2 className="h-4 w-4" /> <span className="hidden sm:inline">Copy apply link</span>
           </button>
-        )}
+          {canEdit && (
+            <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
+              <Plus className="h-4 w-4" /> New
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -74,9 +82,12 @@ function Reqs() {
                 <h3 className="font-display truncate text-lg font-semibold">{r.title}</h3>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{r.department || "—"} · {r.hiring_manager || "No hiring manager"}</p>
               </div>
-              {canEdit && (
-                <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                <button onClick={(e) => { e.stopPropagation(); copyApplyLink(orgId, r.id); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Copy apply link"><Link2 className="h-4 w-4" /></button>
+                {canEdit && (
+                  <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+                )}
+              </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               <span className={`rounded-full px-2 py-1 font-medium border ${r.status === "open" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border"}`}>{REQ_STATUS_LABEL[r.status]}</span>
@@ -196,4 +207,15 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
       </DialogContent>
     </Dialog>
   );
+}
+
+async function copyApplyLink(orgId: string | null, requisitionId?: string) {
+  if (!orgId) { toast.error("No organisation selected"); return; }
+  const url = `${window.location.origin}/apply/${orgId}${requisitionId ? `?req=${requisitionId}` : ""}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("Apply link copied");
+  } catch {
+    toast.error(url);
+  }
 }
