@@ -7,6 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/auth";
 import { OrgProvider, useOrg } from "@/lib/org";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -78,25 +82,13 @@ function NavUser({ user, fullName }: { user: User | null; fullName?: string | nu
 function OrgSwitcher() {
   const { orgs, orgId, setOrgId, refresh } = useOrg();
   const [creating, setCreating] = useState(false);
-
-  if (creating) return null;
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
 
   const handleChange = async (value: string) => {
     if (value === "__new__") {
-      const name = window.prompt("Name your new workspace");
-      if (!name?.trim()) return;
-      setCreating(true);
-      try {
-        const { data: newId, error } = await supabase.rpc("create_organization", { _name: name.trim() });
-        if (error) throw error;
-        refresh();
-        setOrgId(newId as string);
-        toast.success(`Workspace "${name.trim()}" created`);
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to create workspace");
-      } finally {
-        setCreating(false);
-      }
+      setWorkspaceName("");
+      setCreateDialogOpen(true);
       return;
     }
     setOrgId(value);
@@ -105,24 +97,76 @@ function OrgSwitcher() {
   if (!orgId) return null;
 
   return (
-    <Select value={orgId} onValueChange={handleChange}>
-      <SelectTrigger className="h-8 w-auto max-w-44 gap-1.5 border-border/70 bg-secondary/60 text-xs font-medium">
-        <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <SelectValue placeholder="Workspace" />
-      </SelectTrigger>
-      <SelectContent>
-        {orgs.map((o) => (
-          <SelectItem key={o.org_id} value={o.org_id}>
-            {o.name}
+    <>
+      <Select value={orgId} onValueChange={handleChange}>
+        <SelectTrigger disabled={creating} className="h-8 w-auto max-w-44 gap-1.5 border-border/70 bg-secondary/60 text-xs font-medium">
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <SelectValue placeholder="Workspace" />
+        </SelectTrigger>
+        <SelectContent>
+          {orgs.map((o) => (
+            <SelectItem key={o.org_id} value={o.org_id}>
+              {o.name}
+            </SelectItem>
+          ))}
+          <SelectItem value="__new__">
+            <span className="inline-flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> New workspace
+            </span>
           </SelectItem>
-        ))}
-        <SelectItem value="__new__">
-          <span className="inline-flex items-center gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> New workspace
-          </span>
-        </SelectItem>
-      </SelectContent>
-    </Select>
+        </SelectContent>
+      </Select>
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const name = workspaceName.trim();
+              if (!name) return;
+              setCreating(true);
+              try {
+                const { data: newId, error } = await supabase.rpc("create_organization", { _name: name });
+                if (error) throw error;
+                refresh();
+                setOrgId(newId as string);
+                setCreateDialogOpen(false);
+                toast.success(`Workspace "${name}" created`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Failed to create workspace");
+              } finally {
+                setCreating(false);
+              }
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Create a workspace</DialogTitle>
+              <DialogDescription>
+                Workspaces keep your candidates, positions, and team members separate. Choose a name that your team will recognize.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="workspace-name">Workspace name</Label>
+              <Input
+                id="workspace-name"
+                value={workspaceName}
+                onChange={(event) => setWorkspaceName(event.target.value)}
+                placeholder="e.g. Acme Recruiting"
+                autoFocus
+                disabled={creating}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creating}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating || !workspaceName.trim()}>
+                {creating ? "Creating…" : "Create workspace"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
