@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { OrgSettings } from "@/components/OrgSettings";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Talently" }] }),
@@ -146,6 +147,8 @@ function Settings() {
             {saving ? "Saving…" : "Save profile"}
           </button>
         </div>
+
+        <OrgSettings />
 
         <div className="glass rounded-2xl p-5">
           <h3 className="font-display font-semibold">Sample data</h3>

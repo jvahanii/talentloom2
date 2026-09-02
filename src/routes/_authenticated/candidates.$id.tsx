@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
 import { toast } from "sonner";
+import { useOrg } from "@/lib/org";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/candidates/$id")({
@@ -15,6 +16,9 @@ function CandidateDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const { orgId, role } = useOrg();
+  const canEdit = role !== "viewer";
+  const canDelete = role === "owner" || role === "admin";
 
   const cand = useQuery({
     queryKey: ["candidate", id],
@@ -24,8 +28,9 @@ function CandidateDetail() {
     },
   });
   const reqs = useQuery({
-    queryKey: ["reqs"],
-    queryFn: async () => (await supabase.from("requisitions").select("id,title")).data ?? [],
+    queryKey: ["reqs", orgId],
+    enabled: !!orgId,
+    queryFn: async () => (await supabase.from("requisitions").select("id,title").eq("org_id", orgId!)).data ?? [],
   });
   const history = useQuery({
     queryKey: ["history", id],
@@ -111,12 +116,16 @@ function CandidateDetail() {
             <Field label="Resume link"><input value={String(form.resume_link ?? "")} onChange={(e) => setForm({ ...form, resume_link: e.target.value })} className={inputCls} placeholder="https://…" /></Field>
             <div className="sm:col-span-2"><Field label="Notes"><textarea rows={4} value={String(form.notes ?? "")} onChange={(e) => setForm({ ...form, notes: e.target.value })} className={inputCls} /></Field></div>
           </div>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <button onClick={() => save.mutate()} disabled={save.isPending} className="btn-teal rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60">Save changes</button>
-            <button onClick={() => { if (confirm("Delete this candidate?")) del.mutate(); }} className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20">
-              <Trash2 className="h-4 w-4" /> Delete
-            </button>
-          </div>
+          {canEdit && (
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <button onClick={() => save.mutate()} disabled={save.isPending} className="btn-teal rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60">Save changes</button>
+              {canDelete && (
+                <button onClick={() => { if (confirm("Delete this candidate?")) del.mutate(); }} className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20">
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="glass rounded-2xl p-5">
