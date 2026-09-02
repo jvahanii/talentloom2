@@ -42,10 +42,15 @@ function useTitles(orgId: string | null) {
   });
 }
 
+const PROTECTED_TITLES = ["Owner", "Admin"];
+const isProtectedTitle = (n?: string | null) => !!n && PROTECTED_TITLES.includes(n);
+
 export function OrgSettings() {
   const qc = useQueryClient();
   const { orgId, title, orgs, refresh, can } = useOrg();
+  const isOwner = title === "Owner";
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
+
 
   const [name, setName] = useState(orgName);
   useEffect(() => setName(orgName), [orgName]);
