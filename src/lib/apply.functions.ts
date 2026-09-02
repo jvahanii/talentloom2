@@ -152,8 +152,24 @@ export const submitApplication = createServerFn({ method: "POST" })
       if (Buffer.from(f.data, "base64").byteLength > MAX_FILE_BYTES)
         throw new Error("Files must be 10 MB or smaller.");
     }
+    if (!data.cv && !data.saved_cv_id) throw new Error("Please attach your CV.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Signed-in candidates: attach the application to their account. The bearer
+    // token is optional — anonymous applicants submit without one.
+    let applicantUserId: string | null = null;
+    const bearer = getRequestHeader("authorization");
+    const token = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
+    if (token && token !== process.env["SUPABASE_PUBLISHABLE_KEY"]) {
+      const { createClient } = await import("@supabase/supabase-js");
+      const userClient = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_PUBLISHABLE_KEY"]!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: userData } = await userClient.auth.getUser(token);
+      applicantUserId = userData.user?.id ?? null;
+    }
 
     const { data: owner } = await supabaseAdmin
       .from("organization_members")
