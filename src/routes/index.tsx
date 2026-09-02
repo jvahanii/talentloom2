@@ -96,8 +96,8 @@ function Landing() {
         <div className="glass mt-8 rounded-2xl p-2 sm:p-4">
           <Accordion type="single" collapsible>
             <AccordionItem value="a">
-              <AccordionTrigger>Is my data shared with other users?</AccordionTrigger>
-              <AccordionContent>No. Every account has its own private workspace. Row-level security scopes every candidate and requisition to your user only.</AccordionContent>
+              <AccordionTrigger>Is my data shared with other companies?</AccordionTrigger>
+              <AccordionContent>No. Each company works in its own isolated organisation. Row-level security scopes every candidate and requisition to your organisation's members only.</AccordionContent>
             </AccordionItem>
             <AccordionItem value="b">
               <AccordionTrigger>Do you integrate with LinkedIn or job boards?</AccordionTrigger>
