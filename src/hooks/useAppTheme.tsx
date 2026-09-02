@@ -18,11 +18,21 @@ const ThemeContext = createContext<Ctx | null>(null);
  * page never receives the `dark` class and stays light.
  */
 export function AppThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => readTheme());
+  // Always start from the SSR default so server and client markup match.
+  const [theme, setThemeState] = useState<Theme>("dark");
+  const [hydrated, setHydrated] = useState(false);
+
+  // Read the persisted theme only after hydration.
+  useEffect(() => {
+    setThemeState(readTheme());
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     try { window.localStorage.setItem(KEY, theme); } catch { /* noop */ }
-  }, [theme]);
+  }, [theme, hydrated]);
+
 
   const setTheme = useCallback((t: Theme) => setThemeState(t), []);
   const toggle = useCallback(() => setThemeState((t) => (t === "dark" ? "light" : "dark")), []);
