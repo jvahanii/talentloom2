@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_LABEL, type Stage } from "@/lib/constants";
+import { useOrg } from "@/lib/org";
 import { Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/candidates/")({
@@ -27,14 +28,17 @@ interface Row {
 }
 
 function CandidatesPage() {
+  const { orgId } = useOrg();
   const [q, setQ] = useState("");
 
   const candidates = useQuery({
-    queryKey: ["all-candidates"],
+    queryKey: ["all-candidates", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("candidates")
         .select("id, name, email, stage, requisition_id, requisitions(title)")
+        .eq("org_id", orgId!)
         .order("name", { ascending: true });
       if (error) throw error;
       return data as unknown as Row[];

@@ -6,6 +6,7 @@ import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
 import { toast } from "sonner";
 import { Plus, Star } from "lucide-react";
 import { NewCandidateDialog } from "@/components/NewCandidateDialog";
+import { useOrg } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
   head: () => ({ meta: [{ title: "Pipeline — Talently" }] }),
@@ -14,23 +15,27 @@ export const Route = createFileRoute("/_authenticated/pipeline")({
 
 function Pipeline() {
   const qc = useQueryClient();
+  const { orgId, role } = useOrg();
+  const canEdit = role !== "viewer";
   const [reqFilter, setReqFilter] = useState<string>("all");
   const [srcFilter, setSrcFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
 
   const reqs = useQuery({
-    queryKey: ["reqs"],
+    queryKey: ["reqs", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("requisitions").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
       if (error) throw error; return data ?? [];
     },
   });
 
   const cands = useQuery({
-    queryKey: ["candidates"],
+    queryKey: ["candidates", orgId],
+    enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("candidates").select("*").order("last_activity_at", { ascending: false });
+      const { data, error } = await supabase.from("candidates").select("*").eq("org_id", orgId!).order("last_activity_at", { ascending: false });
       if (error) throw error; return data ?? [];
     },
   });
@@ -58,9 +63,11 @@ function Pipeline() {
           <h1 className="font-display text-2xl font-bold sm:text-3xl">Pipeline</h1>
           <p className="text-sm text-muted-foreground">Move candidates through your hiring stages.</p>
         </div>
-        <button onClick={() => setOpen(true)} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
-          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add candidate</span>
-        </button>
+        {canEdit && (
+          <button onClick={() => setOpen(true)} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add candidate</span>
+          </button>
+        )}
       </div>
 
       <div className="glass mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3 text-sm">
@@ -87,7 +94,7 @@ function Pipeline() {
             <div
               key={stage}
               onDragOver={(e) => { e.preventDefault(); }}
-              onDrop={() => { if (dragId) { mutStage.mutate({ id: dragId, stage }); setDragId(null); } }}
+              onDrop={() => { if (canEdit && dragId) { mutStage.mutate({ id: dragId, stage }); setDragId(null); } }}
               className="glass min-w-[260px] shrink-0 rounded-2xl p-3 sm:min-w-0"
             >
               <div className="flex items-center justify-between px-1 pb-2">
@@ -98,8 +105,8 @@ function Pipeline() {
                 {list.map((c) => (
                   <div
                     key={c.id}
-                    draggable
-                    onDragStart={() => setDragId(c.id)}
+                    draggable={canEdit}
+                    onDragStart={() => canEdit && setDragId(c.id)}
                     onDragEnd={() => setDragId(null)}
                     className="glass-strong group cursor-grab rounded-xl p-3 text-sm active:cursor-grabbing"
                   >
@@ -112,6 +119,7 @@ function Pipeline() {
                     </Link>
                     <select
                       value={c.stage}
+                      disabled={!canEdit}
                       onChange={(e) => mutStage.mutate({ id: c.id, stage: e.target.value as Stage })}
                       className="mt-2 w-full rounded-lg border border-input bg-white/70 px-2 py-1 text-xs"
                     >

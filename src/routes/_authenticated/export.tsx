@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOrg } from "@/lib/org";
 import { Download } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/export")({
@@ -25,10 +26,13 @@ function download(filename: string, content: string) {
 }
 
 function ExportPage() {
+  const { orgId } = useOrg();
+
   const exportCands = async () => {
-    const { data: cands, error } = await supabase.from("candidates").select("*");
+    if (!orgId) { toast.error("No workspace selected"); return; }
+    const { data: cands, error } = await supabase.from("candidates").select("*").eq("org_id", orgId);
     if (error) { toast.error(error.message); return; }
-    const { data: reqs } = await supabase.from("requisitions").select("id,title");
+    const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId);
     const rTitle = new Map((reqs ?? []).map((r) => [r.id, r.title]));
     const rows = (cands ?? []).map((c) => ({
       name: c.name, email: c.email, phone: c.phone,
@@ -40,7 +44,8 @@ function ExportPage() {
   };
 
   const exportReqs = async () => {
-    const { data, error } = await supabase.from("requisitions").select("*");
+    if (!orgId) { toast.error("No workspace selected"); return; }
+    const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId);
     if (error) { toast.error(error.message); return; }
     download("talently-requisitions.csv", toCSV(data ?? [], ["title","department","hiring_manager","status","target_start_date","notes","created_at"]));
   };
