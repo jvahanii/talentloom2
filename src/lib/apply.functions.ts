@@ -121,7 +121,11 @@ export const getApplyContext = createServerFn({ method: "POST" })
       .select("id, name")
       .eq("id", data.org_id)
       .maybeSingle();
-    if (!org) return { org: null, roles: [] as { id: string; title: string }[] };
+    if (!org)
+      return {
+        org: null,
+        roles: [] as { id: string; title: string; department: string | null; description: string | null }[],
+      };
     const { data: reqs } = await supabaseAdmin
       .from("requisitions")
       .select("id, title, department, description")
