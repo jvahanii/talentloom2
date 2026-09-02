@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, Paperclip, FileText } from "lucide-react";
+import { ACCEPTED_FILE_TYPES, openCandidateFile, uploadCandidateFile, validateCandidateFile, type CandidateFileKind } from "@/lib/candidate-files";
 
 export const Route = createFileRoute("/_authenticated/candidates/$id")({
   head: () => ({ meta: [{ title: "Candidate — Talently" }] }),
@@ -73,6 +74,24 @@ function CandidateDetail() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
+  const [uploading, setUploading] = useState<CandidateFileKind | null>(null);
+  const uploadDoc = async (kind: CandidateFileKind, file: File) => {
+    const invalid = validateCandidateFile(file);
+    if (invalid) { toast.error(invalid); return; }
+    if (!orgId) { toast.error("No organisation selected"); return; }
+    setUploading(kind);
+    try {
+      const path = await uploadCandidateFile(orgId, id, kind, file);
+      const patch = kind === "cv" ? { cv_path: path } : { cover_letter_path: path };
+      const { error } = await supabase.from("candidates").update(patch).eq("id", id);
+      if (error) throw error;
+      toast.success("File uploaded");
+      qc.invalidateQueries({ queryKey: ["candidate", id] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally { setUploading(null); }
+  };
+
   const del = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("candidates").delete().eq("id", id);
@@ -129,6 +148,27 @@ function CandidateDetail() {
         </div>
 
         <div className="glass rounded-2xl p-5">
+          <h3 className="font-display font-semibold">Documents</h3>
+          <div className="mt-3 space-y-2">
+            <DocRow
+              label="CV"
+              path={cand.data.cv_path}
+              canEdit={canEdit}
+              busy={uploading === "cv"}
+              onPick={(f) => uploadDoc("cv", f)}
+            />
+            <DocRow
+              label="Cover letter"
+              path={cand.data.cover_letter_path}
+              canEdit={canEdit}
+              busy={uploading === "cover_letter"}
+              onPick={(f) => uploadDoc("cover_letter", f)}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">PDF, DOC or DOCX · up to 10 MB. Links expire after an hour.</p>
+        </div>
+
+        <div className="glass rounded-2xl p-5">
           <h3 className="font-display font-semibold">Stage history</h3>
           <ol className="mt-3 space-y-2 text-sm">
             {history.data?.map((h) => (
@@ -151,4 +191,41 @@ function CandidateDetail() {
 const inputCls = "w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm";
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block"><span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>{children}</label>;
+}
+
+function DocRow({ label, path, canEdit, busy, onPick }: {
+  label: string; path: string | null; canEdit: boolean; busy: boolean; onPick: (f: File) => void;
+}) {
+  return (
+    <div className="glass-strong flex items-center gap-2 rounded-xl p-3 text-sm">
+      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <div className="font-medium">{label}</div>
+        {path ? (
+          <button
+            type="button"
+            onClick={() => openCandidateFile(path).catch(() => toast.error("Could not open file"))}
+            className="text-xs text-primary underline-offset-2 hover:underline"
+          >
+            View file
+          </button>
+        ) : (
+          <span className="text-xs text-muted-foreground">Not uploaded</span>
+        )}
+      </div>
+      {canEdit && (
+        <label className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-input bg-white/70 px-2 py-1 text-xs font-medium">
+          <Paperclip className="h-3 w-3" />
+          {busy ? "Uploading…" : path ? "Replace" : "Upload"}
+          <input
+            type="file"
+            accept={ACCEPTED_FILE_TYPES}
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+          />
+        </label>
+      )}
+    </div>
+  );
 }
