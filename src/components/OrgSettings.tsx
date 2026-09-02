@@ -424,7 +424,23 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
       </div>
 
       <div className="mt-4 space-y-3">
-        {titles.map((t) => (
+        {titles
+          .filter((t) => t.name === "Owner")
+          .map((t) => (
+            <div key={t.id} className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+              <span className="font-medium">{t.name}</span>
+              <span className="ml-2 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                always full access
+              </span>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Owners have every permission, including creating and removing admins. This title can't be changed.
+              </p>
+            </div>
+          ))}
+        {titles
+          .filter((t) => t.name !== "Owner")
+          .map((t) => (
+
           <div key={t.id} className="rounded-xl border border-border p-4">
             <div className="flex items-center gap-2">
               <input
