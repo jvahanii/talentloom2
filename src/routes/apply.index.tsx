@@ -4,7 +4,7 @@ import { Briefcase, Building2, Search } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { listOpenPositions } from "@/lib/apply.functions";
 
-export const Route = createFileRoute("/apply")({
+export const Route = createFileRoute("/apply/")({
   head: () => ({
     meta: [
       { title: "Open positions — Talently" },
