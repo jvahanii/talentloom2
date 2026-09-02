@@ -15,9 +15,9 @@ export const Route = createFileRoute("/apply/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    q: typeof search['q'] === "string" ? (search['q'] as string) : undefined,
-    org: typeof search['org'] === "string" ? (search['org'] as string) : undefined,
+  validateSearch: (search: Record<string, unknown>): { q?: string; org?: string } => ({
+    ...(typeof search['q'] === "string" && search['q'] ? { q: search['q'] as string } : {}),
+    ...(typeof search['org'] === "string" && search['org'] ? { org: search['org'] as string } : {}),
   }),
   component: JobBoard,
 });
