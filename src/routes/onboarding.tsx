@@ -411,8 +411,9 @@ function Step2({ state, onChange }: { state: ProfileState; onChange: (patch: Par
 }
 
 function Step3({
-  onImport, onSeedSamples, onSkip, onBack, busy,
+  orgId, onImport, onSeedSamples, onSkip, onBack, busy,
 }: {
+  orgId: string | null;
   onImport: (count: number) => Promise<void>;
   onSeedSamples: () => Promise<void>;
   onSkip: () => Promise<void>;
@@ -442,6 +443,7 @@ function Step3({
       if (nameI < 0) throw new Error("CSV needs a 'name' column");
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
+      if (!orgId) throw new Error("Workspace not ready yet — go back one step and continue again");
       const emailI = idx("email"), phoneI = idx("phone"), sourceI = idx("source"),
         stageI = idx("stage"), notesI = idx("notes"), reqI = idx("requisition_title");
       const inserts = rows.slice(1).map((r) => {
@@ -450,6 +452,7 @@ function Step3({
         const stage = (STAGES as readonly string[]).includes(stageRaw) ? (stageRaw as Stage) : "applied";
         return {
           user_id: u.user!.id,
+          org_id: orgId,
           name: get(nameI) || "Unnamed",
           email: get(emailI) || null,
           phone: get(phoneI) || null,
@@ -463,7 +466,7 @@ function Step3({
       if (inserts.length === 0) throw new Error("No valid rows found");
 
       // resolve requisition titles → ids if any exist
-      const { data: reqs } = await supabase.from("requisitions").select("id,title");
+      const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId);
       const reqByTitle = new Map((reqs ?? []).map((r) => [r.title.toLowerCase(), r.id]));
       const payload = inserts.map(({ _req, ...rest }) => ({
         ...rest,
