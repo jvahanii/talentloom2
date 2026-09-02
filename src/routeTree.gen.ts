@@ -13,9 +13,10 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as ApplyRouteImport } from './routes/apply'
+import { Route as ApplyRouteRouteImport } from './routes/apply.route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApplyIndexRouteImport } from './routes/apply.index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApplyOrgIdRouteImport } from './routes/apply.$orgId'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
@@ -26,6 +27,7 @@ import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedCandidatesIndexRouteImport } from './routes/_authenticated/candidates.index'
+import { Route as ApplyPositionIdRouteImport } from './routes/apply.position.$id'
 import { Route as AuthenticatedCandidatesIdRouteImport } from './routes/_authenticated/candidates.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -48,7 +50,7 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApplyRoute = ApplyRouteImport.update({
+const ApplyRouteRoute = ApplyRouteRouteImport.update({
   id: '/apply',
   path: '/apply',
   getParentRoute: () => rootRouteImport,
@@ -62,6 +64,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApplyIndexRoute = ApplyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ApplyRouteRoute,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
@@ -70,7 +77,7 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
 const ApplyOrgIdRoute = ApplyOrgIdRouteImport.update({
   id: '/$orgId',
   path: '/$orgId',
-  getParentRoute: () => ApplyRoute,
+  getParentRoute: () => ApplyRouteRoute,
 } as any)
 const AuthenticatedWorkspaceRoute = AuthenticatedWorkspaceRouteImport.update({
   id: '/workspace',
@@ -114,6 +121,11 @@ const AuthenticatedCandidatesIndexRoute =
     path: '/candidates/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApplyPositionIdRoute = ApplyPositionIdRouteImport.update({
+  id: '/position/$id',
+  path: '/position/$id',
+  getParentRoute: () => ApplyRouteRoute,
+} as any)
 const AuthenticatedCandidatesIdRoute =
   AuthenticatedCandidatesIdRouteImport.update({
     id: '/candidates/$id',
@@ -123,7 +135,7 @@ const AuthenticatedCandidatesIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/apply': typeof ApplyRouteWithChildren
+  '/apply': typeof ApplyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
@@ -137,12 +149,13 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/apply/': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates/': typeof AuthenticatedCandidatesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/apply': typeof ApplyRouteWithChildren
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
@@ -156,14 +169,16 @@ export interface FileRoutesByTo {
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/apply': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates': typeof AuthenticatedCandidatesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/apply': typeof ApplyRouteWithChildren
+  '/apply': typeof ApplyRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
@@ -177,7 +192,9 @@ export interface FileRoutesById {
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/apply/': typeof ApplyIndexRoute
   '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/apply/position/$id': typeof ApplyPositionIdRoute
   '/_authenticated/candidates/': typeof AuthenticatedCandidatesIndexRoute
 }
 export interface FileRouteTypes {
@@ -198,12 +215,13 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/apply/$orgId'
     | '/invite/$token'
+    | '/apply/'
     | '/candidates/$id'
+    | '/apply/position/$id'
     | '/candidates/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/apply'
     | '/auth'
     | '/docs'
     | '/onboarding'
@@ -217,7 +235,9 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/apply/$orgId'
     | '/invite/$token'
+    | '/apply'
     | '/candidates/$id'
+    | '/apply/position/$id'
     | '/candidates'
   id:
     | '__root__'
@@ -237,14 +257,16 @@ export interface FileRouteTypes {
     | '/_authenticated/workspace'
     | '/apply/$orgId'
     | '/invite/$token'
+    | '/apply/'
     | '/_authenticated/candidates/$id'
+    | '/apply/position/$id'
     | '/_authenticated/candidates/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  ApplyRoute: typeof ApplyRouteWithChildren
+  ApplyRouteRoute: typeof ApplyRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   DocsRoute: typeof DocsRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -286,7 +308,7 @@ declare module '@tanstack/react-router' {
       id: '/apply'
       path: '/apply'
       fullPath: '/apply'
-      preLoaderRoute: typeof ApplyRouteImport
+      preLoaderRoute: typeof ApplyRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -303,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/apply/': {
+      id: '/apply/'
+      path: '/'
+      fullPath: '/apply/'
+      preLoaderRoute: typeof ApplyIndexRouteImport
+      parentRoute: typeof ApplyRouteRoute
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
@@ -315,7 +344,7 @@ declare module '@tanstack/react-router' {
       path: '/$orgId'
       fullPath: '/apply/$orgId'
       preLoaderRoute: typeof ApplyOrgIdRouteImport
-      parentRoute: typeof ApplyRoute
+      parentRoute: typeof ApplyRouteRoute
     }
     '/_authenticated/workspace': {
       id: '/_authenticated/workspace'
@@ -373,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCandidatesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/apply/position/$id': {
+      id: '/apply/position/$id'
+      path: '/position/$id'
+      fullPath: '/apply/position/$id'
+      preLoaderRoute: typeof ApplyPositionIdRouteImport
+      parentRoute: typeof ApplyRouteRoute
+    }
     '/_authenticated/candidates/$id': {
       id: '/_authenticated/candidates/$id'
       path: '/candidates/$id'
@@ -410,20 +446,26 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-interface ApplyRouteChildren {
+interface ApplyRouteRouteChildren {
   ApplyOrgIdRoute: typeof ApplyOrgIdRoute
+  ApplyIndexRoute: typeof ApplyIndexRoute
+  ApplyPositionIdRoute: typeof ApplyPositionIdRoute
 }
 
-const ApplyRouteChildren: ApplyRouteChildren = {
+const ApplyRouteRouteChildren: ApplyRouteRouteChildren = {
   ApplyOrgIdRoute: ApplyOrgIdRoute,
+  ApplyIndexRoute: ApplyIndexRoute,
+  ApplyPositionIdRoute: ApplyPositionIdRoute,
 }
 
-const ApplyRouteWithChildren = ApplyRoute._addFileChildren(ApplyRouteChildren)
+const ApplyRouteRouteWithChildren = ApplyRouteRoute._addFileChildren(
+  ApplyRouteRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  ApplyRoute: ApplyRouteWithChildren,
+  ApplyRouteRoute: ApplyRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   DocsRoute: DocsRoute,
   OnboardingRoute: OnboardingRoute,

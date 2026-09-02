@@ -117,10 +117,19 @@ function ApplyPage() {
     );
   }
 
+  const selectedRole = ctx.data.roles.find((r) => r.id === reqId) ?? null;
+
   return (
     <Wrapper>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Apply to {ctx.data.org.name}</h1>
       <p className="mt-1 text-sm text-muted-foreground">Tell us about yourself and attach your CV. It takes two minutes.</p>
+
+      {selectedRole?.description && (
+        <div className="mt-5 rounded-xl border border-border bg-muted/50 p-4">
+          <h2 className="font-display text-sm font-semibold">{selectedRole.title}</h2>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{selectedRole.description}</p>
+        </div>
+      )}
 
       <form onSubmit={submit} className="mt-6 grid gap-3 sm:grid-cols-2">
         <Field label="Full name">
@@ -135,7 +144,7 @@ function ApplyPage() {
         <Field label="Role">
           <select value={reqId} onChange={(e) => setReqId(e.target.value)} className={inputCls}>
             <option value="">General application</option>
-            {ctx.data.roles.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+            {ctx.data.roles.map((r) => <option key={r.id} value={r.id}>{r.title}{r.department ? ` · ${r.department}` : ""}</option>)}
           </select>
         </Field>
         <Field label="How did you hear about us?">
