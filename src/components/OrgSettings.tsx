@@ -226,25 +226,27 @@ export function OrgSettings() {
                   {m.isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
                 </p>
               </div>
-              {can("change_titles") ? (
+              {can("change_titles") && (isOwner || !isProtectedTitle(m.title_name)) ? (
                 <select
                   value={m.title_id ?? ""}
                   onChange={(e) => changeTitle(m.id, e.target.value)}
                   className="rounded-lg border border-input bg-white/70 px-2 py-1 text-xs dark:bg-white/5"
                 >
                   {!m.title_id && <option value="">No title</option>}
-                  {(titles.data ?? []).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
+                  {(titles.data ?? [])
+                    .filter((t) => isOwner || !isProtectedTitle(t.name) || t.id === m.title_id)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
                 </select>
               ) : (
                 <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs">
                   {m.title_name ?? "No title"}
                 </span>
               )}
-              {(can("remove_users") || m.isSelf) && (
+              {((can("remove_users") && (isOwner || !isProtectedTitle(m.title_name))) || m.isSelf) && (
                 <button
                   onClick={() => removeMember(m)}
                   className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -253,6 +255,7 @@ export function OrgSettings() {
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
+
             </li>
           ))}
         </ul>
