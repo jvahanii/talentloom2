@@ -162,15 +162,15 @@ export function OrgSettings() {
 
   return (
     <div className="glass rounded-2xl p-5 lg:col-span-2">
-      <h3 className="font-display font-semibold">Workspace</h3>
+      <h3 className="font-display font-semibold">Organisation</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Manage this workspace and who can access it. Your role here: <span className="font-medium capitalize">{role}</span>.
+        Manage this organisation and who can access it. Your role here: <span className="font-medium capitalize">{role}</span>.
       </p>
 
       {isAdmin && (
         <div className="mt-4 flex flex-wrap items-end gap-2">
           <label className="block min-w-52 flex-1">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">Workspace name</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">Organisation name</span>
             <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
           </label>
           <button
@@ -184,7 +184,7 @@ export function OrgSettings() {
       )}
 
       <div className="mt-6">
-        <h4 className="text-sm font-semibold">Members</h4>
+        <h4 className="text-sm font-semibold">Users</h4>
         <ul className="mt-2 divide-y divide-border">
           {(members.data ?? []).map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-2.5">
