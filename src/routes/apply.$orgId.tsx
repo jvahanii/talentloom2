@@ -210,8 +210,36 @@ function ApplyPage() {
           </Field>
         </div>
 
-        <FilePicker label="CV (required)" file={cv} onPick={(f) => pickFile(f, setCv)} />
-        <FilePicker label="Cover letter (optional)" file={cover} onPick={(f) => pickFile(f, setCover)} />
+        {signedIn && savedCvs.length > 0 && (
+          <Field label="CV — use a saved document">
+            <select
+              value={savedCvId}
+              onChange={(e) => { setSavedCvId(e.target.value); if (e.target.value) setCv(null); }}
+              className={inputCls}
+            >
+              <option value="">Upload a new file instead</option>
+              {savedCvs.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+            </select>
+          </Field>
+        )}
+        {signedIn && savedCovers.length > 0 && (
+          <Field label="Cover letter — use a saved document">
+            <select
+              value={savedCoverId}
+              onChange={(e) => { setSavedCoverId(e.target.value); if (e.target.value) setCover(null); }}
+              className={inputCls}
+            >
+              <option value="">Upload a new file instead</option>
+              {savedCovers.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+            </select>
+          </Field>
+        )}
+        {!savedCvId && (
+          <FilePicker label={`CV${savedCvs.length === 0 ? " (required)" : ""}`} file={cv} onPick={(f) => pickFile(f, setCv)} />
+        )}
+        {!savedCoverId && (
+          <FilePicker label="Cover letter (optional)" file={cover} onPick={(f) => pickFile(f, setCover)} />
+        )}
 
         <div className="sm:col-span-2">
           <button disabled={busy} type="submit" className="btn-teal w-full rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60">
