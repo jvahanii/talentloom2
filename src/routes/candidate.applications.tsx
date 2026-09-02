@@ -90,9 +90,22 @@ function CandidatePortalPage() {
               Track where each application stands and manage your saved documents.
             </p>
           </div>
-          <Link to="/apply" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">
-            Find a position
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/apply" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">
+              Find a position
+            </Link>
+            <button
+              onClick={async () => {
+                await queryClient.cancelQueries();
+                queryClient.clear();
+                await supabase.auth.signOut();
+                navigate({ to: "/candidate/auth", replace: true });
+              }}
+              className="rounded-xl glass px-4 py-2 text-sm font-medium hover:bg-white/80"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
 
         <section className="mt-8">
