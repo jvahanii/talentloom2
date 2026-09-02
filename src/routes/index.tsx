@@ -42,9 +42,33 @@ function Landing() {
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
               Talently gives your hiring team one shared pipeline. Track every candidate, every requisition, every stage — without another SaaS bill.
             </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link to="/auth" className="btn-light rounded-xl px-6 py-3 text-sm font-semibold">Start now</Link>
-              
+            <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
+              <Link
+                to="/auth"
+                className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+              >
+                <Briefcase className="h-7 w-7 text-white" />
+                <span className="mt-4 block font-display text-lg font-semibold text-white">I'm a Recruiter</span>
+                <span className="mt-1 block text-sm text-white/75">
+                  Sign in to manage your pipeline, requisitions and team.
+                </span>
+                <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
+                  Recruiter sign in
+                </span>
+              </Link>
+              <Link
+                to="/apply"
+                className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+              >
+                <UserRound className="h-7 w-7 text-white" />
+                <span className="mt-4 block font-display text-lg font-semibold text-white">I'm a Candidate</span>
+                <span className="mt-1 block text-sm text-white/75">
+                  Browse open roles and apply with your CV — no account needed.
+                </span>
+                <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
+                  Find a role
+                </span>
+              </Link>
             </div>
           </div>
         </div>
