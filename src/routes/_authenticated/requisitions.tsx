@@ -1,0 +1,190 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus, Pencil } from "lucide-react";
+
+export const Route = createFileRoute("/_authenticated/requisitions")({
+  head: () => ({ meta: [{ title: "Requisitions — Talently" }] }),
+  component: Reqs,
+});
+
+type ReqStatus = "open" | "on_hold" | "filled" | "closed";
+interface Req { id: string; title: string; department: string | null; hiring_manager: string | null; status: ReqStatus; target_start_date: string | null; notes: string | null }
+
+function Reqs() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Req | null>(null);
+  const [viewing, setViewing] = useState<Req | null>(null);
+
+  const reqs = useQuery({
+    queryKey: ["reqs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("requisitions").select("*").order("created_at", { ascending: false });
+      if (error) throw error; return data as Req[];
+    },
+  });
+
+  const counts = useQuery({
+    queryKey: ["req-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("candidates").select("requisition_id, stage");
+      if (error) throw error;
+      const m: Record<string, number> = {};
+      (data ?? []).forEach((c) => { if (c.requisition_id) m[c.requisition_id] = (m[c.requisition_id] ?? 0) + 1; });
+      return m;
+    },
+  });
+
+  return (
+    <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">Requisitions</h1>
+          <p className="text-sm text-muted-foreground">Open roles you're hiring for.</p>
+        </div>
+        <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
+          <Plus className="h-4 w-4" /> New
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {(reqs.data ?? []).map((r) => (
+          <div
+            key={r.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => setViewing(r)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewing(r); } }}
+            className="glass cursor-pointer rounded-2xl p-5 text-left transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-display truncate text-lg font-semibold">{r.title}</h3>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{r.department || "—"} · {r.hiring_manager || "No hiring manager"}</p>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className={`rounded-full px-2 py-1 font-medium border ${r.status === "open" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border"}`}>{REQ_STATUS_LABEL[r.status]}</span>
+              <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">{counts.data?.[r.id] ?? 0} candidates</span>
+              {r.target_start_date && <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">Start {r.target_start_date}</span>}
+            </div>
+            {r.notes && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{r.notes}</p>}
+          </div>
+        ))}
+        {reqs.data && reqs.data.length === 0 && <p className="col-span-full glass rounded-2xl p-10 text-center text-sm text-muted-foreground">No requisitions yet.</p>}
+      </div>
+
+      <ReqCandidatesDialog req={viewing} onOpenChange={(v) => { if (!v) setViewing(null); }} />
+
+      <ReqDialog key={editing?.id ?? "new"} open={open} onOpenChange={setOpen} editing={editing} onSaved={() => qc.invalidateQueries({ queryKey: ["reqs"] })} />
+    </div>
+  );
+}
+
+function ReqCandidatesDialog({ req, onOpenChange }: { req: Req | null; onOpenChange: (v: boolean) => void }) {
+  const cands = useQuery({
+    queryKey: ["req-candidates", req?.id],
+    enabled: !!req,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("candidates")
+        .select("id, name, email, stage, source")
+        .eq("requisition_id", req!.id)
+        .order("last_activity_at", { ascending: false });
+      if (error) throw error;
+      return data as { id: string; name: string; email: string | null; stage: Stage; source: string | null }[];
+    },
+  });
+
+  return (
+    <Dialog open={!!req} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{req?.title} · candidates</DialogTitle>
+        </DialogHeader>
+        {cands.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {cands.data && cands.data.length === 0 && <p className="text-sm text-muted-foreground">No candidates on this requisition yet.</p>}
+        <ul className="divide-y divide-border">
+          {(cands.data ?? []).map((c) => (
+            <li key={c.id}>
+              <Link
+                to="/candidates/$id"
+                params={{ id: c.id }}
+                onClick={() => onOpenChange(false)}
+                className="flex items-center justify-between gap-3 py-3 hover:opacity-80"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium">{c.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{c.email || c.source || "—"}</span>
+                </span>
+                <span className="shrink-0 rounded-full border border-border bg-muted px-2 py-1 text-xs text-foreground/80">{STAGE_LABEL[c.stage]}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; onOpenChange: (v: boolean) => void; editing: Req | null; onSaved: () => void }) {
+  const [title, setTitle] = useState(editing?.title ?? "");
+  const [department, setDepartment] = useState(editing?.department ?? "");
+  const [hiring_manager, setHM] = useState(editing?.hiring_manager ?? "");
+  const [status, setStatus] = useState<ReqStatus>(editing?.status ?? "open");
+  const [target_start_date, setStart] = useState(editing?.target_start_date ?? "");
+  const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {}, []);
+
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Not authenticated");
+      const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, notes: notes || null };
+      const { error } = editing
+        ? await supabase.from("requisitions").update(payload).eq("id", editing.id)
+        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id });
+      if (error) throw error;
+      toast.success(editing ? "Updated" : "Created");
+      onSaved(); onOpenChange(false);
+      setTitle(""); setDepartment(""); setHM(""); setStatus("open"); setStart(""); setNotes("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{editing ? "Edit requisition" : "New requisition"}</DialogTitle></DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Role title" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Department" className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+            <input value={hiring_manager} onChange={(e) => setHM(e.target.value)} placeholder="Hiring manager" className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <select value={status} onChange={(e) => setStatus(e.target.value as ReqStatus)} className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm">
+              {Object.entries(REQ_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+            <input type="date" value={target_start_date} onChange={(e) => setStart(e.target.value)} className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          </div>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes" rows={3} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          <button disabled={saving} type="submit" className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
+            {saving ? "Saving…" : editing ? "Save" : "Create"}
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
