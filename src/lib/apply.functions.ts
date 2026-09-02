@@ -60,6 +60,58 @@ export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(a
     .sort((a, b) => a.name.localeCompare(b.name));
 });
 
+export const listOpenPositions = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: reqs } = await supabaseAdmin
+    .from("requisitions")
+    .select("id, title, org_id, department, target_start_date, description, created_at")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (!reqs || reqs.length === 0) return [];
+  const { data: orgs } = await supabaseAdmin
+    .from("organizations")
+    .select("id, name")
+    .in("id", [...new Set(reqs.map((r) => r.org_id))]);
+  const names = new Map((orgs ?? []).map((o) => [o.id, o.name]));
+  return reqs.map((r) => ({
+    id: r.id,
+    title: r.title,
+    orgId: r.org_id,
+    orgName: names.get(r.org_id) ?? "A company",
+    department: r.department,
+    targetStartDate: r.target_start_date,
+    excerpt: (r.description ?? "").slice(0, 220),
+  }));
+});
+
+export const getPosition = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: req } = await supabaseAdmin
+      .from("requisitions")
+      .select("id, title, org_id, department, hiring_manager, target_start_date, description, status")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!req || req.status !== "open") return null;
+    const { data: org } = await supabaseAdmin
+      .from("organizations")
+      .select("id, name")
+      .eq("id", req.org_id)
+      .maybeSingle();
+    return {
+      id: req.id,
+      title: req.title,
+      orgId: req.org_id,
+      orgName: org?.name ?? "A company",
+      department: req.department,
+      hiringManager: req.hiring_manager,
+      targetStartDate: req.target_start_date,
+      description: req.description ?? "",
+    };
+  });
+
 export const getApplyContext = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => OrgIdSchema.parse(input))
   .handler(async ({ data }) => {
