@@ -219,6 +219,16 @@ function ShellInner({ children }: { children: ReactNode }) {
             <KanbanSquare className="h-5 w-5 text-primary" />
           </button>
           <div className="ml-auto flex items-center gap-2">
+            {user && (
+              <div className="flex items-center gap-2 rounded-xl border-2 border-border bg-card px-2 py-1 shadow-[0_2px_0_var(--brand-mint)]">
+                <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-primary bg-primary/15 text-[11px] font-bold text-primary">
+                  {(profile?.full_name || user.user_metadata?.full_name || user.email || "?").trim().charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden max-w-44 truncate text-xs font-medium sm:inline" title={user.email ?? undefined}>
+                  {profile?.full_name || user.user_metadata?.full_name || user.email}
+                </span>
+              </div>
+            )}
             <OrgSwitcher />
           </div>
         </header>
