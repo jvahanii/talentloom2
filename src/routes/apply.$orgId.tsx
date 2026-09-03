@@ -112,6 +112,11 @@ function ApplyPage() {
           saved_cover_letter_id: cover ? null : savedCoverId || null,
         },
       });
+      if (signedIn) {
+        toast.success("Application sent — it's now in My applications.");
+        await navigate({ to: "/candidate/applications", replace: true });
+        return;
+      }
       setDone(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not submit your application");
