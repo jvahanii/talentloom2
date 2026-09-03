@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
 import { toast } from "sonner";
 import { MarketingShell } from "@/components/MarketingShell";
+import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Sign in — TalentLoom" }] }),
@@ -14,6 +15,7 @@ function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -78,9 +80,19 @@ function AuthPage() {
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
               className="w-full rounded-xl border border-input bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30" />
-            <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password (min 6 characters)"
-              className="w-full rounded-xl border border-input bg-white/70 px-4 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30" />
+            <div className="relative">
+              <input type={showPassword ? "text" : "password"} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password (min 6 characters)"
+                className="w-full rounded-xl border border-input bg-white/70 px-4 py-2.5 pr-11 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30" />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             <button disabled={loading} type="submit" className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
               {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
