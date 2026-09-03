@@ -62,14 +62,17 @@ export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(a
     .sort((a, b) => a.name.localeCompare(b.name));
 });
 
+type DeadlineRow = { deadline_date: string | null };
+
 export const listOpenPositions = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
-  const { data: reqs } = await supabaseAdmin
+  const { data: reqsRaw } = await supabaseAdmin
     .from("requisitions")
     .select("id, title, org_id, department, target_start_date, deadline_date, description, created_at")
     .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(200);
+  const reqs = reqsRaw as unknown as (NonNullable<typeof reqsRaw> extends (infer T)[] ? (T & DeadlineRow)[] : never) | null;
   if (!reqs || reqs.length === 0) return [];
   const { data: orgs } = await supabaseAdmin
     .from("organizations")
