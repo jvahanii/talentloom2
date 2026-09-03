@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -43,6 +43,7 @@ const inputCls = "w-full rounded-xl border border-input bg-white/70 px-3 py-2 te
 function ApplyPage() {
   const { orgId } = Route.useParams();
   const { req } = Route.useSearch();
+  const navigate = useNavigate();
   const ctxFn = useServerFn(getApplyContext);
   const submitFn = useServerFn(submitApplication);
 
@@ -111,6 +112,11 @@ function ApplyPage() {
           saved_cover_letter_id: cover ? null : savedCoverId || null,
         },
       });
+      if (signedIn) {
+        toast.success("Application sent — it's now in My applications.");
+        await navigate({ to: "/candidate/applications", replace: true });
+        return;
+      }
       setDone(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not submit your application");
@@ -139,21 +145,12 @@ function ApplyPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Thanks {name.split(" ")[0] || "for applying"} — the {ctx.data.org.name} team will be in touch by email.
         </p>
-        {signedIn ? (
-          <Link
-            to="/candidate/applications"
-            className="btn-teal mt-6 inline-block rounded-xl px-5 py-2.5 text-sm font-semibold"
-          >
-            Track this application
-          </Link>
-        ) : (
-          <p className="mt-4 text-sm text-muted-foreground">
-            <Link to="/candidate/auth" className="text-teal-700 hover:underline">
-              Create a free candidate account
-            </Link>{" "}
-            to track this application and reuse your documents.
-          </p>
-        )}
+        <p className="mt-4 text-sm text-muted-foreground">
+          <Link to="/candidate/auth" className="text-teal-700 hover:underline">
+            Create a free candidate account
+          </Link>{" "}
+          to track this application and reuse your documents.
+        </p>
       </Wrapper>
     );
   }
