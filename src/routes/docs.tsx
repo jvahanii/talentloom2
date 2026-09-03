@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MarketingShell } from "@/components/MarketingShell";
+import loomLogo from "@/assets/kawaii-loom-logo.png";
 import {
   Search,
   FileText,

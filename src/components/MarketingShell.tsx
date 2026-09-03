@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useSession } from "@/lib/auth";
+import loomLogo from "@/assets/kawaii-loom-logo.png";
 
 function SignedInChip() {
   const { user, loading } = useSession();
