@@ -1,9 +1,11 @@
+import { useEffect, useRef } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Briefcase, Building2, EyeOff, RotateCcw, Search } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { StarRating } from "@/components/StarRating";
 import { usePositionRatings } from "@/hooks/usePositionRatings";
+import { useBoardPrefs } from "@/hooks/useBoardPrefs";
 import { listOpenPositions } from "@/lib/apply.functions";
 
 const SORTS = [
@@ -45,8 +47,40 @@ function JobBoard() {
   const navigate = useNavigate({ from: "/apply/" });
   const ratings = usePositionRatings();
 
+  const boardPrefs = useBoardPrefs();
+
   const safeSort = SORTS.some((s) => s.value === sort) ? sort : "newest";
   const safeView = VIEWS.some((v) => v.value === view) ? view : "active";
+
+  // Restore saved selections once, only when the URL carries none of its own.
+  const restored = useRef(false);
+  const search = Route.useSearch();
+  useEffect(() => {
+    if (restored.current || !boardPrefs.ready) return;
+    restored.current = true;
+    const urlHasFilters = !!(search.q || search.org || search.sort || search.view);
+    const p = boardPrefs.prefs;
+    if (urlHasFilters || !p) return;
+    const next = {
+      ...(p.q ? { q: p.q } : {}),
+      ...(p.org_id ? { org: p.org_id } : {}),
+      ...(p.sort && SORTS.some((s) => s.value === p.sort) ? { sort: p.sort } : {}),
+      ...(p.view && VIEWS.some((v) => v.value === p.view) ? { view: p.view } : {}),
+    };
+    if (Object.keys(next).length > 0) navigate({ search: next, replace: true });
+  }, [boardPrefs.ready, boardPrefs.prefs, search, navigate]);
+
+  const apply = (patch: Partial<{ q: string; org: string; sort: string; view: string }>) => {
+    const next = { q, org, sort: safeSort, view: safeView, ...patch };
+    navigate({ search: () => next, replace: true });
+    boardPrefs.save(next);
+  };
+
+  const resetFilters = () => {
+    navigate({ search: () => ({}), replace: true });
+    boardPrefs.save({ q: "", org: "", sort: "newest", view: "active" });
+  };
+
 
   const { data: positions, isLoading } = useQuery({
     queryKey: ["open-positions"],
@@ -99,7 +133,7 @@ function JobBoard() {
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
               value={q}
-              onChange={(e) => navigate({ search: (prev) => ({ ...prev, q: e.target.value }) })}
+              onChange={(e) => apply({ q: e.target.value })}
               placeholder="Search by role, company or team"
               className="w-full bg-transparent text-sm outline-none"
               aria-label="Search open positions"
@@ -107,7 +141,7 @@ function JobBoard() {
           </label>
           <select
             value={org}
-            onChange={(e) => navigate({ search: (prev) => ({ ...prev, org: e.target.value }) })}
+            onChange={(e) => apply({ org: e.target.value })}
             aria-label="Filter by company"
             className="glass rounded-xl px-3 py-2 text-sm sm:w-56"
           >
@@ -118,7 +152,7 @@ function JobBoard() {
           </select>
           <select
             value={safeSort}
-            onChange={(e) => navigate({ search: (prev) => ({ ...prev, sort: e.target.value }) })}
+            onChange={(e) => apply({ sort: e.target.value })}
             aria-label="Sort positions"
             className="glass rounded-xl px-3 py-2 text-sm sm:w-48"
           >
@@ -134,7 +168,7 @@ function JobBoard() {
               <button
                 key={v.value}
                 type="button"
-                onClick={() => navigate({ search: (prev) => ({ ...prev, view: v.value }) })}
+                onClick={() => apply({ view: v.value })}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
                   safeView === v.value
                     ? "bg-primary text-primary-foreground"
@@ -144,6 +178,13 @@ function JobBoard() {
                 {v.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="glass rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+            >
+              Reset filters
+            </button>
           </div>
         ) : (
           <p className="mt-3 text-center text-sm text-muted-foreground">
