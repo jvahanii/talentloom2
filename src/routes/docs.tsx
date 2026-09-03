@@ -45,12 +45,12 @@ function StepList({ steps, delay = 0 }: { steps: Step[]; delay?: number }) {
 }
 
 function Section({
-  emoji,
+  icon: Icon,
   title,
   blurb,
   children,
 }: {
-  emoji: string;
+  icon: LucideIcon;
   title: string;
   blurb: string;
   children: React.ReactNode;
@@ -58,8 +58,8 @@ function Section({
   return (
     <section className="glass pop-in rounded-3xl p-6 sm:p-8">
       <div className="flex items-center gap-3">
-        <span className="wiggle-hover grid h-11 w-11 shrink-0 place-items-center rounded-2xl border-2 border-primary bg-muted text-xl shadow-[0_3px_0_var(--brand-mint)]">
-          {emoji}
+        <span className="wiggle-hover grid h-11 w-11 shrink-0 place-items-center rounded-2xl border-2 border-primary bg-muted text-brand-berry shadow-[0_3px_0_var(--brand-mint)]">
+          <Icon className="h-5 w-5" />
         </span>
         <div>
           <h2 className="font-display text-xl font-bold">{title}</h2>
@@ -101,7 +101,7 @@ function Docs() {
         </header>
 
         <div className="mt-8 grid gap-6">
-          <Section emoji="🌸" title="For candidates" blurb="From browsing to landing the role.">
+          <Section icon={Search} title="For candidates" blurb="From browsing to landing the role.">
             <StepList
               steps={[
                 { icon: Search, text: <>Open <strong>Find a role</strong> to browse public opportunities. Search by title, department, or company, then filter and sort the results.</> },
@@ -113,7 +113,7 @@ function Docs() {
             />
           </Section>
 
-          <Section emoji="🍡" title="For recruiting teams" blurb="One shared funnel for your whole team.">
+          <Section icon={Building2} title="For recruiting teams" blurb="One shared funnel for your whole team.">
             <StepList
               steps={[
                 { icon: UserRound, text: <>Sign up with email or Google and complete onboarding with your personal and company details. Start with sample data or import candidates from CSV.</> },
@@ -127,7 +127,7 @@ function Docs() {
             />
           </Section>
 
-          <Section emoji="🎀" title="Workspace settings" blurb="Make the workspace yours.">
+          <Section icon={Settings2} title="Workspace settings" blurb="Make the workspace yours.">
             <StepList
               steps={[
                 { icon: Settings2, text: <>Update your name, role, company details, and appearance in <strong>Settings</strong>.</> },
@@ -138,7 +138,7 @@ function Docs() {
             />
           </Section>
 
-          <Section emoji="✨" title="Good to know" blurb="Handy facts before you dive in.">
+          <Section icon={Sparkles} title="Good to know" blurb="Handy facts before you dive in.">
             <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <Fact icon={ShieldCheck} text={<>The public job board and apply pages work without sign-in. Recruiter tools require a recruiter account; application history requires a candidate account.</>} />
               <Fact icon={Smartphone} text={<>Funnel drag-and-drop is designed for desktop. On touch devices, use the stage selector on the candidate record.</>} />
