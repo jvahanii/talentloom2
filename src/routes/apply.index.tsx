@@ -47,8 +47,40 @@ function JobBoard() {
   const navigate = useNavigate({ from: "/apply/" });
   const ratings = usePositionRatings();
 
+  const boardPrefs = useBoardPrefs();
+
   const safeSort = SORTS.some((s) => s.value === sort) ? sort : "newest";
   const safeView = VIEWS.some((v) => v.value === view) ? view : "active";
+
+  // Restore saved selections once, only when the URL carries none of its own.
+  const restored = useRef(false);
+  const search = Route.useSearch();
+  useEffect(() => {
+    if (restored.current || !boardPrefs.ready) return;
+    restored.current = true;
+    const urlHasFilters = !!(search.q || search.org || search.sort || search.view);
+    const p = boardPrefs.prefs;
+    if (urlHasFilters || !p) return;
+    const next = {
+      ...(p.q ? { q: p.q } : {}),
+      ...(p.org_id ? { org: p.org_id } : {}),
+      ...(p.sort && SORTS.some((s) => s.value === p.sort) ? { sort: p.sort } : {}),
+      ...(p.view && VIEWS.some((v) => v.value === p.view) ? { view: p.view } : {}),
+    };
+    if (Object.keys(next).length > 0) navigate({ search: next, replace: true });
+  }, [boardPrefs.ready, boardPrefs.prefs, search, navigate]);
+
+  const apply = (patch: Partial<{ q: string; org: string; sort: string; view: string }>) => {
+    const next = { q, org, sort: safeSort, view: safeView, ...patch };
+    navigate({ search: () => next, replace: true });
+    boardPrefs.save(next);
+  };
+
+  const resetFilters = () => {
+    navigate({ search: () => ({}), replace: true });
+    boardPrefs.save({ q: "", org: "", sort: "newest", view: "active" });
+  };
+
 
   const { data: positions, isLoading } = useQuery({
     queryKey: ["open-positions"],
