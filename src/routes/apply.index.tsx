@@ -31,16 +31,22 @@ export const Route = createFileRoute("/apply/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { q?: string; org?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { q?: string; org?: string; sort?: string; view?: string } => ({
     ...(typeof search['q'] === "string" && search['q'] ? { q: search['q'] as string } : {}),
     ...(typeof search['org'] === "string" && search['org'] ? { org: search['org'] as string } : {}),
+    ...(typeof search['sort'] === "string" && search['sort'] ? { sort: search['sort'] as string } : {}),
+    ...(typeof search['view'] === "string" && search['view'] ? { view: search['view'] as string } : {}),
   }),
   component: JobBoard,
 });
 
 function JobBoard() {
-  const { q = "", org = "" } = Route.useSearch();
+  const { q = "", org = "", sort = "newest", view = "active" } = Route.useSearch();
   const navigate = useNavigate({ from: "/apply/" });
+  const ratings = usePositionRatings();
+
+  const safeSort = SORTS.some((s) => s.value === sort) ? sort : "newest";
+  const safeView = VIEWS.some((v) => v.value === view) ? view : "active";
 
   const { data: positions, isLoading } = useQuery({
     queryKey: ["open-positions"],
@@ -53,11 +59,30 @@ function JobBoard() {
   );
 
   const term = q.trim().toLowerCase().slice(0, 100);
-  const filtered = all.filter((p) => {
-    if (org && p.orgId !== org) return false;
-    if (!term) return true;
-    return [p.title, p.orgName, p.department ?? ""].some((v) => v.toLowerCase().includes(term));
-  });
+  const filtered = all
+    .filter((p) => {
+      if (org && p.orgId !== org) return false;
+      const discarded = ratings.isDiscarded(p.id);
+      if (safeView === "discarded" && !discarded) return false;
+      if (safeView !== "discarded" && discarded) return false;
+      if (safeView === "rated" && ratings.ratingOf(p.id) === null) return false;
+      if (!term) return true;
+      return [p.title, p.orgName, p.department ?? ""].some((v) => v.toLowerCase().includes(term));
+    })
+    .sort((a, b) => {
+      switch (safeSort) {
+        case "rating-desc":
+          return (ratings.ratingOf(b.id) ?? 0) - (ratings.ratingOf(a.id) ?? 0);
+        case "rating-asc":
+          return (ratings.ratingOf(a.id) ?? 6) - (ratings.ratingOf(b.id) ?? 6);
+        case "deadline":
+          return (a.deadlineDate ?? "9999").localeCompare(b.deadlineDate ?? "9999");
+        case "company":
+          return a.orgName.localeCompare(b.orgName);
+        default:
+          return 0;
+      }
+    });
 
   return (
     <MarketingShell>
