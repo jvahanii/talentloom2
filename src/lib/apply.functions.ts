@@ -105,11 +105,12 @@ export const getPosition = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
-    const { data: req } = await supabaseAdmin
+    const { data: reqRaw } = await supabaseAdmin
       .from("requisitions")
       .select("id, title, org_id, department, hiring_manager, target_start_date, deadline_date, description, status")
       .eq("id", data.id)
       .maybeSingle();
+    const req = reqRaw as unknown as (PositionListRow & { hiring_manager: string | null; status: string }) | null;
     if (!req || req.status !== "open") return null;
     const { data: org } = await supabaseAdmin
       .from("organizations")
