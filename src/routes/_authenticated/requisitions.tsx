@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -11,6 +11,9 @@ import { downloadPositionAttachments } from "@/lib/download-position-files";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Positions — TalentLoom" }] }),
+  validateSearch: (search: Record<string, unknown>): { position?: string } => ({
+    ...(typeof search['position'] === "string" && search['position'] ? { position: search['position'] as string } : {}),
+  }),
   component: Reqs,
 });
 
@@ -21,6 +24,8 @@ function Reqs() {
   const qc = useQueryClient();
   const { orgId, can } = useOrg();
   const canEdit = can("edit_positions");
+  const navigate = useNavigate({ from: "/requisitions" });
+  const { position } = Route.useSearch();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Req | null>(null);
   const [viewing, setViewing] = useState<Req | null>(null);
@@ -33,6 +38,24 @@ function Reqs() {
       if (error) throw error; return data as unknown as Req[];
     },
   });
+
+  // Deep-link support: opening a shared position link (?position=<id>) opens
+  // that card's overlay directly, once the positions have loaded.
+  useEffect(() => {
+    if (!position || !reqs.data) return;
+    const match = reqs.data.find((r) => r.id === position);
+    if (match) setViewing(match);
+  }, [position, reqs.data]);
+
+  const openViewing = (r: Req) => {
+    setViewing(r);
+    void navigate({ search: (prev) => ({ ...prev, position: r.id }), replace: true });
+  };
+
+  const closeViewing = () => {
+    setViewing(null);
+    void navigate({ search: (prev) => ({ ...prev, position: undefined }), replace: true });
+  };
 
   const counts = useQuery({
     queryKey: ["req-counts", orgId],
@@ -74,8 +97,8 @@ function Reqs() {
             key={r.id}
             role="button"
             tabIndex={0}
-            onClick={() => setViewing(r)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewing(r); } }}
+            onClick={() => openViewing(r)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openViewing(r); } }}
             className="glass cursor-pointer rounded-2xl p-5 text-left transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             <div className="flex items-start justify-between gap-2">
@@ -84,7 +107,7 @@ function Reqs() {
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{r.department || "—"} · {r.hiring_manager || "No hiring manager"}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); copyApplyLink(orgId, r.id); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Copy apply link"><Link2 className="h-4 w-4" /></button>
+                <button onClick={(e) => { e.stopPropagation(); copyPositionLink(r.id); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Copy shareable link"><Link2 className="h-4 w-4" /></button>
                 {canEdit && (
                   <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
                 )}
@@ -102,7 +125,7 @@ function Reqs() {
         {reqs.data && reqs.data.length === 0 && <p className="col-span-full glass rounded-2xl p-10 text-center text-sm text-muted-foreground">No positions yet.</p>}
       </div>
 
-      <ReqCandidatesDialog req={viewing} onOpenChange={(v) => { if (!v) setViewing(null); }} />
+      <ReqCandidatesDialog req={viewing} onOpenChange={(v) => { if (!v) closeViewing(); }} />
 
       <ReqDialog key={editing?.id ?? "new"} open={open} onOpenChange={setOpen} editing={editing} onSaved={() => qc.invalidateQueries({ queryKey: ["reqs"] })} />
     </div>
@@ -251,6 +274,16 @@ async function copyApplyLink(orgId: string | null, requisitionId?: string) {
   try {
     await navigator.clipboard.writeText(url);
     toast.success("Apply link copied");
+  } catch {
+    toast.error(url);
+  }
+}
+
+async function copyPositionLink(requisitionId: string) {
+  const url = `${window.location.origin}/requisitions?position=${requisitionId}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast.success("Shareable link copied");
   } catch {
     toast.error(url);
   }
