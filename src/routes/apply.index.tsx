@@ -116,7 +116,41 @@ function JobBoard() {
               <option key={id} value={id}>{name}</option>
             ))}
           </select>
+          <select
+            value={safeSort}
+            onChange={(e) => navigate({ search: (prev) => ({ ...prev, sort: e.target.value }) })}
+            aria-label="Sort positions"
+            className="glass rounded-xl px-3 py-2 text-sm sm:w-48"
+          >
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
         </div>
+
+        {ratings.signedIn ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {VIEWS.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                onClick={() => navigate({ search: (prev) => ({ ...prev, view: v.value }) })}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                  safeView === v.value
+                    ? "bg-primary text-primary-foreground"
+                    : "glass text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            <Link to="/candidate/auth" className="font-semibold text-primary">Sign in</Link> to rate and shortlist positions.
+          </p>
+        )}
+
 
         <div className="mt-6 grid gap-4">
           {isLoading &&
