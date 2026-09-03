@@ -7,10 +7,10 @@ import heroImage from "@/assets/kawaii-hero-illustration.svg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "TalentLoom — Recruitment pipeline for teams and candidates" },
-      { name: "description", content: "One shared hiring pipeline for recruiters, and a simple way for candidates to find open roles and apply." },
-      { property: "og:title", content: "TalentLoom — Recruitment pipeline for teams and candidates" },
-      { property: "og:description", content: "One shared hiring pipeline for recruiters, and a simple way for candidates to find open roles and apply." },
+      { title: "TalentLoom — Hiring that feels better for everyone" },
+      { name: "description", content: "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster." },
+      { property: "og:title", content: "TalentLoom — Hiring that feels better for everyone" },
+      { property: "og:description", content: "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -33,10 +33,10 @@ function Landing() {
         >
           <div className="relative">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
-              Welcome to the best place to find work and workers
+              Hiring should feel human — for everyone
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              TalentLoom is the place that brings together recruiters and candidates.
+              TalentLoom gives recruiters a polished way to hire and gives candidates a faster, clearer way to find their next opportunity.
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
@@ -44,12 +44,12 @@ function Landing() {
                 className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <Briefcase className="h-7 w-7 text-white" />
-                <span className="mt-4 block font-display text-lg font-semibold text-white">I'm a Recruiter</span>
+                <span className="mt-4 block font-display text-lg font-semibold text-white">I’m hiring</span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Sign in to manage your pipeline, positions and team.
+                  Give candidates a standout experience while keeping every hire moving in one calm, clear workspace.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Recruiter sign in
+                  Build a better hiring experience
                 </span>
               </Link>
               <Link
@@ -57,17 +57,17 @@ function Landing() {
                 className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <UserRound className="h-7 w-7 text-white" />
-                <span className="mt-4 block font-display text-lg font-semibold text-white">I'm a Candidate</span>
+                <span className="mt-4 block font-display text-lg font-semibold text-white">I’m looking for work</span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Browse open roles and apply with your CV — no account needed.
+                  Find roles worth your time, apply in minutes, and keep your applications and documents together.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Find a position
+                  Explore open roles
                 </span>
               </Link>
               <div className="-mt-2 text-center">
                 <Link to="/candidate/auth" className="text-xs text-white/80 underline-offset-2 hover:underline">
-                  Candidate sign in — track your applications
+                  Already applied? Sign in to track your applications
                 </Link>
               </div>
             </div>
@@ -77,12 +77,12 @@ function Landing() {
 
 
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <h2 className="font-display text-3xl font-bold text-center">How it works</h2>
+        <h2 className="font-display text-3xl font-bold text-center">Less busywork. Better hiring.</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {[
-            { t: "1. Open a position", d: "Add the role, hiring manager, and target start date. Your open roles live in one place." },
-            { t: "2. Move candidates through stages", d: "Applied → Screen → Interview → Offer → Hired. Drag between columns on desktop or use the stage picker on mobile." },
-            { t: "3. See the funnel at a glance", d: "Analytics shows time-in-stage, conversion, and candidates by source — no dashboards to build." },
+            { t: "1. Make the opportunity clear", d: "Publish the role, the details, and the next step in one place. Candidates know what to expect before they apply." },
+            { t: "2. Keep every candidate moving", d: "See every application at a glance, share updates with your team, and make sure great people don’t disappear into a spreadsheet." },
+            { t: "3. Spend time where it matters", d: "Simple analytics show what’s working, so you can improve your process and give every candidate a better experience." },
           ].map((s) => (
             <div key={s.t} className="glass rounded-2xl p-6">
               <h3 className="font-display text-lg font-semibold">{s.t}</h3>
@@ -93,7 +93,7 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <h2 className="font-display text-3xl font-bold text-center">Frequently asked</h2>
+        <h2 className="font-display text-3xl font-bold text-center">Good questions. Straight answers.</h2>
         <div className="glass mt-8 rounded-2xl p-2 sm:p-4">
           <Accordion type="single" collapsible>
             <AccordionItem value="a">

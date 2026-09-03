@@ -25,10 +25,10 @@ const VIEWS = [
 export const Route = createFileRoute("/apply/")({
   head: () => ({
     meta: [
-      { title: "Open positions — TalentLoom" },
-      { name: "description", content: "Browse open positions from companies hiring on TalentLoom and apply with your CV in minutes." },
-      { property: "og:title", content: "Open positions — TalentLoom" },
-      { property: "og:description", content: "Browse open positions from companies hiring on TalentLoom and apply with your CV in minutes." },
+      { title: "Find your next role — TalentLoom" },
+      { name: "description", content: "Explore roles from companies hiring on TalentLoom. Find a great fit and apply without wasting your time." },
+      { property: "og:title", content: "Find your next role — TalentLoom" },
+      { property: "og:description", content: "Explore roles from companies hiring on TalentLoom. Find a great fit and apply without wasting your time." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -122,9 +122,9 @@ function JobBoard() {
     <MarketingShell>
       <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-20">
         <div className="text-center">
-          <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">Open positions</h1>
+          <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">Find a role worth your time</h1>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Read the full description of every role companies are hiring for right now, then apply with your CV — no account needed.
+            Browse clear, current opportunities and apply in minutes. No account needed — create one when you want to save time later.
           </p>
         </div>
 
@@ -134,7 +134,7 @@ function JobBoard() {
             <input
               value={q}
               onChange={(e) => apply({ q: e.target.value })}
-              placeholder="Search by role, company or team"
+              placeholder="Try “designer”, “engineer” or a company name"
               className="w-full bg-transparent text-sm outline-none"
               aria-label="Search open positions"
             />
@@ -145,7 +145,7 @@ function JobBoard() {
             aria-label="Filter by company"
             className="glass rounded-xl px-3 py-2 text-sm sm:w-56"
           >
-            <option value="">All companies</option>
+            <option value="">Every company</option>
             {companies.map(([id, name]) => (
               <option key={id} value={id}>{name}</option>
             ))}
@@ -188,7 +188,7 @@ function JobBoard() {
           </div>
         ) : (
           <p className="mt-3 text-center text-sm text-muted-foreground">
-            <Link to="/candidate/auth" className="font-semibold text-primary">Sign in</Link> to rate and shortlist positions.
+            <Link to="/candidate/auth" className="font-semibold text-primary">Sign in</Link> to save your shortlist and keep your search organised.
           </p>
         )}
 
@@ -201,12 +201,12 @@ function JobBoard() {
             <div className="glass rounded-2xl p-10 text-center">
               <Briefcase className="mx-auto h-8 w-8 text-muted-foreground" />
               <h2 className="mt-3 font-display text-lg font-semibold">
-                {all.length === 0 ? "No open positions right now" : "No positions match your search"}
+                {all.length === 0 ? "Nothing open just yet" : "No roles match that search"}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {all.length === 0
-                  ? "Check back soon — new positions are added regularly."
-                  : "Try a different keyword or clear the company filter."}
+                  ? "New opportunities land here regularly. Check back soon — your next role could be on its way."
+                  : "Try another keyword or broaden your company filter."}
               </p>
             </div>
           )}
@@ -241,7 +241,7 @@ function JobBoard() {
               </div>
               {p.excerpt && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-primary">View description &amp; apply →</span>
+                <span className="text-sm font-semibold text-primary">See the role and apply →</span>
                 <span className="flex items-center gap-2">
                   <StarRating
                     value={ratings.ratingOf(p.id)}

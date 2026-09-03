@@ -87,12 +87,12 @@ function CandidatePortalPage() {
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">My applications</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Track where each application stands and manage your saved documents.
+              See what’s happening with every application and keep your best documents ready to go.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link to="/apply" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">
-              Find a position
+              Find my next role
             </Link>
             <button
               onClick={async () => {
@@ -114,7 +114,7 @@ function CandidatePortalPage() {
             <div className="glass rounded-2xl p-10 text-center">
               <Briefcase className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">
-                No applications yet. <Link to="/apply" className="text-teal-700 hover:underline">Browse open positions</Link> to get started.
+                No applications yet. <Link to="/apply" className="text-teal-700 hover:underline">Explore open roles</Link> and make your next move.
               </p>
             </div>
           )}
@@ -216,7 +216,7 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
     <section className="mt-10">
       <h2 className="font-display text-xl font-bold">My documents</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Save several CVs and cover letters, then pick the right one for each application.
+        Keep different CVs and cover letters ready, then choose the right one without hunting through old files.
       </p>
 
       <form onSubmit={upload} className="glass mt-4 grid gap-3 rounded-2xl p-5 sm:grid-cols-4">
@@ -242,7 +242,7 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
           />
         </label>
         <button disabled={busy} className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60">
-          {busy ? "Saving…" : "Save document"}
+          {busy ? "Saving…" : "Save for later"}
         </button>
       </form>
 

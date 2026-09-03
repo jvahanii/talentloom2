@@ -8,8 +8,8 @@ import { Eye, EyeOff } from "lucide-react";
 export const Route = createFileRoute("/candidate/auth")({
   head: () => ({
     meta: [
-      { title: "Candidate sign in — TalentLoom" },
-      { name: "description", content: "Sign in to track your applications and reuse your saved CVs and cover letters." },
+      { title: "Your candidate space — TalentLoom" },
+      { name: "description", content: "Keep your applications and documents in one place, so your next application takes minutes, not hours." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -94,10 +94,10 @@ function CandidateAuthPage() {
       <div className="mx-auto max-w-md px-4 pt-8 pb-16 sm:pt-16">
         <div className="glass-strong rounded-3xl p-6 sm:p-8">
           <h1 className="font-display text-2xl font-bold">
-            {mode === "signin" ? "Candidate sign in" : "Create your candidate account"}
+            {mode === "signin" ? "Welcome back, candidate" : "Make job hunting easier"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Track your applications and reuse your saved CVs and cover letters.
+            {mode === "signin" ? "Pick up where you left off, track your applications, and keep your documents ready." : "Save your applications and documents in one place — so you can spend less time on admin and more time finding the right role."}
           </p>
 
           <button
@@ -144,7 +144,7 @@ function CandidateAuthPage() {
               type="submit"
               className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
             >
-              {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+              {loading ? "One moment…" : mode === "signin" ? "Open my applications" : "Create my free account"}
             </button>
             {mode === "signin" && (
               <button
@@ -159,16 +159,16 @@ function CandidateAuthPage() {
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
+            {mode === "signin" ? "New to TalentLoom?" : "Already set up?"}{" "}
             <button
               className="font-medium text-teal-700 hover:underline"
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             >
-              {mode === "signin" ? "Create an account" : "Sign in"}
+              {mode === "signin" ? "Create my free account" : "Open my applications"}
             </button>
           </p>
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            <Link to="/apply" className="hover:underline">← Browse open positions</Link>
+            <Link to="/apply" className="hover:underline">← Keep exploring roles</Link>
           </p>
         </div>
       </div>

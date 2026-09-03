@@ -14,7 +14,7 @@ export const Route = createFileRoute("/apply/$orgId")({
   head: () => ({
     meta: [
       { title: "Apply for a role — TalentLoom" },
-      { name: "description", content: "Submit your application, CV and cover letter in a couple of minutes." },
+      { name: "description", content: "Apply in minutes with a clear, candidate-friendly application experience." },
       { property: "og:title", content: "Apply for a role" },
       { property: "og:description", content: "Submit your application, CV and cover letter in a couple of minutes." },
       { property: "og:type", content: "website" },
@@ -159,8 +159,8 @@ function ApplyPage() {
 
   return (
     <Wrapper>
-      <h1 className="font-display text-2xl font-bold sm:text-3xl">Apply to {ctx.data.org.name}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Tell us about yourself and attach your CV. It takes two minutes.</p>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Your next move starts here</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Apply to {ctx.data.org.name} in a few simple steps. Your time matters, so we’ve kept this quick.</p>
       {signedIn ? (
         <p className="mt-2 text-xs text-muted-foreground">
           You're signed in — your saved documents are available below and the application will appear in{" "}
@@ -240,7 +240,7 @@ function ApplyPage() {
 
         <div className="sm:col-span-2">
           <button disabled={busy} type="submit" className="btn-teal w-full rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60">
-            {busy ? "Submitting…" : "Submit application"}
+            {busy ? "Sending your application…" : "Send my application"}
           </button>
           <p className="mt-2 text-center text-xs text-muted-foreground">PDF, DOC or DOCX · up to 10 MB per file</p>
         </div>
