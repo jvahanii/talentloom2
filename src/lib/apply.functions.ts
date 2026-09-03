@@ -260,7 +260,28 @@ export const submitApplication = createServerFn({ method: "POST" })
         if (!upErr) {
           if (kind === "cv") uploads.cv_path = path;
           else uploads.cover_letter_path = path;
+
+          // Signed-in candidates: keep a copy in "My documents" so the file can
+          // be reused for future applications.
+          if (applicantUserId) {
+            const ext = extOf(file.name);
+            const docPath = `applicants/${applicantUserId}/${kind}-${Date.now()}.${ext}`;
+            const { error: docUpErr } = await supabaseAdmin.storage
+              .from("candidate-files")
+              .upload(docPath, Buffer.from(file.data, "base64"), {
+                contentType: file.type || "application/octet-stream",
+                upsert: false,
+              });
+            if (!docUpErr) {
+              const label = file.name.replace(/\.[^.]+$/, "").slice(0, 120) || file.name.slice(0, 120);
+              const { error: docErr } = await supabaseAdmin
+                .from("candidate_documents")
+                .insert({ user_id: applicantUserId, kind, label, path: docPath });
+              if (docErr) await supabaseAdmin.storage.from("candidate-files").remove([docPath]);
+            }
+          }
         }
+
       } else if (sourcePath) {
         // Copy the candidate's saved document into the org-owned prefix so the
         // hiring team can open it under their storage policy.
