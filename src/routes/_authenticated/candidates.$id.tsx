@@ -106,7 +106,7 @@ function CandidateDetail() {
   return (
     <div>
       <Link to="/pipeline" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to pipeline
+        <ArrowLeft className="h-4 w-4" /> Back to funnel
       </Link>
       <div className="mt-3 grid gap-4 lg:grid-cols-3">
         <div className="glass rounded-2xl p-5 lg:col-span-2">

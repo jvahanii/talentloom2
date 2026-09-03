@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 
 const NAV = [
-  { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { to: "/pipeline", label: "Funnel", icon: KanbanSquare },
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/requisitions", label: "Positions", icon: Briefcase },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
