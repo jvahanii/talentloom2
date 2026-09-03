@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -160,6 +160,15 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const autoLabelRef = useRef("");
+
+  const pickFile = (picked: File | null) => {
+    setFile(picked);
+    if (!picked) return;
+    const auto = picked.name.replace(/\.[^.]+$/, "").slice(0, 120);
+    setLabel((current) => (current.trim() === "" || current === autoLabelRef.current ? auto : current));
+    autoLabelRef.current = auto;
+  };
 
   const upload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,7 +238,7 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
             type="file"
             accept={ACCEPTED_FILE_TYPES}
             className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
           />
         </label>
         <button disabled={busy} className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60">
