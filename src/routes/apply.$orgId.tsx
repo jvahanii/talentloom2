@@ -43,6 +43,7 @@ const inputCls = "w-full rounded-xl border border-input bg-white/70 px-3 py-2 te
 function ApplyPage() {
   const { orgId } = Route.useParams();
   const { req } = Route.useSearch();
+  const navigate = useNavigate();
   const ctxFn = useServerFn(getApplyContext);
   const submitFn = useServerFn(submitApplication);
 
