@@ -36,7 +36,7 @@ export function StarRating({ value, onChange, disabled, size = "sm", label }: St
             <Star
               className={cn(
                 dim,
-                active ? "fill-accent text-accent" : "text-muted-foreground/50",
+                active ? "fill-primary text-primary" : "text-muted-foreground/50",
               )}
             />
           </button>
