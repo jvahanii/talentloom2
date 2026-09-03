@@ -16,6 +16,7 @@ import {
   type CandidateDocument,
 } from "@/lib/candidate-portal.functions";
 import { ACCEPTED_FILE_TYPES, validateCandidateFile, candidateFileUrl } from "@/lib/candidate-files";
+import { formatDate } from "@/lib/utils";
 import { FileText, Upload, Trash2, Pencil, Download, Briefcase } from "lucide-react";
 
 export const Route = createFileRoute("/candidate/applications")({
@@ -125,7 +126,7 @@ function CandidatePortalPage() {
                   <div>
                     <h2 className="font-display text-lg font-semibold">{a.positionTitle}</h2>
                     <p className="text-sm text-muted-foreground">
-                      {a.orgName} · applied {new Date(a.created_at).toLocaleDateString()}
+                      {a.orgName} · applied {formatDate(a.created_at)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {[a.cvName && `CV: ${a.cvName}`, a.coverLetterName && `Cover letter: ${a.coverLetterName}`]

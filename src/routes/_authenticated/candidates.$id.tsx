@@ -177,7 +177,7 @@ function CandidateDetail() {
                   {h.from_stage && <><span className="rounded-full bg-muted border border-border px-2 py-0.5 text-foreground/80">{STAGE_LABEL[h.from_stage as Stage]}</span> →</>}
                   <span className="rounded-full bg-primary/15 border border-primary/30 px-2 py-0.5 font-medium text-primary">{STAGE_LABEL[h.to_stage as Stage]}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{new Date(h.changed_at).toLocaleString()}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(h.changed_at)}</p>
               </li>
             ))}
             {history.data?.length === 0 && <p className="text-xs text-muted-foreground">No changes yet.</p>}

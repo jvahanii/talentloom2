@@ -313,7 +313,7 @@ export function OrgSettings() {
                 <li key={inv.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="min-w-0 flex-1 truncate">
                     {inv.email} · {inv.title_id ? titleById.get(inv.title_id)?.name ?? "Title" : "No title"} · expires{" "}
-                    {new Date(inv.expires_at).toLocaleDateString()}
+                    {formatDate(inv.expires_at)}
                   </span>
                   <button
                     onClick={() => copy(`${window.location.origin}/invite/${inv.token}`)}
