@@ -63,12 +63,13 @@ export function useBoardPrefs() {
         sort: sel.sort || null,
         view: sel.view || null,
       };
-      queryClient.setQueryData<BoardPrefs | null>(KEY, {
+      const next: BoardPrefs = {
         q: payload.q,
         org_id: payload.orgId,
         sort: payload.sort,
         view: payload.view,
-      });
+      };
+      queryClient.setQueryData(KEY, next);
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         // Best-effort: a failed preference save should never interrupt browsing.
