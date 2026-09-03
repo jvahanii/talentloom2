@@ -50,7 +50,7 @@ function Reqs() {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-bold sm:text-3xl">Positions</h1>
-          <p className="text-sm text-muted-foreground">Open roles you're hiring for.</p>
+          <p className="text-sm text-muted-foreground">Positions you're hiring for.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
