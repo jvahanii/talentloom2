@@ -144,13 +144,20 @@ export const getApplyContext = createServerFn({ method: "POST" })
         org: null,
         roles: [] as { id: string; title: string; department: string | null; description: string | null; deadline_date: string | null }[],
       };
-    const { data: reqs } = await supabaseAdmin
+    const { data: reqsRaw } = await supabaseAdmin
       .from("requisitions")
       .select("id, title, department, description, deadline_date")
       .eq("org_id", data.org_id)
       .eq("status", "open")
       .order("title");
-    return { org: { id: org.id, name: org.name }, roles: reqs ?? [] };
+    const roles = (reqsRaw ?? []) as unknown as {
+      id: string;
+      title: string;
+      department: string | null;
+      description: string | null;
+      deadline_date: string | null;
+    }[];
+    return { org: { id: org.id, name: org.name }, roles };
   });
 
 export const submitApplication = createServerFn({ method: "POST" })
