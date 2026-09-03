@@ -160,6 +160,15 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
   const [busy, setBusy] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const autoLabelRef = useRef("");
+
+  const pickFile = (picked: File | null) => {
+    setFile(picked);
+    if (!picked) return;
+    const auto = picked.name.replace(/\.[^.]+$/, "").slice(0, 120);
+    setLabel((current) => (current.trim() === "" || current === autoLabelRef.current ? auto : current));
+    autoLabelRef.current = auto;
+  };
 
   const upload = async (e: React.FormEvent) => {
     e.preventDefault();
