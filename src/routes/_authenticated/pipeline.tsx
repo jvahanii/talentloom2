@@ -9,7 +9,7 @@ import { NewCandidateDialog } from "@/components/NewCandidateDialog";
 import { useOrg } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
-  head: () => ({ meta: [{ title: "Pipeline — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Funnel — TalentLoom" }] }),
   component: Pipeline,
 });
 
@@ -60,7 +60,7 @@ function Pipeline() {
     <div>
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold sm:text-3xl">Pipeline</h1>
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">Funnel</h1>
           <p className="text-sm text-muted-foreground">Keep every candidate moving and every handoff clear.</p>
         </div>
         {canEdit && (

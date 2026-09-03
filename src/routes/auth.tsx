@@ -94,14 +94,14 @@ function AuthPage() {
               </button>
             </div>
             <button disabled={loading} type="submit" className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
-              {loading ? "One moment…" : mode === "signin" ? "Open my pipeline" : "Create my workspace"}
+              {loading ? "One moment…" : mode === "signin" ? "Open my funnel" : "Create my workspace"}
             </button>
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {mode === "signin" ? "Ready to improve your hiring flow?" : "Already have a workspace?"}{" "}
             <button className="font-medium text-teal-700 hover:underline" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
-              {mode === "signin" ? "Create my workspace" : "Open my pipeline"}
+              {mode === "signin" ? "Create my workspace" : "Open my funnel"}
             </button>
           </p>
           <p className="mt-6 text-center text-xs text-muted-foreground"><Link to="/" className="hover:underline">← See how TalentLoom works</Link></p>

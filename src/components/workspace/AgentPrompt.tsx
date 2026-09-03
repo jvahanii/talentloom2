@@ -53,7 +53,7 @@ export function AgentPrompt({
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={onKey}
             rows={1}
-            placeholder={busy ? "Thinking…" : "Ask anything about your pipeline…"}
+            placeholder={busy ? "Thinking…" : "Ask anything about your funnel…"}
             disabled={busy}
             className="flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60"
           />

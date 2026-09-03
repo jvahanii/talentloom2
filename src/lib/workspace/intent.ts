@@ -76,7 +76,7 @@ export function parseFreeText(input: string): ModuleSpec | null {
   if (!t) return null;
   const lower = t.toLowerCase();
 
-  if (/(^|\b)(pipeline|kanban|board|graph|stages)(\b|$)/.test(lower)) {
+  if (/(^|\b)(funnel|pipeline|kanban|board|graph|stages)(\b|$)/.test(lower)) {
     return { kind: "graph" };
   }
   if (/(funnel|conversion)/.test(lower)) {

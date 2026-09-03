@@ -57,7 +57,7 @@ export function Viewport({ turns }: { turns: ChatTurn[] }) {
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
               Your organization's recruiting brain. Ask in plain English — I'll pull from
-              your pipeline, positions, candidates, and stage history to answer.
+              your funnel, positions, candidates, and stage history to answer.
             </p>
 
             <div className="mx-auto mt-6 max-w-xl text-left">
@@ -66,7 +66,7 @@ export function Viewport({ turns }: { turns: ChatTurn[] }) {
               </div>
               <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
                 <li>· Who's stuck in interview for the Senior Engineer role?</li>
-                <li>· How's our pipeline looking this week?</li>
+                <li>· How's our funnel looking this week?</li>
                 <li>· Which source has the best offer conversion?</li>
                 <li>· Give me an update on Ava Thompson</li>
                 <li>· What roles are open and who's furthest along on each?</li>
