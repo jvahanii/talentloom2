@@ -92,7 +92,7 @@ function Reqs() {
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
               <span className={`rounded-full px-2 py-1 font-medium border ${r.status === "open" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border"}`}>{REQ_STATUS_LABEL[r.status]}</span>
               <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">{counts.data?.[r.id] ?? 0} candidates</span>
-              {r.target_start_date && <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">Start {r.target_start_date}</span>}
+              {r.target_start_date && <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">Published {r.target_start_date}</span>}
               {r.deadline_date && <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">Deadline {r.deadline_date}</span>}
             </div>
             {r.notes && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{r.notes}</p>}
