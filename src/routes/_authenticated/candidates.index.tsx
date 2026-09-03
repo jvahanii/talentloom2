@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { Search } from "lucide-react";

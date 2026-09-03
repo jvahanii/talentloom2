@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { STAGES, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";

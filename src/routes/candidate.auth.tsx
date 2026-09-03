@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { supabase } from "@/integrations/supabase/app-client";
 import { toast } from "sonner";
 import { MarketingShell } from "@/components/MarketingShell";
 
@@ -81,11 +80,11 @@ function CandidateAuthPage() {
   };
 
   const google = async () => {
-    const res = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/candidate/auth",
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/candidate/auth" },
     });
-    if (res.error) toast.error("Google sign-in failed");
-    else if (!res.redirected) navigate({ to: "/candidate/applications", replace: true });
+    if (error) toast.error("Google sign-in failed");
   };
 
   return (

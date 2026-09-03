@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, MoreHorizontal, FileText, Upload, Download, Settings as SettingsIcon, Book } from "lucide-react";
 import {

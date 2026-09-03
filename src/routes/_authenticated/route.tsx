@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { AppShell } from "@/components/AppShell";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAuth } from "@/integrations/supabase/app-auth-middleware";
 import { z } from "zod";
 
 const BUCKET = "candidate-files";
@@ -61,7 +61,7 @@ export const claimMyApplications = createServerFn({ method: "POST" })
     const { data: userData } = await context.supabase.auth.getUser();
     const email = userData.user?.email;
     if (!email) return { claimed: 0 };
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const { data } = await supabaseAdmin
       .from("candidates")
       .update({ applicant_user_id: context.userId })
@@ -84,7 +84,7 @@ export const myApplications = createServerFn({ method: "GET" })
     if (!rows || rows.length === 0) return [] as MyApplication[];
 
     // Requisition/organisation names are recruiter-scoped tables; look them up server-side.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const reqIds = [...new Set(rows.map((r) => r.requisition_id).filter(Boolean))] as string[];
     const orgIds = [...new Set(rows.map((r) => r.org_id))];
     const [{ data: reqs }, { data: orgs }] = await Promise.all([

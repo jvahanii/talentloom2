@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";

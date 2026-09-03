@@ -3,7 +3,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { KanbanSquare, Users, Briefcase, Settings, BarChart3, Download, Upload, LogOut, Building2, Plus } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { useSession } from "@/lib/auth";
 import { OrgProvider, useOrg } from "@/lib/org";
 import { toast } from "sonner";

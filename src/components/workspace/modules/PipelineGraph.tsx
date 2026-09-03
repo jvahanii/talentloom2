@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { STAGES, STAGE_LABEL, type Stage } from "@/lib/constants";
 
 type Cand = { id: string; name: string; stage: Stage; source: string | null };

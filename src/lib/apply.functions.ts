@@ -45,7 +45,7 @@ function rateLimited(ip: string, limit = 5, windowMs = 10 * 60_000) {
 }
 
 export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   const { data: reqs } = await supabaseAdmin
     .from("requisitions")
     .select("id, org_id")
@@ -63,7 +63,7 @@ export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(a
 });
 
 export const listOpenPositions = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   const { data: reqs } = await supabaseAdmin
     .from("requisitions")
     .select("id, title, org_id, department, target_start_date, description, created_at")
@@ -90,7 +90,7 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(async
 export const getPosition = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const { data: req } = await supabaseAdmin
       .from("requisitions")
       .select("id, title, org_id, department, hiring_manager, target_start_date, description, status")
@@ -117,7 +117,7 @@ export const getPosition = createServerFn({ method: "POST" })
 export const getApplyContext = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => OrgIdSchema.parse(input))
   .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const { data: org } = await supabaseAdmin
       .from("organizations")
       .select("id, name")
@@ -154,7 +154,7 @@ export const submitApplication = createServerFn({ method: "POST" })
     }
     if (!data.cv && !data.saved_cv_id) throw new Error("Please attach your CV.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
 
     // Signed-in candidates: attach the application to their account. The bearer
     // token is optional — anonymous applicants submit without one.
