@@ -199,7 +199,34 @@ function JobBoard() {
                 </span>
               </div>
               {p.excerpt && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
-              <span className="mt-4 inline-block text-sm font-semibold text-primary">View description &amp; apply →</span>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-primary">View description &amp; apply →</span>
+                <span className="flex items-center gap-2">
+                  <StarRating
+                    value={ratings.ratingOf(p.id)}
+                    disabled={!ratings.signedIn}
+                    onChange={(v) => ratings.setRating(p.id, v)}
+                    label={`Your rating for ${p.title}`}
+                  />
+                  {ratings.signedIn && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        ratings.setDiscarded(p.id, !ratings.isDiscarded(p.id));
+                      }}
+                      className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+                    >
+                      {ratings.isDiscarded(p.id) ? (
+                        <><RotateCcw className="h-3.5 w-3.5" /> Restore</>
+                      ) : (
+                        <><EyeOff className="h-3.5 w-3.5" /> Discard</>
+                      )}
+                    </button>
+                  )}
+                </span>
+              </div>
             </Link>
           ))}
         </div>
