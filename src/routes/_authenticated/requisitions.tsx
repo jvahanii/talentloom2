@@ -77,12 +77,6 @@ function Reqs() {
           <p className="text-sm text-muted-foreground">Give great candidates a clear first impression of your company.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => copyApplyLink(orgId)}
-            className="glass inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-white/80"
-          >
-            <Link2 className="h-4 w-4" /> <span className="hidden sm:inline">Copy apply link</span>
-          </button>
           {canEdit && (
             <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
               <Plus className="h-4 w-4" /> New
