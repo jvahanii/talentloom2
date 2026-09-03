@@ -65,7 +65,7 @@ export const askAgent = createServerFn({ method: "POST" })
       .eq("org_id", orgId)
       .eq("user_id", context.userId)
       .maybeSingle();
-    if (!membership) throw new Error("You are not a member of this workspace.");
+    if (!membership) throw new Error("You are not a member of this organisation.");
 
     // Per-user daily cap, enforced in the database as the calling user.
     const { data: allowed, error: usageError } = await supabase.rpc("bump_ai_usage", {

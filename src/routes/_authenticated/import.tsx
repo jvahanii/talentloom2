@@ -70,7 +70,7 @@ function ImportPage() {
       const reqByTitle = new Map((reqs ?? []).map((r) => [r.title.toLowerCase(), r.id]));
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
-      if (!orgId) throw new Error("No workspace selected");
+      if (!orgId) throw new Error("No organisation selected");
 
       const inserts = data.map((r) => {
         const get = (f: string) => { const i = mapping[f]; return i !== undefined && i !== "" ? (r[Number(i)] ?? "").trim() : ""; };

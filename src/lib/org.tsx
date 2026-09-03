@@ -109,7 +109,7 @@ async function fetchMemberships(): Promise<OrgMembership[]> {
   return ((data ?? []) as unknown as MemberRow[]).map((m) => ({
     org_id: m.org_id,
     role: m.role,
-    name: m.organizations?.name ?? "Workspace",
+    name: m.organizations?.name ?? "Organisation",
     title_id: m.title_id,
     title_name: m.organization_titles?.name ?? null,
     permissions: toPermissions(m.organization_titles),
@@ -126,7 +126,7 @@ export async function ensureOrg(userId: string, name?: string): Promise<string> 
     .maybeSingle();
   if (m?.org_id) return m.org_id;
   const { data, error } = await supabase.rpc("create_organization", {
-    _name: name?.trim() || "My workspace",
+    _name: name?.trim() || "My organisation",
   });
   if (error) throw error;
   return data as string;

@@ -106,7 +106,7 @@ function Onboarding() {
             window.sessionStorage.removeItem(PENDING_INVITE_KEY);
             window.localStorage.setItem("talently:current-org", joinedOrg as string);
             setOrgId(joinedOrg as string);
-            toast.success("You joined the workspace");
+            toast.success("You joined the organisation");
           }
         }
       } catch {
@@ -443,7 +443,7 @@ function Step3({
       if (nameI < 0) throw new Error("CSV needs a 'name' column");
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
-      if (!orgId) throw new Error("Workspace not ready yet — go back one step and continue again");
+      if (!orgId) throw new Error("Organisation not ready yet — go back one step and continue again");
       const emailI = idx("email"), phoneI = idx("phone"), sourceI = idx("source"),
         stageI = idx("stage"), notesI = idx("notes"), reqI = idx("requisition_title");
       const inserts = rows.slice(1).map((r) => {

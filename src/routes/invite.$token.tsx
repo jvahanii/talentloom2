@@ -7,7 +7,7 @@ export const Route = createFileRoute("/invite/$token")({
   head: () => ({
     meta: [
       { title: "Accept invite — TalentLoom" },
-      { name: "description", content: "Accept your invitation to join a hiring workspace on TalentLoom." },
+      { name: "description", content: "Accept your invitation to join a hiring organisation on TalentLoom." },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -35,7 +35,7 @@ function InvitePage() {
         navigate({ to: "/auth" });
         return;
       }
-      setMessage("Joining workspace…");
+      setMessage("Joining organisation…");
       const { data: orgId, error } = await supabase.rpc("accept_invite", { _token: token });
       if (cancelled) return;
       if (error || !orgId) {
@@ -68,7 +68,7 @@ function InvitePage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-xl">
-        <p className="text-lg font-semibold">Workspace invite</p>
+        <p className="text-lg font-semibold">Organisation invite</p>
         <p className="mt-2 text-sm text-muted-foreground">{message}</p>
       </div>
     </div>
