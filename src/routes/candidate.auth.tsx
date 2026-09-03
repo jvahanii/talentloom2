@@ -81,11 +81,11 @@ function CandidateAuthPage() {
   };
 
   const google = async () => {
-    const res = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/candidate/auth",
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/candidate/auth" },
     });
-    if (res.error) toast.error("Google sign-in failed");
-    else if (!res.redirected) navigate({ to: "/candidate/applications", replace: true });
+    if (error) toast.error("Google sign-in failed");
   };
 
   return (
