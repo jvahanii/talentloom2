@@ -66,7 +66,7 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(async
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   const { data: reqs } = await supabaseAdmin
     .from("requisitions")
-    .select("id, title, org_id, department, target_start_date, description, created_at")
+    .select("id, title, org_id, department, target_start_date, deadline_date, description, created_at")
     .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -83,6 +83,7 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(async
     orgName: names.get(r.org_id) ?? "A company",
     department: r.department,
     targetStartDate: r.target_start_date,
+    deadlineDate: r.deadline_date,
     excerpt: (r.description ?? "").slice(0, 220),
   }));
 });
@@ -93,7 +94,7 @@ export const getPosition = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const { data: req } = await supabaseAdmin
       .from("requisitions")
-      .select("id, title, org_id, department, hiring_manager, target_start_date, description, status")
+      .select("id, title, org_id, department, hiring_manager, target_start_date, deadline_date, description, status")
       .eq("id", data.id)
       .maybeSingle();
     if (!req || req.status !== "open") return null;
@@ -110,6 +111,7 @@ export const getPosition = createServerFn({ method: "POST" })
       department: req.department,
       hiringManager: req.hiring_manager,
       targetStartDate: req.target_start_date,
+      deadlineDate: req.deadline_date,
       description: req.description ?? "",
     };
   });
@@ -126,11 +128,11 @@ export const getApplyContext = createServerFn({ method: "POST" })
     if (!org)
       return {
         org: null,
-        roles: [] as { id: string; title: string; department: string | null; description: string | null }[],
+        roles: [] as { id: string; title: string; department: string | null; description: string | null; deadline_date: string | null }[],
       };
     const { data: reqs } = await supabaseAdmin
       .from("requisitions")
-      .select("id, title, department, description")
+      .select("id, title, department, description, deadline_date")
       .eq("org_id", data.org_id)
       .eq("status", "open")
       .order("title");
