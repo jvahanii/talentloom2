@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_authenticated/requisitions")({
 });
 
 type ReqStatus = "open" | "on_hold" | "filled" | "closed";
-interface Req { id: string; title: string; department: string | null; hiring_manager: string | null; status: ReqStatus; target_start_date: string | null; notes: string | null; description: string | null }
+interface Req { id: string; title: string; department: string | null; hiring_manager: string | null; status: ReqStatus; target_start_date: string | null; deadline_date: string | null; notes: string | null; description: string | null }
 
 function Reqs() {
   const qc = useQueryClient();
@@ -29,7 +29,7 @@ function Reqs() {
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
-      if (error) throw error; return data as Req[];
+      if (error) throw error; return data as unknown as Req[];
     },
   });
 
@@ -93,6 +93,7 @@ function Reqs() {
               <span className={`rounded-full px-2 py-1 font-medium border ${r.status === "open" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground border-border"}`}>{REQ_STATUS_LABEL[r.status]}</span>
               <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">{counts.data?.[r.id] ?? 0} candidates</span>
               {r.target_start_date && <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">Start {r.target_start_date}</span>}
+              {r.deadline_date && <span className="rounded-full bg-muted border border-border px-2 py-1 text-foreground/80">Deadline {r.deadline_date}</span>}
             </div>
             {r.notes && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{r.notes}</p>}
           </div>
@@ -160,6 +161,7 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
   const [hiring_manager, setHM] = useState(editing?.hiring_manager ?? "");
   const [status, setStatus] = useState<ReqStatus>(editing?.status ?? "open");
   const [target_start_date, setStart] = useState(editing?.target_start_date ?? "");
+  const [deadline_date, setDeadline] = useState(editing?.deadline_date ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [saving, setSaving] = useState(false);
@@ -170,15 +172,15 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
-      const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, description: description || null, notes: notes || null };
+      const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, deadline_date: deadline_date || null, description: description || null, notes: notes || null } as Record<string, unknown>;
       if (!editing && !orgId) throw new Error("No workspace selected");
       const { error } = editing
-        ? await supabase.from("requisitions").update(payload).eq("id", editing.id)
-        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! });
+        ? await supabase.from("requisitions").update(payload as never).eq("id", editing.id)
+        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! } as never);
       if (error) throw error;
       toast.success(editing ? "Updated" : "Created");
       onSaved(); onOpenChange(false);
-      setTitle(""); setDepartment(""); setHM(""); setStatus("open"); setStart(""); setDescription(""); setNotes("");
+      setTitle(""); setDepartment(""); setHM(""); setStatus("open"); setStart(""); setDeadline(""); setDescription(""); setNotes("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally { setSaving(false); }
@@ -198,7 +200,11 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
             <select value={status} onChange={(e) => setStatus(e.target.value as ReqStatus)} className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm">
               {Object.entries(REQ_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
-            <input type="date" value={target_start_date} onChange={(e) => setStart(e.target.value)} className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+            <input type="date" value={target_start_date} onChange={(e) => setStart(e.target.value)} aria-label="Target start date" className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Application deadline (shown publicly)</label>
+            <input type="date" value={deadline_date} onChange={(e) => setDeadline(e.target.value)} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Job description (shown publicly to candidates)</label>

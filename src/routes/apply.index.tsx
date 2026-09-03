@@ -110,11 +110,18 @@ function JobBoard() {
                     {p.department ? ` · ${p.department}` : ""}
                   </p>
                 </div>
-                {p.targetStartDate && (
-                  <span className="rounded-full border border-border bg-muted px-2 py-1 text-xs text-foreground/80">
-                    Starts {p.targetStartDate}
-                  </span>
-                )}
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  {p.targetStartDate && (
+                    <span className="rounded-full border border-border bg-muted px-2 py-1 text-xs text-foreground/80">
+                      Starts {p.targetStartDate}
+                    </span>
+                  )}
+                  {p.deadlineDate && (
+                    <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                      Apply by {p.deadlineDate}
+                    </span>
+                  )}
+                </span>
               </div>
               {p.excerpt && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
               <span className="mt-4 inline-block text-sm font-semibold text-primary">View description &amp; apply →</span>
