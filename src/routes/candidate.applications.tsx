@@ -238,7 +238,7 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
             type="file"
             accept={ACCEPTED_FILE_TYPES}
             className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
           />
         </label>
         <button disabled={busy} className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60">
