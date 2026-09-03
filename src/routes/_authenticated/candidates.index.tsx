@@ -10,9 +10,9 @@ export const Route = createFileRoute("/_authenticated/candidates/")({
   head: () => ({
     meta: [
       { title: "Candidates — TalentLoom" },
-      { name: "description", content: "Every candidate in your funnel with their stage and the role they're up for." },
+      { name: "description", content: "Every candidate in your candidate flow with their stage and the role they're up for." },
       { property: "og:title", content: "Candidates — TalentLoom" },
-      { property: "og:description", content: "Every candidate in your funnel with their stage and the role they're up for." },
+      { property: "og:description", content: "Every candidate in your candidate flow with their stage and the role they're up for." },
     ],
   }),
   component: CandidatesPage,

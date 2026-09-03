@@ -42,12 +42,12 @@ export function PipelineGraph() {
   return (
     <div className="glass rounded-2xl p-5">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-display text-lg font-semibold text-foreground">Funnel graph</h3>
+        <h3 className="font-display text-lg font-semibold text-foreground">Candidate flow graph</h3>
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{cands.data?.length ?? 0} candidates</span>
       </div>
 
       <div className="mt-4 -mx-1 overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[560px]" role="img" aria-label="Funnel stages graph">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[560px]" role="img" aria-label="Candidate flow stages graph">
           <defs>
             <linearGradient id="edge" x1="0" x2="1">
               <stop offset="0%" stopColor="#FF5FA2" stopOpacity="0.7" />
