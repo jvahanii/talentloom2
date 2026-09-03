@@ -109,7 +109,7 @@ export function Viewport({ turns }: { turns: ChatTurn[] }) {
                 {turn.pending && !turn.reply ? (
                   <ThinkingDots />
                 ) : (
-                  <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-[#4B73FF] prose-code:text-foreground prose-code:bg-secondary prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none">
+                  <div className="prose prose-sm max-w-none text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-a:text-[#FF5FA2] prose-code:text-foreground prose-code:bg-secondary prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none">
                     <ReactMarkdown
                       disallowedElements={DISALLOWED_ELEMENTS}
                       unwrapDisallowed
