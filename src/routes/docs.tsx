@@ -89,8 +89,8 @@ function Docs() {
         {/* Hero */}
         <header className="glass-strong pop-in relative overflow-hidden rounded-3xl p-8 text-center sm:p-10">
           <div className="candy-stripes absolute inset-x-0 top-0 h-3" />
-          <div className="bob mx-auto grid h-16 w-16 place-items-center rounded-3xl border-2 border-primary bg-accent text-3xl shadow-[0_4px_0_var(--brand-bubblegum)]">
-            ˘ᴗ˘
+          <div className="bob mx-auto grid h-16 w-16 place-items-center rounded-3xl border-2 border-primary bg-accent shadow-[0_4px_0_var(--brand-bubblegum)]">
+            <img src={loomLogo} alt="TalentLoom loom mascot" width={512} height={512} loading="lazy" className="h-11 w-11" />
           </div>
           <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
             TalentLoom <span className="text-duotone">user guide</span>
