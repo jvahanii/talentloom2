@@ -6,7 +6,7 @@ import { MarketingShell } from "@/components/MarketingShell";
 import { Eye, EyeOff } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Recruiter workspace — TalentLoom" }] }),
   component: AuthPage,
 });
 
@@ -62,9 +62,9 @@ function AuthPage() {
     <MarketingShell>
       <div className="mx-auto max-w-md px-4 pt-8 pb-16 sm:pt-16">
         <div className="glass-strong rounded-3xl p-6 sm:p-8">
-          <h1 className="font-display text-2xl font-bold">{mode === "signin" ? "Welcome back" : "Create your workspace"}</h1>
+          <h1 className="font-display text-2xl font-bold">{mode === "signin" ? "Welcome back, recruiter" : "Build a better hiring experience"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin" ? "Sign in to your pipeline." : "Your data is private to you."}
+            {mode === "signin" ? "Pick up where your team left off and keep great candidates moving." : "Create a calm, organised workspace that makes your company look as good as it is."}
           </p>
 
           <button onClick={google} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl glass px-4 py-2.5 text-sm font-medium hover:bg-white/80">
@@ -94,17 +94,17 @@ function AuthPage() {
               </button>
             </div>
             <button disabled={loading} type="submit" className="btn-teal w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-60">
-              {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+              {loading ? "One moment…" : mode === "signin" ? "Open my pipeline" : "Create my workspace"}
             </button>
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
+            {mode === "signin" ? "Ready to improve your hiring flow?" : "Already have a workspace?"}{" "}
             <button className="font-medium text-teal-700 hover:underline" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
-              {mode === "signin" ? "Create an account" : "Sign in"}
+              {mode === "signin" ? "Create my workspace" : "Open my pipeline"}
             </button>
           </p>
-          <p className="mt-6 text-center text-xs text-muted-foreground"><Link to="/" className="hover:underline">← Back to home</Link></p>
+          <p className="mt-6 text-center text-xs text-muted-foreground"><Link to="/" className="hover:underline">← See how TalentLoom works</Link></p>
         </div>
       </div>
     </MarketingShell>

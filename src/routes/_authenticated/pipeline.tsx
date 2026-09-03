@@ -61,11 +61,11 @@ function Pipeline() {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-bold sm:text-3xl">Pipeline</h1>
-          <p className="text-sm text-muted-foreground">Move candidates through your hiring stages.</p>
+          <p className="text-sm text-muted-foreground">Keep every candidate moving and every handoff clear.</p>
         </div>
         {canEdit && (
           <button onClick={() => setOpen(true)} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add candidate</span>
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add a candidate</span>
           </button>
         )}
       </div>

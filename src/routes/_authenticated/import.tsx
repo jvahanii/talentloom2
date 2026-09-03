@@ -119,7 +119,7 @@ function ImportPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Import candidates</h1>
-      <p className="text-sm text-muted-foreground">Upload a CSV. We'll auto-map columns and let you fix any that don't match.</p>
+      <p className="text-sm text-muted-foreground">Bring your candidate list with you. We’ll match the columns and flag anything that needs a quick fix.</p>
 
       <div className="mt-4 flex flex-wrap gap-3">
         <button onClick={downloadTemplate} className="glass inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium hover:bg-white/80">

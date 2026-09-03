@@ -62,11 +62,11 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add candidate</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Add someone to your pipeline</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Candidate’s full name" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Their email address" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone (optional)" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           <select value={reqId} onChange={(e) => setReqId(e.target.value)} className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm">
             <option value="">No position</option>
             {requisitions.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}

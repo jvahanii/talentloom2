@@ -62,7 +62,7 @@ function Analytics() {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Analytics</h1>
-      <p className="text-sm text-muted-foreground">Pipeline health at a glance.</p>
+      <p className="text-sm text-muted-foreground">A quick read on your hiring momentum and candidate experience.</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Open positions" value={openReqs} />

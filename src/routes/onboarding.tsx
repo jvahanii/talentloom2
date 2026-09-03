@@ -321,7 +321,7 @@ const inputCls = "w-full rounded-xl border border-input bg-white/70 dark:bg-whit
 function Step1({ state, onChange }: { state: ProfileState; onChange: (patch: Partial<ProfileState>) => void }) {
   return (
     <div>
-      <h1 className="font-display text-2xl font-bold sm:text-3xl">Tell us about you</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Let’s make this yours</h1>
       <p className="mt-1 text-sm text-muted-foreground">A couple of quick details so we can personalise TalentLoom.</p>
       <div className="mt-6 space-y-4">
         <Field label="Full name">
@@ -361,7 +361,7 @@ function Step1({ state, onChange }: { state: ProfileState; onChange: (patch: Par
 function Step2({ state, onChange }: { state: ProfileState; onChange: (patch: Partial<ProfileState>) => void }) {
   return (
     <div>
-      <h1 className="font-display text-2xl font-bold sm:text-3xl">About your company</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Tell us about your team</h1>
       <p className="mt-1 text-sm text-muted-foreground">We'll tailor examples and defaults to match.</p>
       <div className="mt-6 space-y-4">
         <Field label="Company name">
@@ -489,16 +489,16 @@ function Step3({
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-bold sm:text-3xl">Bring in your data</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Ready to get hiring?</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Import your candidates now, or explore with sample data — you can always import later.
+        Bring in your candidates now, or take a quick tour with sample data. You can change everything later.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="glass rounded-2xl p-5">
           <div className="flex items-center gap-2">
             <Upload className="h-4 w-4 text-teal-600" />
-            <h3 className="font-display font-semibold">Import candidates (CSV)</h3>
+            <h3 className="font-display font-semibold">Bring in candidates (CSV)</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Columns: name, email, phone, requisition_title, source, stage, notes.</p>
 
@@ -526,7 +526,7 @@ function Step3({
         <div className="glass rounded-2xl p-5">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-teal-600" />
-            <h3 className="font-display font-semibold">Explore with sample data</h3>
+            <h3 className="font-display font-semibold">Take a test drive</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             We'll seed a few example positions and candidates so you can click around. You can clear them from Settings anytime.

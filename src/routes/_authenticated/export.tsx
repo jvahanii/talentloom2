@@ -64,7 +64,7 @@ function ExportPage() {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Export</h1>
-      <p className="text-sm text-muted-foreground">Download your pipeline data as CSV.</p>
+      <p className="text-sm text-muted-foreground">Take your hiring data with you whenever you need a simple CSV snapshot.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="glass rounded-2xl p-6">
           <h3 className="font-display text-lg font-semibold">Candidates</h3>

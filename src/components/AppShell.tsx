@@ -101,7 +101,7 @@ function OrgSwitcher() {
       <Select value={orgId} onValueChange={handleChange}>
         <SelectTrigger disabled={creating} className="h-8 w-auto max-w-44 gap-1.5 border-border/70 bg-secondary/60 text-xs font-medium">
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue placeholder="Workspace" />
+          <SelectValue placeholder="Choose workspace" />
         </SelectTrigger>
         <SelectContent>
           {orgs.map((o) => (
@@ -139,18 +139,18 @@ function OrgSwitcher() {
             }}
           >
             <DialogHeader>
-              <DialogTitle>Create a workspace</DialogTitle>
+              <DialogTitle>Start a new workspace</DialogTitle>
               <DialogDescription>
-                Workspaces keep your candidates, positions, and team members separate. Choose a name that your team will recognize.
+                Keep each hiring project focused and easy to find. Choose a name your team will recognise.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
-              <Label htmlFor="workspace-name">Workspace name</Label>
+              <Label htmlFor="workspace-name">What should we call it?</Label>
               <Input
                 id="workspace-name"
                 value={workspaceName}
                 onChange={(event) => setWorkspaceName(event.target.value)}
-                placeholder="e.g. Acme Recruiting"
+                placeholder="e.g. Acme product hiring"
                 autoFocus
                 disabled={creating}
               />
@@ -160,7 +160,7 @@ function OrgSwitcher() {
                 Cancel
               </Button>
               <Button type="submit" disabled={creating || !workspaceName.trim()}>
-                {creating ? "Creating…" : "Create workspace"}
+                {creating ? "Setting it up…" : "Create workspace"}
               </Button>
             </DialogFooter>
           </form>
