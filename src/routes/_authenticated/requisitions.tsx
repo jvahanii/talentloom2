@@ -6,7 +6,7 @@ import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Link2, Download } from "lucide-react";
+import { Plus, Pencil, Download } from "lucide-react";
 import { downloadPositionAttachments } from "@/lib/download-position-files";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
@@ -77,12 +77,6 @@ function Reqs() {
           <p className="text-sm text-muted-foreground">Give great candidates a clear first impression of your company.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => copyApplyLink(orgId)}
-            className="glass inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-white/80"
-          >
-            <Link2 className="h-4 w-4" /> <span className="hidden sm:inline">Copy apply link</span>
-          </button>
           {canEdit && (
             <button onClick={() => { setEditing(null); setOpen(true); }} className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold">
               <Plus className="h-4 w-4" /> New
@@ -107,7 +101,6 @@ function Reqs() {
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">{r.department || "—"} · {r.hiring_manager || "No hiring manager"}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <button onClick={(e) => { e.stopPropagation(); copyPositionLink(r.id); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Copy shareable link"><Link2 className="h-4 w-4" /></button>
                 {canEdit && (
                   <button onClick={(e) => { e.stopPropagation(); setEditing(r); setOpen(true); }} className="rounded-lg p-1.5 hover:bg-muted" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
                 )}
@@ -268,23 +261,3 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
   );
 }
 
-async function copyApplyLink(orgId: string | null, requisitionId?: string) {
-  if (!orgId) { toast.error("No organisation selected"); return; }
-  const url = `${window.location.origin}/apply/${orgId}${requisitionId ? `?req=${requisitionId}` : ""}`;
-  try {
-    await navigator.clipboard.writeText(url);
-    toast.success("Apply link copied");
-  } catch {
-    toast.error(url);
-  }
-}
-
-async function copyPositionLink(requisitionId: string) {
-  const url = `${window.location.origin}/requisitions?position=${requisitionId}`;
-  try {
-    await navigator.clipboard.writeText(url);
-    toast.success("Shareable link copied");
-  } catch {
-    toast.error(url);
-  }
-}
