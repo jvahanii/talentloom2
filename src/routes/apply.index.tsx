@@ -1,8 +1,24 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, Building2, Search } from "lucide-react";
+import { Briefcase, Building2, EyeOff, RotateCcw, Search } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
+import { StarRating } from "@/components/StarRating";
+import { usePositionRatings } from "@/hooks/usePositionRatings";
 import { listOpenPositions } from "@/lib/apply.functions";
+
+const SORTS = [
+  { value: "newest", label: "Newest" },
+  { value: "rating-desc", label: "Highest rated" },
+  { value: "rating-asc", label: "Lowest rated" },
+  { value: "deadline", label: "Deadline soonest" },
+  { value: "company", label: "Company A–Z" },
+] as const;
+
+const VIEWS = [
+  { value: "active", label: "Active" },
+  { value: "rated", label: "Rated" },
+  { value: "discarded", label: "Discarded" },
+] as const;
 
 export const Route = createFileRoute("/apply/")({
   head: () => ({
@@ -15,16 +31,22 @@ export const Route = createFileRoute("/apply/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { q?: string; org?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { q?: string; org?: string; sort?: string; view?: string } => ({
     ...(typeof search['q'] === "string" && search['q'] ? { q: search['q'] as string } : {}),
     ...(typeof search['org'] === "string" && search['org'] ? { org: search['org'] as string } : {}),
+    ...(typeof search['sort'] === "string" && search['sort'] ? { sort: search['sort'] as string } : {}),
+    ...(typeof search['view'] === "string" && search['view'] ? { view: search['view'] as string } : {}),
   }),
   component: JobBoard,
 });
 
 function JobBoard() {
-  const { q = "", org = "" } = Route.useSearch();
+  const { q = "", org = "", sort = "newest", view = "active" } = Route.useSearch();
   const navigate = useNavigate({ from: "/apply/" });
+  const ratings = usePositionRatings();
+
+  const safeSort = SORTS.some((s) => s.value === sort) ? sort : "newest";
+  const safeView = VIEWS.some((v) => v.value === view) ? view : "active";
 
   const { data: positions, isLoading } = useQuery({
     queryKey: ["open-positions"],
@@ -37,11 +59,30 @@ function JobBoard() {
   );
 
   const term = q.trim().toLowerCase().slice(0, 100);
-  const filtered = all.filter((p) => {
-    if (org && p.orgId !== org) return false;
-    if (!term) return true;
-    return [p.title, p.orgName, p.department ?? ""].some((v) => v.toLowerCase().includes(term));
-  });
+  const filtered = all
+    .filter((p) => {
+      if (org && p.orgId !== org) return false;
+      const discarded = ratings.isDiscarded(p.id);
+      if (safeView === "discarded" && !discarded) return false;
+      if (safeView !== "discarded" && discarded) return false;
+      if (safeView === "rated" && ratings.ratingOf(p.id) === null) return false;
+      if (!term) return true;
+      return [p.title, p.orgName, p.department ?? ""].some((v) => v.toLowerCase().includes(term));
+    })
+    .sort((a, b) => {
+      switch (safeSort) {
+        case "rating-desc":
+          return (ratings.ratingOf(b.id) ?? 0) - (ratings.ratingOf(a.id) ?? 0);
+        case "rating-asc":
+          return (ratings.ratingOf(a.id) ?? 6) - (ratings.ratingOf(b.id) ?? 6);
+        case "deadline":
+          return (a.deadlineDate ?? "9999").localeCompare(b.deadlineDate ?? "9999");
+        case "company":
+          return a.orgName.localeCompare(b.orgName);
+        default:
+          return 0;
+      }
+    });
 
   return (
     <MarketingShell>
@@ -75,7 +116,41 @@ function JobBoard() {
               <option key={id} value={id}>{name}</option>
             ))}
           </select>
+          <select
+            value={safeSort}
+            onChange={(e) => navigate({ search: (prev) => ({ ...prev, sort: e.target.value }) })}
+            aria-label="Sort positions"
+            className="glass rounded-xl px-3 py-2 text-sm sm:w-48"
+          >
+            {SORTS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
         </div>
+
+        {ratings.signedIn ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {VIEWS.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                onClick={() => navigate({ search: (prev) => ({ ...prev, view: v.value }) })}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                  safeView === v.value
+                    ? "bg-primary text-primary-foreground"
+                    : "glass text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            <Link to="/candidate/auth" className="font-semibold text-primary">Sign in</Link> to rate and shortlist positions.
+          </p>
+        )}
+
 
         <div className="mt-6 grid gap-4">
           {isLoading &&
@@ -124,7 +199,34 @@ function JobBoard() {
                 </span>
               </div>
               {p.excerpt && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
-              <span className="mt-4 inline-block text-sm font-semibold text-primary">View description &amp; apply →</span>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-primary">View description &amp; apply →</span>
+                <span className="flex items-center gap-2">
+                  <StarRating
+                    value={ratings.ratingOf(p.id)}
+                    disabled={!ratings.signedIn}
+                    onChange={(v) => ratings.setRating(p.id, v)}
+                    label={`Your rating for ${p.title}`}
+                  />
+                  {ratings.signedIn && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        ratings.setDiscarded(p.id, !ratings.isDiscarded(p.id));
+                      }}
+                      className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+                    >
+                      {ratings.isDiscarded(p.id) ? (
+                        <><RotateCcw className="h-3.5 w-3.5" /> Restore</>
+                      ) : (
+                        <><EyeOff className="h-3.5 w-3.5" /> Discard</>
+                      )}
+                    </button>
+                  )}
+                </span>
+              </div>
             </Link>
           ))}
         </div>

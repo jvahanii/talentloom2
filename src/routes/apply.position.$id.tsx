@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, CalendarDays, User2, ArrowLeft } from "lucide-react";
+import { Building2, CalendarDays, User2, ArrowLeft, EyeOff, RotateCcw } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
+import { StarRating } from "@/components/StarRating";
+import { usePositionRatings } from "@/hooks/usePositionRatings";
 import { getPosition } from "@/lib/apply.functions";
 
 export const Route = createFileRoute("/apply/position/$id")({
@@ -20,6 +22,7 @@ export const Route = createFileRoute("/apply/position/$id")({
 
 function PositionPage() {
   const { id } = Route.useParams();
+  const ratings = usePositionRatings();
   const { data: position, isLoading } = useQuery({
     queryKey: ["position", id],
     queryFn: () => getPosition({ data: { id } }),
@@ -72,6 +75,34 @@ function PositionPage() {
 
             <div className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
               {position.description || "No description has been added for this position yet — apply and the team will share the details."}
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-muted/40 p-4">
+              <span className="text-sm font-semibold">Your rating</span>
+              <StarRating
+                value={ratings.ratingOf(id)}
+                disabled={!ratings.signedIn}
+                size="md"
+                onChange={(v) => ratings.setRating(id, v)}
+                label="Your rating for this position"
+              />
+              {ratings.signedIn ? (
+                <button
+                  type="button"
+                  onClick={() => ratings.setDiscarded(id, !ratings.isDiscarded(id))}
+                  className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+                >
+                  {ratings.isDiscarded(id) ? (
+                    <><RotateCcw className="h-3.5 w-3.5" /> Restore</>
+                  ) : (
+                    <><EyeOff className="h-3.5 w-3.5" /> Discard</>
+                  )}
+                </button>
+              ) : (
+                <Link to="/candidate/auth" className="text-xs font-semibold text-primary">
+                  Sign in to rate and shortlist
+                </Link>
+              )}
             </div>
 
             <Link
