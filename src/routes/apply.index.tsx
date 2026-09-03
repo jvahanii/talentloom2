@@ -1,8 +1,24 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, Building2, Search } from "lucide-react";
+import { Briefcase, Building2, EyeOff, RotateCcw, Search } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
+import { StarRating } from "@/components/StarRating";
+import { usePositionRatings } from "@/hooks/usePositionRatings";
 import { listOpenPositions } from "@/lib/apply.functions";
+
+const SORTS = [
+  { value: "newest", label: "Newest" },
+  { value: "rating-desc", label: "Highest rated" },
+  { value: "rating-asc", label: "Lowest rated" },
+  { value: "deadline", label: "Deadline soonest" },
+  { value: "company", label: "Company A–Z" },
+] as const;
+
+const VIEWS = [
+  { value: "active", label: "Active" },
+  { value: "rated", label: "Rated" },
+  { value: "discarded", label: "Discarded" },
+] as const;
 
 export const Route = createFileRoute("/apply/")({
   head: () => ({
