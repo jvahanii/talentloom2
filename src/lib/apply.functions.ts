@@ -62,7 +62,17 @@ export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(a
     .sort((a, b) => a.name.localeCompare(b.name));
 });
 
-type DeadlineRow = { deadline_date: string | null };
+// deadline_date was added directly on the external database, so the generated
+// types don't know it yet — cast the rows locally.
+interface PositionListRow {
+  id: string;
+  title: string;
+  org_id: string;
+  department: string | null;
+  target_start_date: string | null;
+  deadline_date: string | null;
+  description: string | null;
+}
 
 export const listOpenPositions = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
@@ -72,7 +82,7 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(async
     .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(200);
-  const reqs = reqsRaw as unknown as (NonNullable<typeof reqsRaw> extends (infer T)[] ? (T & DeadlineRow)[] : never) | null;
+  const reqs = reqsRaw as unknown as PositionListRow[] | null;
   if (!reqs || reqs.length === 0) return [];
   const { data: orgs } = await supabaseAdmin
     .from("organizations")
