@@ -6,7 +6,8 @@ import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Link2 } from "lucide-react";
+import { Plus, Pencil, Link2, Download } from "lucide-react";
+import { downloadPositionAttachments } from "@/lib/download-position-files";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Positions — TalentLoom" }] }),
@@ -123,12 +124,36 @@ function ReqCandidatesDialog({ req, onOpenChange }: { req: Req | null; onOpenCha
     },
   });
 
+  const [zipping, setZipping] = useState(false);
+  const downloadAll = async () => {
+    if (!req) return;
+    setZipping(true);
+    try {
+      const n = await downloadPositionAttachments(req.id, req.title);
+      if (n === 0) toast.info("No applicant files on this position yet.");
+      else toast.success(`Downloaded ${n} file${n === 1 ? "" : "s"}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not download files");
+    } finally {
+      setZipping(false);
+    }
+  };
+
   return (
     <Dialog open={!!req} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{req?.title} · candidates</DialogTitle>
         </DialogHeader>
+        <button
+          type="button"
+          onClick={downloadAll}
+          disabled={zipping}
+          className="glass inline-flex w-fit items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-white/80 disabled:opacity-60"
+        >
+          <Download className="h-4 w-4" />
+          {zipping ? "Preparing zip…" : "Download all attachments"}
+        </button>
         {cands.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
         {cands.data && cands.data.length === 0 && <p className="text-sm text-muted-foreground">No candidates on this position yet.</p>}
         <ul className="divide-y divide-border">
