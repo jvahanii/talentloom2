@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg, PERMISSION_GROUPS, PERMISSIONS, permColumn, type OrgTitle, type Permission } from "@/lib/org";
 import { toast } from "sonner";
 import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
@@ -313,7 +314,7 @@ export function OrgSettings() {
                 <li key={inv.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="min-w-0 flex-1 truncate">
                     {inv.email} · {inv.title_id ? titleById.get(inv.title_id)?.name ?? "Title" : "No title"} · expires{" "}
-                    {new Date(inv.expires_at).toLocaleDateString()}
+                    {formatDate(inv.expires_at)}
                   </span>
                   <button
                     onClick={() => copy(`${window.location.origin}/invite/${inv.token}`)}

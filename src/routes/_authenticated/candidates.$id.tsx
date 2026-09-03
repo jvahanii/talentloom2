@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
 import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
+import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { ArrowLeft, Trash2, Paperclip, FileText } from "lucide-react";
@@ -177,7 +178,7 @@ function CandidateDetail() {
                   {h.from_stage && <><span className="rounded-full bg-muted border border-border px-2 py-0.5 text-foreground/80">{STAGE_LABEL[h.from_stage as Stage]}</span> →</>}
                   <span className="rounded-full bg-primary/15 border border-primary/30 px-2 py-0.5 font-medium text-primary">{STAGE_LABEL[h.to_stage as Stage]}</span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{new Date(h.changed_at).toLocaleString()}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(h.changed_at)}</p>
               </li>
             ))}
             {history.data?.length === 0 && <p className="text-xs text-muted-foreground">No changes yet.</p>}
