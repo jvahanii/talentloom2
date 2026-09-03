@@ -51,14 +51,14 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-1 sm:gap-3">
             <Link to="/apply" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">Find a role</Link>
             <Link to="/candidate/auth" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">My applications</Link>
-            <Link to="/docs" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">How it works</Link>
+            <Link to="/docs" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">User guide</Link>
             <SignedInChip />
           </div>
         </nav>
       </header>
       <main>{children}</main>
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
-        <p>TalentLoom — Better hiring experiences for everyone · <Link to="/docs" className="underline hover:text-foreground">How it works</Link></p>
+        <p>TalentLoom — Better hiring experiences for everyone · <Link to="/docs" className="underline hover:text-foreground">User guide</Link></p>
       </footer>
     </div>
   );

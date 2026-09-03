@@ -71,6 +71,9 @@ function Landing() {
                 </Link>
               </div>
             </div>
+            <Link to="/docs" className="mt-5 inline-block text-sm font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white">
+              Read the public user guide →
+            </Link>
           </div>
         </div>
       </section>
