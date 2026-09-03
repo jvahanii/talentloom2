@@ -32,7 +32,7 @@ function Landing() {
             className="absolute inset-0"
             style={{
               background:
-                "linear-gradient(135deg, rgba(27,27,27,0.88) 0%, rgba(27,27,27,0.72) 45%, rgba(75,115,255,0.55) 100%)",
+                "linear-gradient(135deg, rgba(74,58,85,0.86) 0%, rgba(255,158,199,0.7) 55%, rgba(78,214,166,0.62) 100%)",
             }}
           />
           <div className="relative">

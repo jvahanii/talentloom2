@@ -15,7 +15,7 @@ export function HelpModule() {
             transition={{ delay: i * 0.03 }}
             className="flex items-center gap-3 rounded-xl bg-secondary px-3 py-1.5 text-sm"
           >
-            <span className="font-mono text-[#4B73FF]">{s.cmd}</span>
+            <span className="font-mono text-[#FF5FA2]">{s.cmd}</span>
             <span className="text-muted-foreground">{s.hint}</span>
           </motion.div>
         ))}

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { STAGES, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 
-const COLORS = ["#4B73FF", "#FF0178", "#BBC1FF", "#FFA6F9", "#1B1B1B", "#4E93FF"];
+const COLORS = ["#FF5FA2", "#4ED6A6", "#B79CFF", "#FFD166", "#9BDCFF", "#FF9EC7"];
 
 type View = "funnel" | "sources" | "time-in-stage";
 
@@ -65,7 +65,7 @@ export function AnalyticsCard({ view }: { view: View }) {
               <XAxis dataKey="stage" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} allowDecimals={false} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, color: "white" }} />
-              <Bar dataKey="count" fill="#4B73FF" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="count" fill="#FF9EC7" radius={[8, 8, 0, 0]} />
             </BarChart>
           ) : view === "sources" ? (
             <PieChart>

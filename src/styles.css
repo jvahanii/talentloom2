@@ -5,12 +5,12 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 20px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -31,148 +31,141 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Brand palette */
-  --color-brand-light-blue: #4E93FF;
-  --color-brand-blue: #4B73FF;
-  --color-brand-violet: #BBC1FF;
-  --color-brand-bubblegum: #FFA6F9;
-  --color-brand-pink: #FF0178;
-  --color-brand-red: #F7101D;
-  --color-brand-orange: #FF6D1B;
-  --color-brand-yellow: #FFA517;
-  --color-brand-black: #1B1B1B;
-  --color-brand-creme: #F7F4ED;
+  /* Kawaii "Mint Soda Pop" palette */
+  --color-brand-cream: #FFFDF5;
+  --color-brand-mint: #BDF5E0;
+  --color-brand-mint-deep: #4ED6A6;
+  --color-brand-butter: #FFE9A8;
+  --color-brand-bubblegum: #FF9EC7;
+  --color-brand-berry: #FF5FA2;
+  --color-brand-grape: #B79CFF;
+  --color-brand-sky: #9BDcFF;
+  --color-brand-ink: #4A3A55;
 
-  /* Legacy `teal-*` aliases mapped onto the new brand palette so
-     existing components keep working. */
-  --color-teal-50:  #F7F4ED;
-  --color-teal-100: rgba(27, 27, 27, 0.08);
-  --color-teal-200: rgba(27, 27, 27, 0.18);
-  --color-teal-500: #4B73FF;
-  --color-teal-600: #4E93FF;
-  --color-teal-700: #FF0178;
+  /* Legacy aliases kept so existing components stay wired up */
+  --color-brand-light-blue: #9BDCFF;
+  --color-brand-blue: #B79CFF;
+  --color-brand-violet: #B79CFF;
+  --color-brand-pink: #FF5FA2;
+  --color-brand-red: #FF6B8A;
+  --color-brand-orange: #FFB27A;
+  --color-brand-yellow: #FFE9A8;
+  --color-brand-black: #4A3A55;
+  --color-brand-creme: #FFFDF5;
 
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-teal-50:  #FFFDF5;
+  --color-teal-100: #E6FBF2;
+  --color-teal-200: #BDF5E0;
+  --color-teal-500: #4ED6A6;
+  --color-teal-600: #FF9EC7;
+  --color-teal-700: #FF5FA2;
+
+  --font-display: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Rubik", ui-rounded, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 1.25rem;
 
-  /* Brand tokens (raw hex, referenced by utilities) */
-  --brand-light-blue: #4E93FF;
-  --brand-blue: #4B73FF;
-  --brand-violet: #BBC1FF;
-  --brand-bubblegum: #FFA6F9;
-  --brand-pink: #FF0178;
-  --brand-red: #F7101D;
-  --brand-orange: #FF6D1B;
-  --brand-yellow: #FFA517;
-  --brand-black: #1B1B1B;
-  --brand-creme: #F7F4ED;
+  --brand-cream: #FFFDF5;
+  --brand-mint: #BDF5E0;
+  --brand-mint-deep: #4ED6A6;
+  --brand-butter: #FFE9A8;
+  --brand-bubblegum: #FF9EC7;
+  --brand-berry: #FF5FA2;
+  --brand-grape: #B79CFF;
+  --brand-sky: #9BDCFF;
+  --brand-ink: #4A3A55;
 
-  /* Neutral-first surfaces: warm creme background, deep black ink */
-  --background: #F7F4ED;
-  --foreground: #1B1B1B;
+  --background: #FFFDF5;
+  --foreground: #4A3A55;
   --card: #FFFFFF;
-  --card-foreground: #1B1B1B;
+  --card-foreground: #4A3A55;
   --popover: #FFFFFF;
-  --popover-foreground: #1B1B1B;
-  --primary: #4B73FF;
-  --primary-foreground: #F7F4ED;
-  --secondary: rgba(27, 27, 27, 0.06);
-  --secondary-foreground: #1B1B1B;
-  --muted: rgba(27, 27, 27, 0.06);
-  --muted-foreground: rgba(27, 27, 27, 0.6);
-  --accent: #FFA6F9;
-  --accent-foreground: #1B1B1B;
-  --destructive: #F7101D;
-  --destructive-foreground: #F7F4ED;
-  --border: rgba(27, 27, 27, 0.12);
-  --input: rgba(27, 27, 27, 0.12);
-  --ring: #4B73FF;
+  --popover-foreground: #4A3A55;
+  --primary: #FF9EC7;
+  --primary-foreground: #4A3A55;
+  --secondary: #E6FBF2;
+  --secondary-foreground: #4A3A55;
+  --muted: #FFF6E2;
+  --muted-foreground: rgba(74, 58, 85, 0.62);
+  --accent: #BDF5E0;
+  --accent-foreground: #4A3A55;
+  --destructive: #FF6B8A;
+  --destructive-foreground: #FFFDF5;
+  --border: rgba(74, 58, 85, 0.14);
+  --input: rgba(74, 58, 85, 0.16);
+  --ring: #FF9EC7;
 
-  /* Legacy teal-* raw aliases (kept in sync with @theme mapping) */
-  --teal-50:  #F7F4ED;
-  --teal-100: rgba(27, 27, 27, 0.08);
-  --teal-200: rgba(27, 27, 27, 0.18);
-  --teal-500: #4B73FF;
-  --teal-600: #4E93FF;
-  --teal-700: #FF0178;
+  --teal-50:  #FFFDF5;
+  --teal-100: #E6FBF2;
+  --teal-200: #BDF5E0;
+  --teal-500: #4ED6A6;
+  --teal-600: #FF9EC7;
+  --teal-700: #FF5FA2;
 }
 
-/* Dark theme — scoped to any subtree with `.dark` (e.g. authenticated app shell).
-   The landing/marketing pages never receive this class, so home stays light. */
+/* Night-time kawaii — soft grape dusk instead of hard black */
 .dark {
-  --background: #121212;
-  --foreground: #F7F4ED;
-  --card: #1B1B1B;
-  --card-foreground: #F7F4ED;
-  --popover: #1B1B1B;
-  --popover-foreground: #F7F4ED;
-  --primary: #4E93FF;
-  --primary-foreground: #1B1B1B;
-  --secondary: rgba(247, 244, 237, 0.08);
-  --secondary-foreground: #F7F4ED;
-  --muted: rgba(247, 244, 237, 0.08);
-  --muted-foreground: rgba(247, 244, 237, 0.65);
-  --accent: #FFA6F9;
-  --accent-foreground: #1B1B1B;
-  --destructive: #F7101D;
-  --destructive-foreground: #F7F4ED;
-  --border: rgba(247, 244, 237, 0.14);
-  --input: rgba(247, 244, 237, 0.14);
-  --ring: #4E93FF;
+  --background: #2B2340;
+  --foreground: #FFF3FA;
+  --card: #3A3057;
+  --card-foreground: #FFF3FA;
+  --popover: #3A3057;
+  --popover-foreground: #FFF3FA;
+  --primary: #FF9EC7;
+  --primary-foreground: #2B2340;
+  --secondary: rgba(189, 245, 224, 0.14);
+  --secondary-foreground: #FFF3FA;
+  --muted: rgba(255, 233, 168, 0.12);
+  --muted-foreground: rgba(255, 243, 250, 0.7);
+  --accent: #BDF5E0;
+  --accent-foreground: #2B2340;
+  --destructive: #FF7BA0;
+  --destructive-foreground: #2B2340;
+  --border: rgba(255, 243, 250, 0.18);
+  --input: rgba(255, 243, 250, 0.18);
+  --ring: #FF9EC7;
 
-  --teal-50:  #1B1B1B;
-  --teal-100: rgba(247, 244, 237, 0.08);
-  --teal-200: rgba(247, 244, 237, 0.18);
-  --teal-500: #4E93FF;
-  --teal-600: #BBC1FF;
-  --teal-700: #FFA6F9;
+  --teal-50:  #3A3057;
+  --teal-100: rgba(189, 245, 224, 0.12);
+  --teal-200: rgba(189, 245, 224, 0.24);
+  --teal-500: #7FE9C4;
+  --teal-600: #FF9EC7;
+  --teal-700: #FFC7E2;
 }
 
-/* Dark-mode overrides for the surface utilities so `glass*` cards inside
-   the authed app pick up dark surfaces automatically. */
 .dark .glass,
 .dark [class~="glass"] {
-  background: #1B1B1B;
-  border-color: rgba(247, 244, 237, 0.10);
-  color: #F7F4ED;
-  box-shadow:
-    0 4px 30px rgba(0, 0, 0, 0.35),
-    0 1px 3px rgba(0, 0, 0, 0.25);
+  background: #3A3057;
+  border-color: rgba(255, 243, 250, 0.16);
+  color: #FFF3FA;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.22);
 }
 .dark .glass-strong,
 .dark [class~="glass-strong"] {
-  background: #1B1B1B;
-  border-color: rgba(247, 244, 237, 0.14);
-  color: #F7F4ED;
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.45),
-    0 1px 3px rgba(0, 0, 0, 0.3);
+  background: #3A3057;
+  border-color: rgba(255, 158, 199, 0.5);
+  color: #FFF3FA;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.26);
 }
 .dark .glass-teal,
 .dark [class~="glass-teal"] {
-  background: linear-gradient(140deg,
-    rgba(78, 147, 255, 0.18),
-    rgba(255, 166, 249, 0.14));
-  border-color: rgba(247, 244, 237, 0.12);
-  color: #F7F4ED;
+  background: linear-gradient(140deg, rgba(189, 245, 224, 0.2), rgba(255, 158, 199, 0.2));
+  border-color: rgba(255, 243, 250, 0.18);
+  color: #FFF3FA;
 }
-.dark h1, .dark h2, .dark h3, .dark h4 { color: #F7F4ED; }
+.dark h1, .dark h2, .dark h3, .dark h4 { color: #FFF3FA; }
 .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .dark select,
 .dark textarea {
-  background: #1B1B1B;
-  color: #F7F4ED;
-  border-color: rgba(247, 244, 237, 0.14);
+  background: #2B2340;
+  color: #FFF3FA;
+  border-color: rgba(255, 243, 250, 0.2);
 }
 .dark input::placeholder,
-.dark textarea::placeholder {
-  color: rgba(247, 244, 237, 0.5);
-}
-
+.dark textarea::placeholder { color: rgba(255, 243, 250, 0.55); }
 
 @layer base {
   * { border-color: var(--color-border); }
@@ -184,112 +177,178 @@
   }
   body {
     position: relative;
-    background-color: #F7F4ED;
-    background-image: none;
+    background-color: #FFFDF5;
+    /* pastel polka-dot confetti sky */
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(255, 158, 199, 0.35) 0 9px, transparent 10px),
+      radial-gradient(circle at 78% 8%, rgba(189, 245, 224, 0.55) 0 12px, transparent 13px),
+      radial-gradient(circle at 88% 62%, rgba(255, 233, 168, 0.55) 0 10px, transparent 11px),
+      radial-gradient(circle at 30% 78%, rgba(183, 156, 255, 0.3) 0 8px, transparent 9px),
+      radial-gradient(circle at 55% 40%, rgba(155, 220, 255, 0.3) 0 7px, transparent 8px),
+      linear-gradient(180deg, #FFF7FB 0%, #FFFDF5 45%, #F2FFFA 100%);
+    background-attachment: fixed;
+    background-size: 520px 520px, 520px 520px, 520px 520px, 520px 520px, 520px 520px, 100% 100%;
+  }
+  .dark body {
+    background-color: #2B2340;
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(255, 158, 199, 0.18) 0 9px, transparent 10px),
+      radial-gradient(circle at 78% 8%, rgba(189, 245, 224, 0.16) 0 12px, transparent 13px),
+      radial-gradient(circle at 88% 62%, rgba(255, 233, 168, 0.14) 0 10px, transparent 11px),
+      linear-gradient(180deg, #322752 0%, #2B2340 100%);
   }
   #root, main { position: relative; z-index: 1; }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.025em;
-    color: #1B1B1B;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--color-foreground);
   }
 
-  /* Form controls keep readable ink on light surfaces */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   select,
   textarea {
-    color: #1B1B1B;
+    color: #4A3A55;
+    border-radius: 0.9rem;
   }
   input::placeholder,
-  textarea::placeholder {
-    color: rgba(27, 27, 27, 0.5);
-  }
+  textarea::placeholder { color: rgba(74, 58, 85, 0.45); }
 
-  /* Visible keyboard focus on interactive elements */
   a:focus-visible,
   button:focus-visible,
   [role="button"]:focus-visible,
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 2px solid #4B73FF;
-    outline-offset: 2px;
+    outline: 3px dashed #FF9EC7;
+    outline-offset: 3px;
   }
+
+  ::selection { background: #FFE9A8; color: #4A3A55; }
 }
 
-/* Surface utilities — swapped from glass to warm neutral cards
-   so `glass*` classes across the app pick up the new brand system. */
+/* ---------- Kawaii surfaces ---------- */
+
 @utility glass {
   background: #FFFFFF;
-  border: 1px solid rgba(27, 27, 27, 0.10);
-  border-radius: 1.25rem;
-  box-shadow:
-    0 4px 30px rgba(27, 27, 27, 0.06),
-    0 1px 3px rgba(27, 27, 27, 0.04);
-  color: #1B1B1B;
+  border: 2px solid rgba(74, 58, 85, 0.12);
+  border-radius: 1.75rem;
+  box-shadow: 0 6px 0 rgba(255, 158, 199, 0.28);
+  color: #4A3A55;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  &:hover { box-shadow: 0 8px 0 rgba(255, 158, 199, 0.4); }
 }
 
 @utility glass-strong {
   background: #FFFFFF;
-  border: 1px solid rgba(27, 27, 27, 0.12);
-  border-radius: 1.5rem;
-  box-shadow:
-    0 8px 40px rgba(27, 27, 27, 0.10),
-    0 1px 3px rgba(27, 27, 27, 0.05);
-  color: #1B1B1B;
+  border: 2px solid rgba(255, 158, 199, 0.55);
+  border-radius: 2rem;
+  box-shadow: 0 8px 0 rgba(189, 245, 224, 0.75);
+  color: #4A3A55;
 }
 
 @utility glass-teal {
-  background: linear-gradient(140deg,
-    rgba(75, 115, 255, 0.10),
-    rgba(255, 166, 249, 0.14));
-  border: 1px solid rgba(27, 27, 27, 0.10);
-  border-radius: 1.25rem;
-  box-shadow:
-    0 4px 30px rgba(27, 27, 27, 0.06),
-    0 1px 3px rgba(27, 27, 27, 0.04);
-  color: #1B1B1B;
+  background: linear-gradient(140deg, #E6FBF2 0%, #FFF3FA 55%, #FFF6E2 100%);
+  border: 2px solid rgba(78, 214, 166, 0.35);
+  border-radius: 1.75rem;
+  box-shadow: 0 6px 0 rgba(189, 245, 224, 0.8);
+  color: #4A3A55;
 }
 
+/* ---------- Squishy buttons ---------- */
+
 @utility btn-teal {
-  background: #1B1B1B;
-  color: #F7F4ED;
-  border-radius: 0.9rem;
-  border: 1px solid #1B1B1B;
-  box-shadow: 0 2px 6px rgba(27, 27, 27, 0.15);
-  transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-  &:hover {
-    transform: translateY(-1px);
-    background: #000000;
-    box-shadow: 0 6px 16px rgba(27, 27, 27, 0.2);
-  }
-  &:active { transform: translateY(1px); }
+  background: linear-gradient(180deg, #FFB4D6 0%, #FF9EC7 100%);
+  color: #4A3A55;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 2px solid #FF7FB6;
+  box-shadow: 0 4px 0 #E86FA6;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.2s ease;
+  &:hover { filter: brightness(1.04); transform: translateY(-2px); box-shadow: 0 6px 0 #E86FA6; }
+  &:active { transform: translateY(3px); box-shadow: 0 1px 0 #E86FA6; }
 }
 
 @utility btn-light {
-  background: #F7F4ED;
-  color: #1B1B1B;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(27, 27, 27, 0.12);
-  box-shadow: 0 2px 6px rgba(27, 27, 27, 0.06);
-  transition: transform 0.15s ease, background-color 0.2s ease, box-shadow 0.2s ease;
-  &:hover {
-    transform: translateY(-1px);
-    background: #FFFFFF;
-    box-shadow: 0 6px 16px rgba(27, 27, 27, 0.10);
-  }
-  &:active { transform: translateY(1px); }
+  background: #FFFFFF;
+  color: #4A3A55;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 2px solid rgba(78, 214, 166, 0.5);
+  box-shadow: 0 4px 0 rgba(189, 245, 224, 0.9);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  &:hover { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(189, 245, 224, 0.95); }
+  &:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(189, 245, 224, 0.9); }
 }
 
-/* Duotone gradient headline helper — brand blue → pink */
+/* ---------- Playful text ---------- */
+
 @utility text-duotone {
-  background: linear-gradient(120deg, #4B73FF 0%, #FF0178 100%);
+  background: linear-gradient(100deg, #FF5FA2 0%, #B79CFF 45%, #4ED6A6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Muted body text on creme background */
 @utility text-soft {
-  color: rgba(27, 27, 27, 0.6);
+  color: rgba(74, 58, 85, 0.62);
 }
+
+/* Sparkle accent — add ✨ before an element */
+@utility sparkle {
+  &::before {
+    content: "✨";
+    margin-right: 0.4em;
+  }
+}
+
+/* Gentle floating bob for mascots and hero art */
+@utility bob {
+  animation: kawaii-bob 3.6s ease-in-out infinite;
+}
+
+/* Squishy pop-in */
+@utility pop-in {
+  animation: kawaii-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Wiggle on hover — good for icons and badges */
+@utility wiggle-hover {
+  transition: transform 0.2s ease;
+  &:hover { animation: kawaii-wiggle 0.5s ease-in-out; }
+}
+
+/* Pastel candy stripe divider/banner */
+@utility candy-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #FFD9EA 0 14px,
+    #FFF3FA 14px 28px,
+    #D9FBEE 28px 42px,
+    #FFF6E2 42px 56px
+  );
+}
+
+@keyframes kawaii-bob {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+@keyframes kawaii-pop {
+  0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes kawaii-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg) scale(1.08); }
+  75% { transform: rotate(8deg) scale(1.08); }
+}
+
+/* Rounder scrollbars to match the soft look */
+* {
+  scrollbar-color: #FFB4D6 transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #FFB4D6; border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
