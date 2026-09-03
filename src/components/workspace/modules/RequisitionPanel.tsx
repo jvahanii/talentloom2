@@ -61,7 +61,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
-      if (!existing && !orgId) throw new Error("No workspace selected");
+      if (!existing && !orgId) throw new Error("No organisation selected");
       const payload = {
         title,
         department: department || null,

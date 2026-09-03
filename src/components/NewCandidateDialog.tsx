@@ -35,7 +35,7 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not authenticated");
-      if (!orgId) throw new Error("No workspace selected");
+      if (!orgId) throw new Error("No organisation selected");
       const { data: created, error } = await supabase.from("candidates").insert({
         user_id: u.user.id, org_id: orgId, name, email: email || null, phone: phone || null,
         requisition_id: reqId || null, source, stage,

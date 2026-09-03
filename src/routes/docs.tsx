@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MarketingShell } from "@/components/MarketingShell";
 
 export const Route = createFileRoute("/docs")({
-  head: () => ({ meta: [{ title: "TalentLoom user guide" }, { name: "description", content: "Learn how to find roles, manage applications, and run your hiring workspace with TalentLoom." }] }),
+  head: () => ({ meta: [{ title: "TalentLoom user guide" }, { name: "description", content: "Learn how to find roles, manage applications, and run your hiring organisation with TalentLoom." }] }),
   component: Docs,
 });
 
@@ -30,15 +30,15 @@ function Docs() {
             <li>Copy a public apply link for your whole organisation or for a specific position.</li>
             <li>Use the <strong>Funnel</strong> board to filter candidates by position or source, add candidates, and move them through Applied, Screen, Interview, Offer, Hired, and Rejected.</li>
             <li>Open a candidate to edit their contact details, position, source, stage, rating, notes, and resume link. Upload or replace a CV and cover letter, review stage history, or delete the record when permitted.</li>
-            <li>Use <strong>Candidates</strong> to search the complete workspace by name, email, or position.</li>
+            <li>Use <strong>Candidates</strong> to search the complete organisation by name, email, or position.</li>
             <li>Review <strong>Analytics</strong> for open positions, candidate totals, hires, conversion, funnel stages, source mix, and average time in stage.</li>
             <li>Use <strong>Export</strong> to download candidate or position CSVs, and <strong>Import</strong> to preview, map, and upload candidate CSV data. Download the import template for the supported columns.</li>
           </ol>
 
-          <h2>Workspace settings</h2>
+          <h2>Organisation settings</h2>
           <ul>
             <li>Update your name, role, company details, and appearance in <strong>Settings</strong>.</li>
-            <li>Organisation settings provide workspace branding, members, invitations, and role-based permissions where enabled.</li>
+            <li>Organisation settings provide organisation branding, members, invitations, and role-based permissions where enabled.</li>
             <li>Clear sample candidates and positions without affecting your own data.</li>
             <li>LinkedIn, Indeed, and ATS connections are marked <strong>Coming soon</strong>; CSV import is available now.</li>
           </ul>
@@ -48,7 +48,7 @@ function Docs() {
             <li>The public job board and apply pages are available without sign-in. Recruiter tools require a recruiter account; application history and saved documents require a candidate account.</li>
             <li>Funnel drag-and-drop is designed for desktop. On touch devices, use the stage selector on the candidate record.</li>
             <li>Candidate files accept PDF, DOC, and DOCX files up to 10 MB. Secure file links expire after one hour.</li>
-            <li>Workspace data is isolated by organisation and protected by row-level security.</li>
+            <li>Organisation data is isolated by organisation and protected by row-level security.</li>
           </ul>
         </div>
       </article>

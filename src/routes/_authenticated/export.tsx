@@ -29,7 +29,7 @@ function ExportPage() {
   const { orgId, can } = useOrg();
 
   const exportCands = async () => {
-    if (!orgId) { toast.error("No workspace selected"); return; }
+    if (!orgId) { toast.error("No organisation selected"); return; }
     const { data: cands, error } = await supabase.from("candidates").select("*").eq("org_id", orgId);
     if (error) { toast.error(error.message); return; }
     const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId);
@@ -44,7 +44,7 @@ function ExportPage() {
   };
 
   const exportReqs = async () => {
-    if (!orgId) { toast.error("No workspace selected"); return; }
+    if (!orgId) { toast.error("No organisation selected"); return; }
     const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId);
     if (error) { toast.error(error.message); return; }
     download("talentloom-requisitions.csv", toCSV(data ?? [], ["title","department","hiring_manager","status","target_start_date","notes","created_at"]));

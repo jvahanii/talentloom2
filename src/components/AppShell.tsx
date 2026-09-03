@@ -101,7 +101,7 @@ function OrgSwitcher() {
       <Select value={orgId} onValueChange={handleChange}>
         <SelectTrigger disabled={creating} className="h-8 w-auto max-w-44 gap-1.5 border-border/70 bg-secondary/60 text-xs font-medium">
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue placeholder="Choose workspace" />
+          <SelectValue placeholder="Choose organisation" />
         </SelectTrigger>
         <SelectContent>
           {orgs.map((o) => (
@@ -111,7 +111,7 @@ function OrgSwitcher() {
           ))}
           <SelectItem value="__new__">
             <span className="inline-flex items-center gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> New workspace
+              <Plus className="h-3.5 w-3.5" /> New organisation
             </span>
           </SelectItem>
         </SelectContent>
@@ -130,16 +130,16 @@ function OrgSwitcher() {
                 refresh();
                 setOrgId(newId as string);
                 setCreateDialogOpen(false);
-                toast.success(`Workspace "${name}" created`);
+                toast.success(`Organisation "${name}" created`);
               } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Failed to create workspace");
+                toast.error(e instanceof Error ? e.message : "Failed to create organisation");
               } finally {
                 setCreating(false);
               }
             }}
           >
             <DialogHeader>
-              <DialogTitle>Start a new workspace</DialogTitle>
+              <DialogTitle>Start a new organisation</DialogTitle>
               <DialogDescription>
                 Keep each hiring project focused and easy to find. Choose a name your team will recognise.
               </DialogDescription>
@@ -160,7 +160,7 @@ function OrgSwitcher() {
                 Cancel
               </Button>
               <Button type="submit" disabled={creating || !workspaceName.trim()}>
-                {creating ? "Setting it up…" : "Create workspace"}
+                {creating ? "Setting it up…" : "Create organisation"}
               </Button>
             </DialogFooter>
           </form>
