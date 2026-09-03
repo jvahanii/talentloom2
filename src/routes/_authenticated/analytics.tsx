@@ -73,7 +73,7 @@ function Analytics() {
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="glass rounded-2xl p-5">
-          <h3 className="font-display font-semibold">Funnel</h3>
+          <h3 className="font-display font-semibold">Candidate flow</h3>
           <div className="mt-3 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={funnel}>

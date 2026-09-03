@@ -28,10 +28,10 @@ function Docs() {
             <li>Sign up with email or Google and complete onboarding with your personal and company details. You can start with sample data or import candidates from CSV.</li>
             <li>Create positions with a department, hiring manager, status, start date, application deadline, public description, internal notes, and attachments.</li>
             <li>Copy a public apply link for your whole organisation or for a specific position.</li>
-            <li>Use the <strong>Funnel</strong> board to filter candidates by position or source, add candidates, and move them through Applied, Screen, Interview, Offer, Hired, and Rejected.</li>
+            <li>Use the <strong>Candidate flow</strong> board to filter candidates by position or source, add candidates, and move them through Applied, Screen, Interview, Offer, Hired, and Rejected.</li>
             <li>Open a candidate to edit their contact details, position, source, stage, rating, notes, and resume link. Upload or replace a CV and cover letter, review stage history, or delete the record when permitted.</li>
             <li>Use <strong>Candidates</strong> to search the complete organisation by name, email, or position.</li>
-            <li>Review <strong>Analytics</strong> for open positions, candidate totals, hires, conversion, funnel stages, source mix, and average time in stage.</li>
+            <li>Review <strong>Analytics</strong> for open positions, candidate totals, hires, conversion, candidate flow stages, source mix, and average time in stage.</li>
             <li>Use <strong>Export</strong> to download candidate or position CSVs, and <strong>Import</strong> to preview, map, and upload candidate CSV data. Download the import template for the supported columns.</li>
           </ol>
 
@@ -46,7 +46,7 @@ function Docs() {
           <h2>Good to know</h2>
           <ul>
             <li>The public job board and apply pages are available without sign-in. Recruiter tools require a recruiter account; application history and saved documents require a candidate account.</li>
-            <li>Funnel drag-and-drop is designed for desktop. On touch devices, use the stage selector on the candidate record.</li>
+            <li>Candidate flow drag-and-drop is designed for desktop. On touch devices, use the stage selector on the candidate record.</li>
             <li>Candidate files accept PDF, DOC, and DOCX files up to 10 MB. Secure file links expire after one hour.</li>
             <li>Organisation data is isolated by organisation and protected by row-level security.</li>
           </ul>

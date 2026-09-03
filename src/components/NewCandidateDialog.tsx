@@ -62,7 +62,7 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add someone to your funnel</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Add someone to your candidate flow</DialogTitle></DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Candidate’s full name" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Their email address" className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm" />

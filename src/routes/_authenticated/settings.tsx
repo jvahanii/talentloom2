@@ -168,7 +168,7 @@ function Settings() {
             {[
               { icon: Linkedin, name: "LinkedIn", desc: "Sync applicants automatically" },
               { icon: Briefcase, name: "Indeed", desc: "Import from your job posts" },
-              { icon: Globe, name: "Greenhouse / Lever", desc: "Bring your ATS funnel in" },
+              { icon: Globe, name: "Greenhouse / Lever", desc: "Bring your ATS candidate flow in" },
             ].map((c) => (
               <div key={c.name} className="glass-strong rounded-xl p-4 opacity-70">
                 <c.icon className="h-5 w-5 text-teal-700" />

@@ -28,7 +28,7 @@ export const SLASH_COMMANDS = [
   { cmd: "/candidate", hint: "<name> — inspect and move a candidate" },
   { cmd: "/req", hint: "[title] — create or edit a position" },
   { cmd: "/pipeline", hint: "interactive graph of stages" },
-  { cmd: "/funnel", hint: "conversion funnel chart" },
+  { cmd: "/funnel", hint: "candidate flow chart" },
   { cmd: "/sources", hint: "candidates by source" },
   { cmd: "/time-in-stage", hint: "average days per stage" },
   { cmd: "/help", hint: "list available commands" },

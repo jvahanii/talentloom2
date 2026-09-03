@@ -74,7 +74,7 @@ export const askAgent = createServerFn({ method: "POST" })
     if (usageError) throw new Error("Could not verify your daily usage. Please try again.");
     if (allowed === false) {
       return {
-        reply: `You've reached your daily limit of ${DAILY_CALL_LIMIT} questions. It resets tomorrow — in the meantime, the Funnel, Positions and Analytics pages have the same data.`,
+        reply: `You've reached your daily limit of ${DAILY_CALL_LIMIT} questions. It resets tomorrow — in the meantime, the Candidate flow, Positions and Analytics pages have the same data.`,
       };
     }
 

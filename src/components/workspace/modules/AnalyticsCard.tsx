@@ -9,7 +9,7 @@ const COLORS = ["#FF5FA2", "#4ED6A6", "#B79CFF", "#FFD166", "#9BDCFF", "#FF9EC7"
 type View = "funnel" | "sources" | "time-in-stage";
 
 const TITLE: Record<View, string> = {
-  funnel: "Conversion funnel",
+  funnel: "Candidate flow",
   sources: "Candidates by source",
   "time-in-stage": "Average days in each stage",
 };
