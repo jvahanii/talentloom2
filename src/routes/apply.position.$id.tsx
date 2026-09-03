@@ -63,6 +63,11 @@ function PositionPage() {
                   <CalendarDays className="h-3.5 w-3.5" /> Starts {position.targetStartDate}
                 </span>
               )}
+              {position.deadlineDate && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 font-medium text-primary">
+                  <CalendarDays className="h-3.5 w-3.5" /> Apply by {position.deadlineDate}
+                </span>
+              )}
             </div>
 
             <div className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
