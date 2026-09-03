@@ -183,15 +183,22 @@ export const submitApplication = createServerFn({ method: "POST" })
     // token is optional — anonymous applicants submit without one.
     let applicantUserId: string | null = null;
     const bearer = getRequestHeader("authorization");
-    const token = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
-    if (token && token !== process.env["SUPABASE_PUBLISHABLE_KEY"]) {
+    const token = bearer?.startsWith("Bearer ") ? bearer.slice(7).trim() : null;
+    if (token && token.split(".").length === 3) {
       const { createClient } = await import("@supabase/supabase-js");
-      const userClient = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_PUBLISHABLE_KEY"]!, {
-        auth: { persistSession: false, autoRefreshToken: false },
-        global: { headers: { Authorization: `Bearer ${token}` } },
+      const { createSupabaseFetch, serverSupabaseConfig } = await import(
+        "@/integrations/supabase/app-config"
+      );
+      const { url, publishableKey } = serverSupabaseConfig();
+      const userClient = createClient(url, publishableKey, {
+        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+        global: {
+          fetch: createSupabaseFetch(publishableKey),
+          headers: { Authorization: `Bearer ${token}` },
+        },
       });
-      const { data: userData } = await userClient.auth.getUser(token);
-      applicantUserId = userData.user?.id ?? null;
+      const { data: claimsData } = await userClient.auth.getClaims(token);
+      applicantUserId = (claimsData?.claims?.sub as string | undefined) ?? null;
     }
 
     const { data: owner } = await supabaseAdmin
