@@ -29,7 +29,7 @@ function Reqs() {
     enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
-      if (error) throw error; return data as Req[];
+      if (error) throw error; return data as unknown as Req[];
     },
   });
 
@@ -175,8 +175,8 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
       const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, deadline_date: deadline_date || null, description: description || null, notes: notes || null } as Record<string, unknown>;
       if (!editing && !orgId) throw new Error("No workspace selected");
       const { error } = editing
-        ? await supabase.from("requisitions").update(payload).eq("id", editing.id)
-        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! });
+        ? await supabase.from("requisitions").update(payload as never).eq("id", editing.id)
+        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! } as never);
       if (error) throw error;
       toast.success(editing ? "Updated" : "Created");
       onSaved(); onOpenChange(false);
