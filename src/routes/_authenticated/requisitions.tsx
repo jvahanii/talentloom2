@@ -6,7 +6,8 @@ import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Link2 } from "lucide-react";
+import { Plus, Pencil, Link2, Download } from "lucide-react";
+import { downloadPositionAttachments } from "@/lib/download-position-files";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Positions — TalentLoom" }] }),
