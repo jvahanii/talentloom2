@@ -14,7 +14,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
             <Link to="/apply" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">Positions</Link>
-            <Link to="/candidate/auth" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">Candidates</Link>
+            <Link to="/candidate/auth" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">My page</Link>
             <Link to="/docs" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">Docs</Link>
             <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">Sign in</Link>
           </div>
