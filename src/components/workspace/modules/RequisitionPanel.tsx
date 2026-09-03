@@ -13,6 +13,7 @@ type Req = {
   hiring_manager: string | null;
   status: string;
   target_start_date: string | null;
+  deadline_date: string | null;
   notes: string | null;
 };
 
@@ -41,6 +42,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
   const [hiringManager, setHiringManager] = useState(existing?.hiring_manager ?? "");
   const [status, setStatus] = useState<ReqStatus>((existing?.status as ReqStatus) ?? "open");
   const [start, setStart] = useState(existing?.target_start_date ?? "");
+  const [deadline, setDeadline] = useState(existing?.deadline_date ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
       setHiringManager(existing.hiring_manager ?? "");
       setStatus(existing.status as ReqStatus);
       setStart(existing.target_start_date ?? "");
+      setDeadline(existing.deadline_date ?? "");
       setNotes(existing.notes ?? "");
     }
   }, [existing?.id]);
@@ -65,6 +68,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         hiring_manager: hiringManager || null,
         status,
         target_start_date: start || null,
+        deadline_date: deadline || null,
         notes: notes || null,
       };
       if (existing) {
@@ -129,6 +133,9 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
           </Field>
           <Field label="Target start">
             <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
+          </Field>
+          <Field label="Application deadline">
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls} />
           </Field>
         </div>
         <Field label="Notes">
