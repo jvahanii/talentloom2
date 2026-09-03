@@ -1,9 +1,11 @@
+import { useEffect, useRef } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Briefcase, Building2, EyeOff, RotateCcw, Search } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { StarRating } from "@/components/StarRating";
 import { usePositionRatings } from "@/hooks/usePositionRatings";
+import { useBoardPrefs } from "@/hooks/useBoardPrefs";
 import { listOpenPositions } from "@/lib/apply.functions";
 
 const SORTS = [
