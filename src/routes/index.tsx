@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Briefcase, UserRound } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import heroImage from "@/assets/hero-team-review.jpg.asset.json";
+import heroImage from "@/assets/kawaii-hero-illustration.svg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,17 +24,13 @@ function Landing() {
       <section className="mx-auto max-w-6xl px-4 pt-3 pb-12 sm:px-6 sm:pt-5 sm:pb-20">
         <div
           className="relative overflow-hidden rounded-3xl p-6 sm:p-12 text-center"
-          style={{ backgroundImage: `url(${heroImage.url})`, backgroundSize: "cover", backgroundPosition: "center" }}
+          style={{
+            backgroundImage: `linear-gradient(135deg, rgba(74,58,85,0.74) 0%, rgba(255,158,199,0.48) 52%, rgba(78,214,166,0.34) 100%), url(${heroImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
         >
-          {/* Dark gradient overlay for text contrast */}
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(74,58,85,0.86) 0%, rgba(255,158,199,0.7) 55%, rgba(78,214,166,0.62) 100%)",
-            }}
-          />
           <div className="relative">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
               Welcome to the best place to find work and workers
