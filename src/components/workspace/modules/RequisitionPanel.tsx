@@ -29,7 +29,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
     queryFn: async () => {
       const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Req[];
+      return (data ?? []) as unknown as Req[];
     },
   });
 
@@ -72,10 +72,10 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         notes: notes || null,
       };
       if (existing) {
-        const { error } = await supabase.from("requisitions").update(payload).eq("id", existing.id);
+        const { error } = await supabase.from("requisitions").update(payload as never).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! });
+        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! } as never);
         if (error) throw error;
       }
     },
