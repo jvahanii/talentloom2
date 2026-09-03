@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
 import { ensureOrg } from "@/lib/org";

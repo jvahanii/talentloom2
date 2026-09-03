@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { lovable } from "@/integrations/lovable/index";
 import { toast } from "sonner";
 import { MarketingShell } from "@/components/MarketingShell";

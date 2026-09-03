@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { generateText, tool, stepCountIs, type ModelMessage } from "ai";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAuth } from "@/integrations/supabase/app-auth-middleware";
 
 const HistoryMessage = z.object({
   role: z.enum(["user", "assistant"]),

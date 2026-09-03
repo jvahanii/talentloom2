@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 
 export const CANDIDATE_FILES_BUCKET = "candidate-files";
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;

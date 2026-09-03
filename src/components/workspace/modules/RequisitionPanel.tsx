@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/app-client";
 import { REQ_STATUS_LABEL } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
