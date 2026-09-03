@@ -133,7 +133,7 @@ function JobBoard() {
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
               value={q}
-              onChange={(e) => navigate({ search: (prev) => ({ ...prev, q: e.target.value }) })}
+              onChange={(e) => apply({ q: e.target.value })}
               placeholder="Search by role, company or team"
               className="w-full bg-transparent text-sm outline-none"
               aria-label="Search open positions"
@@ -141,7 +141,7 @@ function JobBoard() {
           </label>
           <select
             value={org}
-            onChange={(e) => navigate({ search: (prev) => ({ ...prev, org: e.target.value }) })}
+            onChange={(e) => apply({ org: e.target.value })}
             aria-label="Filter by company"
             className="glass rounded-xl px-3 py-2 text-sm sm:w-56"
           >
@@ -152,7 +152,7 @@ function JobBoard() {
           </select>
           <select
             value={safeSort}
-            onChange={(e) => navigate({ search: (prev) => ({ ...prev, sort: e.target.value }) })}
+            onChange={(e) => apply({ sort: e.target.value })}
             aria-label="Sort positions"
             className="glass rounded-xl px-3 py-2 text-sm sm:w-48"
           >
@@ -168,7 +168,7 @@ function JobBoard() {
               <button
                 key={v.value}
                 type="button"
-                onClick={() => navigate({ search: (prev) => ({ ...prev, view: v.value }) })}
+                onClick={() => apply({ view: v.value })}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
                   safeView === v.value
                     ? "bg-primary text-primary-foreground"
@@ -178,6 +178,13 @@ function JobBoard() {
                 {v.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="glass rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+            >
+              Reset filters
+            </button>
           </div>
         ) : (
           <p className="mt-3 text-center text-sm text-muted-foreground">
