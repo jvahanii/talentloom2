@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
+import { getMyProfileId } from "@/lib/auth";
 
 export const Route = createFileRoute("/invite/$token")({
   ssr: false,

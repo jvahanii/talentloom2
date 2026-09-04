@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";

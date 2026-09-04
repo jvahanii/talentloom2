@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
+import { clerkSignOut, hasClerkSession } from "@/lib/clerk";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
 import { ensureOrg } from "@/lib/org";
@@ -116,7 +118,7 @@ function Onboarding() {
       const { data: p } = await supabase
         .from("profiles")
         .select("full_name, job_title, job_title_other, company_name, company_industry, company_size, onboarding_step")
-        .eq("id", u.user.id)
+        .eq("id", uid)
         .maybeSingle();
       if (p) {
         setState({
@@ -452,7 +454,7 @@ function Step3({
         const stageRaw = get(stageI).toLowerCase();
         const stage = (STAGES as readonly string[]).includes(stageRaw) ? (stageRaw as Stage) : "applied";
         return {
-          user_id: u.user!.id,
+          user_id: uid,
           org_id: orgId,
           name: get(nameI) || "Unnamed",
           email: get(emailI) || null,
