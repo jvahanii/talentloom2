@@ -185,20 +185,16 @@ export const submitApplication = createServerFn({ method: "POST" })
     const bearer = getRequestHeader("authorization");
     const token = bearer?.startsWith("Bearer ") ? bearer.slice(7).trim() : null;
     if (token && token.split(".").length === 3) {
-      const { createClient } = await import("@supabase/supabase-js");
-      const { createSupabaseFetch, serverSupabaseConfig } = await import(
-        "@/integrations/supabase/app-config"
-      );
-      const { url, publishableKey } = serverSupabaseConfig();
-      const userClient = createClient(url, publishableKey, {
-        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-        global: {
-          fetch: createSupabaseFetch(publishableKey),
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      });
-      const { data: claimsData } = await userClient.auth.getClaims(token);
-      applicantUserId = (claimsData?.claims?.sub as string | undefined) ?? null;
+      try {
+        const { verifyClerkToken, provisionProfileForClerkUser } = await import(
+          "@/integrations/supabase/clerk-sync.server"
+        );
+        const clerkUserId = await verifyClerkToken(token);
+        const profile = await provisionProfileForClerkUser(clerkUserId);
+        applicantUserId = profile.id;
+      } catch {
+        applicantUserId = null;
+      }
     }
 
     const { data: owner } = await supabaseAdmin

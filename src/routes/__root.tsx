@@ -7,11 +7,12 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { ClerkProvider, useAuth } from "@clerk/clerk-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { supabase } from "@/integrations/supabase/app-client";
+import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk";
 import { Toaster } from "@/components/ui/sonner";
 import { AppThemeProvider } from "@/hooks/useAppTheme";
 
@@ -85,25 +86,38 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-function RootComponent() {
+/** Invalidates router + query caches when the Clerk sign-in state flips. */
+function AuthChangeInvalidator() {
+  const { isLoaded, isSignedIn } = useAuth();
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const prev = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+    if (!isLoaded) return;
+    if (prev.current !== undefined && prev.current !== isSignedIn) {
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
-    });
-    return () => sub.subscription.unsubscribe();
-  }, [queryClient, router]);
+      if (isSignedIn) queryClient.invalidateQueries();
+      else queryClient.clear();
+    }
+    prev.current = isSignedIn;
+  }, [isLoaded, isSignedIn, router, queryClient]);
+
+  return null;
+}
+
+function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppThemeProvider>
-        <Outlet />
-        <Toaster />
-      </AppThemeProvider>
+      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
+        <AppThemeProvider>
+          <AuthChangeInvalidator />
+          <Outlet />
+          <Toaster />
+        </AppThemeProvider>
+      </ClerkProvider>
     </QueryClientProvider>
   );
 }

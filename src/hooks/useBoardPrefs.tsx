@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/app-client";
+import { hasClerkSession } from "@/lib/clerk";
 import {
   getMyBoardPrefs,
   saveMyBoardPrefs,
@@ -25,15 +26,11 @@ export function useBoardPrefs() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setSignedIn(!!data.session);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setSignedIn(!!session);
+    hasClerkSession().then((ok) => {
+      if (active) setSignedIn(ok);
     });
     return () => {
       active = false;
-      sub.subscription.unsubscribe();
     };
   }, []);
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg, PERMISSION_GROUPS, PERMISSIONS, permColumn, type OrgTitle, type Permission } from "@/lib/org";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -75,7 +76,7 @@ export function OrgSettings() {
     queryKey: ["org-members", orgId],
     enabled: !!orgId,
     queryFn: async (): Promise<MemberRow[]> => {
-      const { data: u } = await supabase.auth.getUser();
+      const uid = await getMyProfileId();
       const { data: rows, error } = await supabase
         .from("organization_members")
         .select("id, user_id, title_id, organization_titles(name)")
@@ -93,7 +94,7 @@ export function OrgSettings() {
         title_id: r.title_id,
         title_name: (r as unknown as { organization_titles: { name: string } | null }).organization_titles?.name ?? null,
         name: nameById.get(r.user_id) ?? null,
-        isSelf: r.user_id === u.user?.id,
+        isSelf: r.user_id === uid,
       }));
     },
   });
@@ -133,11 +134,11 @@ export function OrgSettings() {
     if (!orgId || !inviteEmail.trim() || !inviteTitle) return;
     setBusy(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from("organization_invites")
-        .insert({ org_id: orgId, email: inviteEmail.trim(), title_id: inviteTitle, invited_by: u.user.id })
+        .insert({ org_id: orgId, email: inviteEmail.trim(), title_id: inviteTitle, invited_by: uid })
         .select("token")
         .single();
       if (error) throw error;

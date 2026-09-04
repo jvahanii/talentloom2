@@ -99,12 +99,14 @@ type MemberRow = {
 };
 
 async function fetchMemberships(): Promise<OrgMembership[]> {
-  const { data: u } = await supabase.auth.getUser();
-  if (!u.user) return [];
+  const { data: uid, error: uidError } = (await (supabase.rpc as unknown as (
+    fn: string,
+  ) => Promise<{ data: string | null; error: unknown }>)("current_profile_id"));
+  if (uidError || !uid) return [];
   const { data, error } = await supabase
     .from("organization_members")
     .select("org_id, role, title_id, organizations(name), organization_titles(*)")
-    .eq("user_id", u.user.id);
+    .eq("user_id", uid as string);
   if (error) throw error;
   return ((data ?? []) as unknown as MemberRow[]).map((m) => ({
     org_id: m.org_id,

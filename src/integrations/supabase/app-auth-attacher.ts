@@ -1,10 +1,9 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { supabase } from "./app-client";
+import { getClerkToken } from "@/lib/clerk";
 
 export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const token = await getClerkToken();
     return next({ headers: token ? { Authorization: `Bearer ${token}` } : {} });
   },
 );

@@ -2,12 +2,17 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/app-client";
 import { AppShell } from "@/components/AppShell";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
+import { waitForClerk } from "@/lib/clerk";
+import { ensureMyProfile } from "@/lib/profile.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    const clerk = await waitForClerk();
+    if (!clerk?.session) throw redirect({ to: "/auth" });
+
+    // Make sure a profile row exists for this Clerk user (creates or links it).
+    const profile = await ensureMyProfile();
 
     // Accept a pending workspace invite (user clicked an invite link before signing in).
     try {
@@ -24,17 +29,11 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     // Enforce onboarding completion before entering the app.
-    const { data: p } = await supabase
-      .from("profiles")
-      .select("onboarding_completed_at")
-      .eq("id", data.user.id)
-      .maybeSingle();
-
-    if (!p?.onboarding_completed_at) {
+    if (!profile.onboardingCompleted) {
       throw redirect({ to: "/onboarding" });
     }
 
-    return { user: data.user };
+    return { userId: profile.id };
   },
   component: AuthedLayout,
 });

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { REQ_STATUS_LABEL } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 
 type Req = {
@@ -59,8 +60,8 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       if (!existing && !orgId) throw new Error("No organisation selected");
       const payload = {
         title,
@@ -75,7 +76,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         const { error } = await supabase.from("requisitions").update(payload as never).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! } as never);
+        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: uid, org_id: orgId! } as never);
         if (error) throw error;
       }
     },

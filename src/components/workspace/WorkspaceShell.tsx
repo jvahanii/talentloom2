@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/app-client";
+import { clerkSignOut } from "@/lib/clerk";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, MoreHorizontal, FileText, Upload, Download, Settings as SettingsIcon, Book } from "lucide-react";
 import {
@@ -18,7 +18,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await qc.cancelQueries();
     qc.clear();
-    await supabase.auth.signOut();
+    await clerkSignOut();
     navigate({ to: "/auth", replace: true });
   };
 

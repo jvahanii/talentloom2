@@ -1,4 +1,5 @@
-// Server middleware validating the bearer token against the TalentLoom backend project.
+// Server middleware validating the Clerk session token and resolving the
+// caller's TalentLoom profile (uuid) for RLS-scoped database access.
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
@@ -18,6 +19,19 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     const token = authHeader.replace("Bearer ", "");
     if (!token || token.split(".").length !== 3) throw new Error("Unauthorized: Invalid token");
 
+    const { verifyClerkToken, provisionProfileForClerkUser } = await import("./clerk-sync.server");
+    let clerkUserId: string;
+    try {
+      clerkUserId = await verifyClerkToken(token);
+    } catch {
+      throw new Error("Unauthorized: Invalid token");
+    }
+
+    // Auto-provision/link the profile so first sign-in works everywhere.
+    const profile = await provisionProfileForClerkUser(clerkUserId);
+
+    // RLS applies as this user: the database verifies the Clerk token via the
+    // third-party auth integration, and policies map sub -> profiles.id.
     const supabase = createClient<Database>(url, publishableKey, {
       global: {
         fetch: createSupabaseFetch(publishableKey),
@@ -26,9 +40,8 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
     });
 
-    const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims?.sub) throw new Error("Unauthorized: Invalid token");
-
-    return next({ context: { supabase, userId: data.claims.sub, claims: data.claims } });
+    return next({
+      context: { supabase, userId: profile.id, clerkUserId, claims: { sub: clerkUserId } },
+    });
   },
 );

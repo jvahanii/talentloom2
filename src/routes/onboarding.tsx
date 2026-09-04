@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
+import { clerkSignOut, hasClerkSession } from "@/lib/clerk";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
 import { ensureOrg } from "@/lib/org";
@@ -11,15 +13,16 @@ export const Route = createFileRoute("/onboarding")({
   ssr: false,
   head: () => ({ meta: [{ title: "Get started — TalentLoom" }] }),
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    if (!(await hasClerkSession())) throw redirect({ to: "/auth" });
+    const uid = await getMyProfileId();
+    if (!uid) throw redirect({ to: "/auth" });
     const { data: p } = await supabase
       .from("profiles")
       .select("onboarding_completed_at")
-      .eq("id", data.user.id)
+      .eq("id", uid)
       .maybeSingle();
     if (p?.onboarding_completed_at) throw redirect({ to: "/pipeline" });
-    return { user: data.user };
+    return {};
   },
   component: Onboarding,
 });
@@ -94,9 +97,9 @@ function Onboarding() {
 
   useEffect(() => {
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) { navigate({ to: "/auth" }); return; }
-      setUid(u.user.id);
+      const uid = await getMyProfileId();
+      if (!uid) { navigate({ to: "/auth" }); return; }
+      setUid(uid);
       // Accept a pending workspace invite, if the user arrived via one
       try {
         const token = window.sessionStorage.getItem(PENDING_INVITE_KEY);
@@ -115,7 +118,7 @@ function Onboarding() {
       const { data: p } = await supabase
         .from("profiles")
         .select("full_name, job_title, job_title_other, company_name, company_industry, company_size, onboarding_step")
-        .eq("id", u.user.id)
+        .eq("id", uid)
         .maybeSingle();
       if (p) {
         setState({
@@ -192,7 +195,7 @@ function Onboarding() {
   const skipStep3 = async () => complete({ seedSamples: false });
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await clerkSignOut();
     navigate({ to: "/auth", replace: true });
   };
 
@@ -441,8 +444,8 @@ function Step3({
       const idx = (name: string) => headers.indexOf(name);
       const nameI = idx("name");
       if (nameI < 0) throw new Error("CSV needs a 'name' column");
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       if (!orgId) throw new Error("Organisation not ready yet — go back one step and continue again");
       const emailI = idx("email"), phoneI = idx("phone"), sourceI = idx("source"),
         stageI = idx("stage"), notesI = idx("notes"), reqI = idx("requisition_title");
@@ -451,7 +454,7 @@ function Step3({
         const stageRaw = get(stageI).toLowerCase();
         const stage = (STAGES as readonly string[]).includes(stageRaw) ? (stageRaw as Stage) : "applied";
         return {
-          user_id: u.user!.id,
+          user_id: uid,
           org_id: orgId,
           name: get(nameI) || "Unnamed",
           email: get(emailI) || null,

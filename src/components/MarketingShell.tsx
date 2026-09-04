@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/app-client";
+import { clerkSignOut } from "@/lib/clerk";
 import { useSession } from "@/lib/auth";
 import loomLogo from "@/assets/kawaii-loom-logo.png";
 
@@ -25,7 +25,7 @@ function SignedInChip() {
       </span>
       <button
         onClick={async () => {
-          await supabase.auth.signOut();
+          await clerkSignOut();
           navigate({ to: "/" });
         }}
         className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
