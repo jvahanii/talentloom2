@@ -366,10 +366,12 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          clerk_user_id: string | null
           company_industry: string | null
           company_name: string | null
           company_size: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
           job_title: string | null
@@ -380,10 +382,12 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          clerk_user_id?: string | null
           company_industry?: string | null
           company_name?: string | null
           company_size?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
           job_title?: string | null
@@ -394,10 +398,12 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          clerk_user_id?: string | null
           company_industry?: string | null
           company_name?: string | null
           company_size?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
           job_title?: string | null
@@ -518,6 +524,7 @@ export type Database = {
       bump_ai_usage: { Args: { p_limit: number }; Returns: boolean }
       clear_sample_data: { Args: never; Returns: undefined }
       create_organization: { Args: { _name: string }; Returns: string }
+      current_profile_id: { Args: never; Returns: string }
       has_org_permission: {
         Args: { _org: string; _perm: string; _user: string }
         Returns: boolean
