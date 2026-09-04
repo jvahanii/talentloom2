@@ -24,9 +24,9 @@ function InvitePage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
+      const uid = await getMyProfileId();
       if (cancelled) return;
-      if (!u.user) {
+      if (!uid) {
         try {
           window.sessionStorage.setItem(PENDING_INVITE_KEY, token);
         } catch {
@@ -51,7 +51,7 @@ function InvitePage() {
       const { data: profile } = await supabase
         .from("profiles")
         .select("onboarding_step")
-        .eq("id", u.user.id)
+        .eq("id", uid)
         .maybeSingle();
       if (cancelled) return;
       if ((profile?.onboarding_step ?? 99) >= 99) {

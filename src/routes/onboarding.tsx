@@ -11,15 +11,16 @@ export const Route = createFileRoute("/onboarding")({
   ssr: false,
   head: () => ({ meta: [{ title: "Get started — TalentLoom" }] }),
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
+    if (!(await hasClerkSession())) throw redirect({ to: "/auth" });
+    const uid = await getMyProfileId();
+    if (!uid) throw redirect({ to: "/auth" });
     const { data: p } = await supabase
       .from("profiles")
       .select("onboarding_completed_at")
-      .eq("id", data.user.id)
+      .eq("id", uid)
       .maybeSingle();
     if (p?.onboarding_completed_at) throw redirect({ to: "/pipeline" });
-    return { user: data.user };
+    return {};
   },
   component: Onboarding,
 });
@@ -94,9 +95,9 @@ function Onboarding() {
 
   useEffect(() => {
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) { navigate({ to: "/auth" }); return; }
-      setUid(u.user.id);
+      const uid = await getMyProfileId();
+      if (!uid) { navigate({ to: "/auth" }); return; }
+      setUid(uid);
       // Accept a pending workspace invite, if the user arrived via one
       try {
         const token = window.sessionStorage.getItem(PENDING_INVITE_KEY);
@@ -192,7 +193,7 @@ function Onboarding() {
   const skipStep3 = async () => complete({ seedSamples: false });
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await clerkSignOut();
     navigate({ to: "/auth", replace: true });
   };
 
@@ -441,8 +442,8 @@ function Step3({
       const idx = (name: string) => headers.indexOf(name);
       const nameI = idx("name");
       if (nameI < 0) throw new Error("CSV needs a 'name' column");
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       if (!orgId) throw new Error("Organisation not ready yet — go back one step and continue again");
       const emailI = idx("email"), phoneI = idx("phone"), sourceI = idx("source"),
         stageI = idx("stage"), notesI = idx("notes"), reqI = idx("requisition_title");

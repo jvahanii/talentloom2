@@ -36,12 +36,18 @@ function Settings() {
 
   useEffect(() => {
     (async () => {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) return;
-      setEmail(u.user.email ?? "");
-      const { data: p } = await supabase.from("profiles")
-        .select("full_name, job_title, job_title_other, company_name, company_industry, company_size")
-        .eq("id", u.user.id).maybeSingle();
+      const uid = await getMyProfileId();
+      if (!uid) return;
+      const { data: p } = (await supabase.from("profiles")
+        .select("full_name, job_title, job_title_other, company_name, company_industry, company_size, email")
+        .eq("id", uid).maybeSingle()) as unknown as {
+        data: {
+          full_name: string | null; job_title: string | null; job_title_other: string | null;
+          company_name: string | null; company_industry: string | null; company_size: string | null;
+          email: string | null;
+        } | null;
+      };
+      setEmail(p?.email ?? "");
       if (p) setForm({
         full_name: p.full_name ?? "", job_title: p.job_title ?? "",
         job_title_other: p.job_title_other ?? "", company_name: p.company_name ?? "",
@@ -53,9 +59,9 @@ function Settings() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("profiles").upsert({ id: u.user.id, ...form });
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
+      const { error } = await supabase.from("profiles").upsert({ id: uid, ...form });
       if (error) throw error;
       toast.success("Saved");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
