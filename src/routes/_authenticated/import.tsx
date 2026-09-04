@@ -68,15 +68,15 @@ function ImportPage() {
       const data = rows.slice(1);
       const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId!);
       const reqByTitle = new Map((reqs ?? []).map((r) => [r.title.toLowerCase(), r.id]));
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       if (!orgId) throw new Error("No organisation selected");
 
       const inserts = data.map((r) => {
         const get = (f: string) => { const i = mapping[f]; return i !== undefined && i !== "" ? (r[Number(i)] ?? "").trim() : ""; };
         const stage = (STAGES as readonly string[]).includes(get("stage").toLowerCase()) ? (get("stage").toLowerCase() as Stage) : "applied";
         return {
-          user_id: u.user!.id,
+          user_id: uid,
           org_id: orgId,
           name: get("name") || "Unnamed",
           email: get("email") || null,

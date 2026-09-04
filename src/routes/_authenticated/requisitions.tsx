@@ -211,13 +211,13 @@ function ReqDialog({ open, onOpenChange, editing, onSaved }: { open: boolean; on
     e.preventDefault();
     setSaving(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       const payload = { title, department: department || null, hiring_manager: hiring_manager || null, status, target_start_date: target_start_date || null, deadline_date: deadline_date || null, description: description || null, notes: notes || null } as Record<string, unknown>;
       if (!editing && !orgId) throw new Error("No organisation selected");
       const { error } = editing
         ? await supabase.from("requisitions").update(payload as never).eq("id", editing.id)
-        : await supabase.from("requisitions").insert({ ...payload, user_id: u.user.id, org_id: orgId! } as never);
+        : await supabase.from("requisitions").insert({ ...payload, user_id: uid, org_id: orgId! } as never);
       if (error) throw error;
       toast.success(editing ? "Updated" : "Created");
       onSaved(); onOpenChange(false);

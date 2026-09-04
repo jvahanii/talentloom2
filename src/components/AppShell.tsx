@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { KanbanSquare, Users, Briefcase, Settings, BarChart3, Download, Upload, LogOut, Building2, Plus } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
-import { useSession } from "@/lib/auth";
+import { clerkSignOut } from "@/lib/clerk";
+import { useSession, type AppUser } from "@/lib/auth";
 import { OrgProvider, useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function NavUser({ user, fullName }: { user: User | null; fullName?: string | null }) {
+function NavUser({ user, fullName }: { user: AppUser | null; fullName?: string | null }) {
   const navigate = useNavigate();
   if (!user) return null;
   return (
@@ -66,7 +66,7 @@ function NavUser({ user, fullName }: { user: User | null; fullName?: string | nu
       </div>
       <button
         onClick={async () => {
-          await supabase.auth.signOut();
+          await clerkSignOut();
           navigate({ to: "/auth" });
         }}
         className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -175,12 +175,12 @@ function ShellInner({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
-    enabled: !!user,
+    enabled: !!user?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", user!.id)
+        .eq("id", user!.id as string)
         .maybeSingle();
       if (error) throw error;
       return data;

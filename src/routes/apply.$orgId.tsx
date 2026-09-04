@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
+import { hasClerkSession } from "@/lib/clerk";
+import { getMyProfileId } from "@/lib/auth";
 import { SOURCES } from "@/lib/constants";
 import { getApplyContext, submitApplication } from "@/lib/apply.functions";
 import { myDocuments } from "@/lib/candidate-portal.functions";
@@ -68,14 +70,19 @@ function ApplyPage() {
 
   const docsFn = useServerFn(myDocuments);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user;
-      if (!u) return;
+    (async () => {
+      if (!(await hasClerkSession())) return;
       setSignedIn(true);
-      if (u.email) setEmail(u.email);
-      const fullName = (u.user_metadata as Record<string, unknown> | undefined)?.["full_name"];
-      if (typeof fullName === "string" && fullName.trim()) setName(fullName);
-    });
+      const pid = await getMyProfileId();
+      if (!pid) return;
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("email, full_name")
+        .eq("id", pid)
+        .maybeSingle();
+      if (p?.email) setEmail(p.email);
+      if (p?.full_name?.trim()) setName(p.full_name.trim());
+    })();
   }, []);
   const docs = useQuery({
     queryKey: ["my-documents"],

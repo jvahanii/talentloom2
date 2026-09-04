@@ -33,11 +33,11 @@ export function NewCandidateDialog({ open, onOpenChange, requisitions, onCreated
     e.preventDefault();
     setSaving(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not authenticated");
+      const uid = await getMyProfileId();
+      if (!uid) throw new Error("Not authenticated");
       if (!orgId) throw new Error("No organisation selected");
       const { data: created, error } = await supabase.from("candidates").insert({
-        user_id: u.user.id, org_id: orgId, name, email: email || null, phone: phone || null,
+        user_id: uid, org_id: orgId, name, email: email || null, phone: phone || null,
         requisition_id: reqId || null, source, stage,
       }).select("id").single();
       if (error) throw error;
