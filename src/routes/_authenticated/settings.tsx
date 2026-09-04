@@ -62,7 +62,7 @@ function Settings() {
     try {
       const uid = await getMyProfileId();
       if (!uid) throw new Error("Not authenticated");
-      const { error } = await supabase.from("profiles").upsert({ id: uid, ...form });
+      const { error } = await supabase.from("profiles").update(form).eq("id", uid);
       if (error) throw error;
       toast.success("Saved");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
