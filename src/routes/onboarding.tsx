@@ -178,17 +178,26 @@ function Onboarding() {
         const { error } = await supabase.rpc("seed_sample_data");
         if (error) throw error;
       }
-      const { error } = await supabase.from("profiles").upsert({
-        id: uid,
-        ...state,
-        onboarding_step: 3,
-        onboarding_completed_at: new Date().toISOString(),
-      });
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          ...state,
+          onboarding_step: 3,
+          onboarding_completed_at: new Date().toISOString(),
+        })
+        .eq("id", uid);
       if (error) throw error;
       toast.success("You're all set");
       navigate({ to: "/pipeline", replace: true });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to finish onboarding");
+      const message =
+        e instanceof Error
+          ? e.message
+          : typeof e === "object" && e && "message" in e
+            ? String((e as { message: unknown }).message)
+            : "Failed to finish onboarding";
+      console.error("[onboarding] finish failed:", e);
+      toast.error(message);
     } finally { setSaving(false); }
   };
 
