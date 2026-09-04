@@ -140,7 +140,7 @@ function Onboarding() {
     if (!uid) return;
     const next = { ...state, ...patch };
     setState(next);
-    await supabase.from("profiles").upsert({ id: uid, ...next });
+    await supabase.from("profiles").update(next).eq("id", uid);
   };
 
   const step1Valid = state.full_name.trim().length > 0
