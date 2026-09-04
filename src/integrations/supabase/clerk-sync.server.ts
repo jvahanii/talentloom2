@@ -16,13 +16,22 @@ export async function verifyClerkToken(token: string): Promise<string> {
     } else {
       throw new Error("Missing CLERK_SECRET_KEY or EXT_SUPABASE_JWT_SECRET");
     }
-  } catch {
-    throw new Error("Unauthorized: Invalid token");
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[clerk] token verification failed:", detail);
+    throw new Error(
+      `Unauthorized: Invalid token (${
+        supabaseJwtSecret ? "shared HS256 signing key" : "Clerk secret key"
+      } verification failed: ${detail})`,
+    );
   }
 
-  if (!payload?.sub) throw new Error("Unauthorized: Invalid token");
+  if (!payload?.sub) {
+    throw new Error("Unauthorized: Invalid token (verified token has no subject claim)");
+  }
   return payload.sub;
 }
+
 
 interface ProfileRow {
   id: string;
