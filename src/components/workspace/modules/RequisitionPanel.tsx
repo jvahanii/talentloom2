@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { REQ_STATUS_LABEL } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 
 type Req = {

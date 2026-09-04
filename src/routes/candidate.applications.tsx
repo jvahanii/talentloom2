@@ -50,8 +50,8 @@ function CandidatePortalPage() {
   const docsFn = useServerFn(myDocuments);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
+    hasClerkSession().then((ok) => {
+      if (!ok) {
         navigate({ to: "/candidate/auth", replace: true });
       } else {
         setSessionChecked(true);
@@ -99,7 +99,7 @@ function CandidatePortalPage() {
               onClick={async () => {
                 await queryClient.cancelQueries();
                 queryClient.clear();
-                await supabase.auth.signOut();
+                await clerkSignOut();
                 navigate({ to: "/candidate/auth", replace: true });
               }}
               className="rounded-xl glass px-4 py-2 text-sm font-medium hover:bg-white/80"

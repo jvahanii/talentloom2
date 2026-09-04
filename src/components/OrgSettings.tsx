@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg, PERMISSION_GROUPS, PERMISSIONS, permColumn, type OrgTitle, type Permission } from "@/lib/org";
+import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";

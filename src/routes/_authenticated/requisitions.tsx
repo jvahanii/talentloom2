@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Plus, Pencil, Download } from "lucide-react";
 import { downloadPositionAttachments } from "@/lib/download-position-files";
+import { getMyProfileId } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Positions — TalentLoom" }] }),

@@ -75,11 +75,13 @@ function ApplyPage() {
       setSignedIn(true);
       const pid = await getMyProfileId();
       if (!pid) return;
-      const { data: p } = await supabase
+      const { data: p } = (await supabase
         .from("profiles")
         .select("email, full_name")
         .eq("id", pid)
-        .maybeSingle();
+        .maybeSingle()) as unknown as {
+        data: { email: string | null; full_name: string | null } | null;
+      };
       if (p?.email) setEmail(p.email);
       if (p?.full_name?.trim()) setName(p.full_name.trim());
     })();

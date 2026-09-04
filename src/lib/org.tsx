@@ -99,7 +99,9 @@ type MemberRow = {
 };
 
 async function fetchMemberships(): Promise<OrgMembership[]> {
-  const { data: uid, error: uidError } = await supabase.rpc("current_profile_id");
+  const { data: uid, error: uidError } = (await (supabase.rpc as unknown as (
+    fn: string,
+  ) => Promise<{ data: string | null; error: unknown }>)("current_profile_id"));
   if (uidError || !uid) return [];
   const { data, error } = await supabase
     .from("organization_members")

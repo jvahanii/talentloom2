@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
+import { getMyProfileId } from "@/lib/auth";
 import { Download, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/import")({

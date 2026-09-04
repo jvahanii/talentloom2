@@ -58,11 +58,11 @@ export function stageLabel(stage: string) {
 export const claimMyApplications = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: me } = await context.supabase
+    const { data: me } = (await context.supabase
       .from("profiles")
       .select("email")
       .eq("id", context.userId)
-      .maybeSingle();
+      .maybeSingle()) as unknown as { data: { email: string | null } | null };
     const email = me?.email;
     if (!email) return { claimed: 0 };
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");

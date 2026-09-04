@@ -19,15 +19,11 @@ export function usePositionRatings() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setSignedIn(!!data.session);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setSignedIn(!!session);
+    hasClerkSession().then((ok) => {
+      if (active) setSignedIn(ok);
     });
     return () => {
       active = false;
-      sub.subscription.unsubscribe();
     };
   }, []);
 

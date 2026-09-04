@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { STAGES, STAGE_LABEL, SOURCES, type Stage } from "@/lib/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useOrg } from "@/lib/org";
+import { getMyProfileId } from "@/lib/auth";
 import { ACCEPTED_FILE_TYPES, uploadCandidateFile, validateCandidateFile } from "@/lib/candidate-files";
 import { Paperclip } from "lucide-react";
 
