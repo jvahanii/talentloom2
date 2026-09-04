@@ -14,7 +14,7 @@ export async function verifyClerkToken(token: string): Promise<string> {
       // Default Clerk signing (RS256 or Clerk-managed HS256).
       payload = await verifyToken(token, { secretKey });
     } else {
-      throw new Error("Missing CLERK_SECRET_KEY or SUPABASE_JWT_SECRET");
+      throw new Error("Missing CLERK_SECRET_KEY or EXT_SUPABASE_JWT_SECRET");
     }
   } catch {
     throw new Error("Unauthorized: Invalid token");
