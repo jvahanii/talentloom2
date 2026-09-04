@@ -20,14 +20,25 @@ function clerkGlobal(): ClerkLike | undefined {
 
 /** Returns a Clerk session JWT (Supabase template), or null when signed out. */
 export async function getClerkToken(): Promise<string | null> {
-  try {
-    const clerk = clerkGlobal();
-    if (!clerk?.session) return null;
-    return await clerk.session.getToken({ template: CLERK_JWT_TEMPLATE });
-  } catch {
-    return null;
+  // The template token can briefly be unavailable right after load; retry a few
+  // times before treating the user as signed out.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const clerk = clerkGlobal();
+      if (!clerk?.session) return null;
+      const token = await clerk.session.getToken({ template: CLERK_JWT_TEMPLATE });
+      if (token) return token;
+    } catch (err) {
+      if (attempt === 2) {
+        console.error("[clerk] getToken failed", err);
+        return null;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 250));
   }
+  return null;
 }
+
 
 /** Waits for clerk-js (loaded by ClerkProvider) to finish initialising. */
 export async function waitForClerk(timeoutMs = 8000): Promise<ClerkLike | null> {
