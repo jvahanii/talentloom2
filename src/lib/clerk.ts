@@ -2,7 +2,7 @@
 // The publishable key is public by design (safe to ship to the browser).
 export const CLERK_PUBLISHABLE_KEY: string =
   (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined) ??
-  "pk_test_PASTE_YOUR_CLERK_PUBLISHABLE_KEY";
+  "pk_test_cG9zaXRpdmUtZHVjay03OTUyLmNsZXJrLmFjY291bnRzLmRldiQ";
 
 // Name of the JWT template created in the Clerk dashboard for Supabase.
 export const CLERK_JWT_TEMPLATE = "supabase";
