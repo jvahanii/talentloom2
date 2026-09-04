@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/app-client";
+import { hasClerkSession } from "@/lib/clerk";
 import {
   getMyBoardPrefs,
   saveMyBoardPrefs,

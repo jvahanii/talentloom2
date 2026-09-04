@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/app-client";
+import { clerkSignOut, hasClerkSession } from "@/lib/clerk";
 import { toast } from "sonner";
 import { MarketingShell } from "@/components/MarketingShell";
 import {
