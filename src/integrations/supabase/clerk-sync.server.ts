@@ -1,13 +1,14 @@
 // Server-only: verify Clerk session tokens and provision/link profile rows.
 import { createClerkClient, verifyToken } from "@clerk/backend";
 
-function b64urlToBytes(input: string): Uint8Array {
+function b64urlToBytes(input: string): Uint8Array<ArrayBuffer> {
   const b64 = input.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(input.length / 4) * 4, "=");
   const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
+  const out = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
+
 
 /** Verifies an HS256 JWT against the shared signing secret (WebCrypto only). */
 async function verifyHs256(token: string, secret: string): Promise<Record<string, unknown>> {
