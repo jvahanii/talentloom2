@@ -42,6 +42,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">
           An unexpected error occurred. Please try again.
         </p>
+        {error?.message ? (
+          <p className="mt-3 break-words text-xs text-muted-foreground/80">{error.message}</p>
+        ) : null}
+
         <button
           onClick={() => { router.invalidate(); reset(); }}
           className="btn-teal mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
