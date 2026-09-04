@@ -4,7 +4,7 @@ import { SignIn, SignUp, useAuth } from "@clerk/clerk-react";
 import { MarketingShell } from "@/components/MarketingShell";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Recruiter organisation — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Recruiter organisation — Talentloom" }] }),
   component: AuthPage,
 });
 
@@ -53,7 +53,7 @@ function AuthPage() {
               {mode === "signin" ? "Create my organisation" : "Open my candidate flow"}
             </button>
           </p>
-          <p className="mt-6 text-center text-xs text-muted-foreground"><Link to="/" className="hover:underline">← See how TalentLoom works</Link></p>
+          <p className="mt-6 text-center text-xs text-muted-foreground"><Link to="/" className="hover:underline">← See how Talentloom works</Link></p>
         </div>
       </div>
     </MarketingShell>

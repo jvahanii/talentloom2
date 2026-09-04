@@ -6,7 +6,7 @@ import { useOrg } from "@/lib/org";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, PieChart, Pie, Cell } from "recharts";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
-  head: () => ({ meta: [{ title: "Analytics — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Analytics — Talentloom" }] }),
   component: Analytics,
 });
 

@@ -8,7 +8,7 @@ import { getMyProfileId } from "@/lib/auth";
 import { Download, Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/import")({
-  head: () => ({ meta: [{ title: "Import — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Import — Talentloom" }] }),
   component: ImportPage,
 });
 

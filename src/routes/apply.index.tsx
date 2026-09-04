@@ -25,10 +25,10 @@ const VIEWS = [
 export const Route = createFileRoute("/apply/")({
   head: () => ({
     meta: [
-      { title: "Find your next role — TalentLoom" },
-      { name: "description", content: "Explore roles from companies hiring on TalentLoom. Find a great fit and apply without wasting your time." },
-      { property: "og:title", content: "Find your next role — TalentLoom" },
-      { property: "og:description", content: "Explore roles from companies hiring on TalentLoom. Find a great fit and apply without wasting your time." },
+      { title: "Find your next role — Talentloom" },
+      { name: "description", content: "Explore roles from companies hiring on Talentloom. Find a great fit and apply without wasting your time." },
+      { property: "og:title", content: "Find your next role — Talentloom" },
+      { property: "og:description", content: "Explore roles from companies hiring on Talentloom. Find a great fit and apply without wasting your time." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

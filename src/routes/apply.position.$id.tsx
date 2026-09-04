@@ -9,9 +9,9 @@ import { getPosition } from "@/lib/apply.functions";
 export const Route = createFileRoute("/apply/position/$id")({
   head: () => ({
     meta: [
-      { title: "Position details — TalentLoom" },
+      { title: "Position details — Talentloom" },
       { name: "description", content: "Read the full job description and apply with your CV and cover letter." },
-      { property: "og:title", content: "Position details — TalentLoom" },
+      { property: "og:title", content: "Position details — Talentloom" },
       { property: "og:description", content: "Read the full job description and apply with your CV and cover letter." },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary" },

@@ -5,7 +5,7 @@ import { useOrg } from "@/lib/org";
 import { Download } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/export")({
-  head: () => ({ meta: [{ title: "Export — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Export — Talentloom" }] }),
   component: ExportPage,
 });
 

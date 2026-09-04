@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/docs")({
-  head: () => ({ meta: [{ title: "TalentLoom user guide" }, { name: "description", content: "Learn how to find roles, manage applications, and run your hiring workspace with TalentLoom." }] }),
+  head: () => ({ meta: [{ title: "Talentloom user guide" }, { name: "description", content: "Learn how to find roles, manage applications, and run your hiring workspace with Talentloom." }] }),
   component: Docs,
 });
 
@@ -91,10 +91,10 @@ function Docs() {
         <header className="glass-strong pop-in relative overflow-hidden rounded-3xl p-8 text-center sm:p-10">
           <div className="candy-stripes absolute inset-x-0 top-0 h-3" />
           <div className="bob mx-auto grid h-16 w-16 place-items-center rounded-3xl border-2 border-primary bg-accent shadow-[0_4px_0_var(--brand-bubblegum)]">
-            <img src={loomLogo} alt="TalentLoom loom mascot" width={512} height={512} loading="lazy" className="h-11 w-11" />
+            <img src={loomLogo} alt="Talentloom loom mascot" width={512} height={512} loading="lazy" className="h-11 w-11" />
           </div>
           <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-            TalentLoom <span className="text-duotone">user guide</span>
+            Talentloom <span className="text-duotone">user guide</span>
           </h1>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Everything you need to find a role or run a clear, organised hiring process — explained step by step.
