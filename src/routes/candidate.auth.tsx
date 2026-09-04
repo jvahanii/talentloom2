@@ -6,7 +6,7 @@ import { MarketingShell } from "@/components/MarketingShell";
 export const Route = createFileRoute("/candidate/auth")({
   head: () => ({
     meta: [
-      { title: "Your candidate space — TalentLoom" },
+      { title: "Your candidate space — Talentloom" },
       { name: "description", content: "Keep your applications and documents in one place, so your next application takes minutes, not hours." },
       { name: "robots", content: "noindex" },
     ],
@@ -56,7 +56,7 @@ function CandidateAuthPage() {
           </div>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New to TalentLoom?" : "Already set up?"}{" "}
+            {mode === "signin" ? "New to Talentloom?" : "Already set up?"}{" "}
             <button
               className="font-medium text-teal-700 hover:underline"
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}

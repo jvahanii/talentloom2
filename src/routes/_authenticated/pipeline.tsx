@@ -9,7 +9,7 @@ import { NewCandidateDialog } from "@/components/NewCandidateDialog";
 import { useOrg } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
-  head: () => ({ meta: [{ title: "Candidate flow — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Candidate flow — Talentloom" }] }),
   component: Pipeline,
 });
 

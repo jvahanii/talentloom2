@@ -11,7 +11,7 @@ import { downloadPositionAttachments } from "@/lib/download-position-files";
 import { getMyProfileId } from "@/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
-  head: () => ({ meta: [{ title: "Positions — TalentLoom" }] }),
+  head: () => ({ meta: [{ title: "Positions — Talentloom" }] }),
   validateSearch: (search: Record<string, unknown>): { position?: string } => ({
     ...(typeof search['position'] === "string" && search['position'] ? { position: search['position'] as string } : {}),
   }),

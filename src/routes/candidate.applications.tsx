@@ -23,7 +23,7 @@ import { FileText, Upload, Trash2, Pencil, Download, Briefcase } from "lucide-re
 export const Route = createFileRoute("/candidate/applications")({
   head: () => ({
     meta: [
-      { title: "My applications — TalentLoom" },
+      { title: "My applications — Talentloom" },
       { name: "robots", content: "noindex" },
     ],
   }),

@@ -7,9 +7,9 @@ import heroImage from "@/assets/kawaii-hero-illustration.svg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "TalentLoom — Hiring that feels better for everyone" },
+      { title: "Talentloom — Hiring that feels better for everyone" },
       { name: "description", content: "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster." },
-      { property: "og:title", content: "TalentLoom — Hiring that feels better for everyone" },
+      { property: "og:title", content: "Talentloom — Hiring that feels better for everyone" },
       { property: "og:description", content: "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -36,7 +36,7 @@ function Landing() {
               Hiring should feel human — for everyone
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              TalentLoom gives recruiters a polished way to hire and gives candidates a faster, clearer way to find their next opportunity.
+              Talentloom gives recruiters a polished way to hire and gives candidates a faster, clearer way to find their next opportunity.
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
