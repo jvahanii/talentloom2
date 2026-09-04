@@ -3,9 +3,24 @@ import { createClerkClient, verifyToken } from "@clerk/backend";
 
 export async function verifyClerkToken(token: string): Promise<string> {
   const secretKey = process.env["CLERK_SECRET_KEY"];
-  if (!secretKey) throw new Error("Missing CLERK_SECRET_KEY");
-  const payload = await verifyToken(token, { secretKey });
-  if (!payload.sub) throw new Error("Unauthorized: Invalid token");
+  const supabaseJwtSecret = process.env["SUPABASE_JWT_SECRET"];
+
+  let payload: { sub?: string } | undefined;
+  try {
+    if (supabaseJwtSecret) {
+      // Shared HS256: Clerk signs the Supabase JWT template with the Supabase JWT secret.
+      payload = await verifyToken(token, { jwtKey: supabaseJwtSecret });
+    } else if (secretKey) {
+      // Default Clerk signing (RS256 or Clerk-managed HS256).
+      payload = await verifyToken(token, { secretKey });
+    } else {
+      throw new Error("Missing CLERK_SECRET_KEY or SUPABASE_JWT_SECRET");
+    }
+  } catch {
+    throw new Error("Unauthorized: Invalid token");
+  }
+
+  if (!payload?.sub) throw new Error("Unauthorized: Invalid token");
   return payload.sub;
 }
 
