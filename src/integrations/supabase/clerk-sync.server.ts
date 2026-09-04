@@ -3,7 +3,7 @@ import { createClerkClient, verifyToken } from "@clerk/backend";
 
 export async function verifyClerkToken(token: string): Promise<string> {
   const secretKey = process.env["CLERK_SECRET_KEY"];
-  const supabaseJwtSecret = process.env["SUPABASE_JWT_SECRET"];
+  const supabaseJwtSecret = process.env["EXT_SUPABASE_JWT_SECRET"];
 
   let payload: { sub?: string } | undefined;
   try {
