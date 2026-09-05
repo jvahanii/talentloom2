@@ -25,12 +25,13 @@ function Landing() {
         <div
           className="relative overflow-hidden rounded-3xl p-6 sm:p-12 text-center"
           style={{
-            backgroundImage: `linear-gradient(135deg, rgba(60,45,70,0.96) 0%, rgba(105,48,78,0.94) 52%, rgba(28,85,72,0.92) 100%), url(${heroImage})`,
+            backgroundImage: `url(${heroImage})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
           }}
         >
+          <div className="absolute inset-0 bg-gradient-to-br from-[rgba(55,40,65,0.92)] via-[rgba(110,50,85,0.88)] to-[rgba(30,90,75,0.86)]" />
           <div className="relative">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
               Hiring should feel human — for everyone
