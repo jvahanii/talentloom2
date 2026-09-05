@@ -40,9 +40,7 @@ function CandidateAuthPage() {
     <MarketingShell>
       <div className="mx-auto max-w-md px-4 pt-8 pb-16 sm:pt-16">
         <div className="glass-strong rounded-3xl p-6 sm:p-8">
-          <h1 className="font-display text-2xl font-bold">
-            {mode === "signin" ? "Welcome back, candidate" : "Make job hunting easier"}
-          </h1>
+          <h1 className="font-display text-2xl font-bold">Candidate sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "signin" ? "Pick up where you left off, track your applications, and keep your documents ready." : "Save your applications and documents in one place — so you can spend less time on admin and more time finding the right role."}
           </p>
@@ -55,18 +53,6 @@ function CandidateAuthPage() {
             )}
           </div>
 
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New to Talentloom?" : "Already set up?"}{" "}
-            <button
-              className="font-medium text-teal-700 hover:underline"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            >
-              {mode === "signin" ? "Create my free account" : "Open my applications"}
-            </button>
-          </p>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            <Link to="/apply" className="hover:underline">← Keep exploring roles</Link>
-          </p>
         </div>
       </div>
     </MarketingShell>
