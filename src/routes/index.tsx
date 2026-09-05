@@ -45,7 +45,7 @@ function Landing() {
                 className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <Briefcase className="h-7 w-7 text-white" />
-                <span className="mt-4 block font-display text-lg font-semibold text-white">I’m hiring</span>
+                <span className="mt-4 block font-display text-lg font-semibold text-white">We're hiring</span>
                 <span className="mt-1 block text-sm text-white/75">
                   Give candidates a standout experience while keeping all positions and processes flowing
                 </span>
