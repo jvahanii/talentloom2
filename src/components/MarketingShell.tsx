@@ -51,7 +51,6 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
             <Link to="/apply" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">Find a role</Link>
-            <Link to="/candidate/auth" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">My applications</Link>
             <Link to="/docs" className="rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">User guide</Link>
             <SignedInChip />
           </div>
