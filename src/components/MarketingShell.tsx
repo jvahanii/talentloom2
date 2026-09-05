@@ -11,7 +11,7 @@ function HeaderActions() {
   if (loading || !user) {
     return (
       <div className="flex items-center gap-2">
-        <Link to="/candidate/auth" className="btn-butter rounded-xl px-4 py-2 text-sm font-medium">Opportunity seeker sign-in</Link>
+        <Link to="/candidate/auth" className="btn-butter rounded-xl px-4 py-2 text-sm font-medium">Candidate sign in</Link>
         <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">Recruiter sign in</Link>
       </div>
     );
