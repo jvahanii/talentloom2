@@ -59,7 +59,7 @@ function Landing() {
                 <UserRound className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">I’m looking for work</span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Find roles worth your time, apply in minutes, and keep your applications and documents together.
+                  Find roles worth your time, apply in minutes, and keep your potential positions, applications and documents organized.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
                   Explore open roles
