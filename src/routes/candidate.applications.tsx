@@ -121,26 +121,62 @@ function CandidatePortalPage() {
             </div>
           )}
           <div className="space-y-3">
-            {apps.data?.map((a) => (
-              <article key={a.id} className="glass rounded-2xl p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="font-display text-lg font-semibold">{a.positionTitle}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {a.orgName} · applied {formatDate(a.created_at)}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {[a.cvName && `CV: ${a.cvName}`, a.coverLetterName && `Cover letter: ${a.coverLetterName}`]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
+            {apps.data?.map((a) => {
+              const savedDocs = docs.data ?? [];
+              const submitted = [
+                { kind: "CV", path: a.cvPath, fallback: a.cvName },
+                { kind: "Cover letter", path: a.coverLetterPath, fallback: a.coverLetterName },
+              ].filter((d) => d.path);
+              return (
+                <article key={a.id} className="glass rounded-2xl p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="font-display text-lg font-semibold">{a.positionTitle}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {a.orgName} · applied {formatDate(a.created_at)}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium">
+                      {stageLabel(a.stage)}
+                    </span>
                   </div>
-                  <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium">
-                    {stageLabel(a.stage)}
-                  </span>
-                </div>
-              </article>
-            ))}
+                  {submitted.length > 0 ? (
+                    <div className="mt-3 space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">Submitted documents</p>
+                      {submitted.map((d) => {
+                        const saved = savedDocs.find((doc) => doc.path === d.path);
+                        return (
+                          <button
+                            key={d.path}
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                window.open(await candidateFileUrl(d.path!), "_blank", "noopener,noreferrer");
+                              } catch {
+                                toast.error("Could not open the file");
+                              }
+                            }}
+                            className="glass-strong flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-white/80"
+                          >
+                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 truncate">
+                              <span className="font-medium">{d.kind}</span>
+                              <span className="text-muted-foreground">
+                                {" · "}
+                                {saved ? saved.label : d.fallback}
+                              </span>
+                            </span>
+                            <Download className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-muted-foreground">No documents were attached to this application.</p>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
 
