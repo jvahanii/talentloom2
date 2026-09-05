@@ -36,7 +36,7 @@ function Landing() {
               Hiring should feel human — for everyone
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              Talentloom gives recruiters a polished way to hire and gives candidates a faster, clearer way to find their next opportunity.
+              A faster, cleaner and free way to match people to new opportunities
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
