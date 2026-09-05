@@ -68,7 +68,6 @@ function Landing() {
               </Link>
               <div className="-mt-2 text-center">
                 <Link to="/candidate/auth" className="text-xs text-white/80 underline-offset-2 hover:underline">
-                  Already applied? Sign in to track your applications
                 </Link>
               </div>
             </div>
