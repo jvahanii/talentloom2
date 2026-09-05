@@ -53,7 +53,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <span className="font-display text-lg font-bold tracking-tight">Talentloom</span>
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
-            <SignedInChip />
+            <HeaderActions />
           </div>
         </nav>
       </header>
