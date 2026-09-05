@@ -39,6 +39,8 @@ export type MyApplication = {
   orgName: string;
   cvName: string | null;
   coverLetterName: string | null;
+  cvPath: string | null;
+  coverLetterPath: string | null;
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -109,6 +111,8 @@ export const myApplications = createServerFn({ method: "GET" })
       orgName: orgName.get(r.org_id) ?? "A company",
       cvName: r.cv_path ? (r.cv_path.split("/").pop() ?? null) : null,
       coverLetterName: r.cover_letter_path ? (r.cover_letter_path.split("/").pop() ?? null) : null,
+      cvPath: r.cv_path ?? null,
+      coverLetterPath: r.cover_letter_path ?? null,
     }));
   });
 
