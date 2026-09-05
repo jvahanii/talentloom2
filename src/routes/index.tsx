@@ -25,7 +25,7 @@ function Landing() {
         <div
           className="relative overflow-hidden rounded-3xl p-6 sm:p-12 text-center"
           style={{
-            backgroundImage: `linear-gradient(135deg, rgba(74,58,85,0.92) 0%, rgba(130,60,95,0.82) 52%, rgba(40,120,95,0.78) 100%), url(${heroImage})`,
+            backgroundImage: `linear-gradient(135deg, rgba(60,45,70,0.96) 0%, rgba(105,48,78,0.94) 52%, rgba(28,85,72,0.92) 100%), url(${heroImage})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
