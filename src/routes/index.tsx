@@ -86,7 +86,7 @@ function Landing() {
           {[
             { t: "1. Make the opportunity clear", d: "Publish the role, the details, and the next step in one place. Candidates know what to expect before they apply." },
             { t: "2. Keep every candidate moving", d: "See every application at a glance, share updates with your team, and make sure great people don’t disappear into a spreadsheet." },
-            { t: "3. Spend time where it matters", d: "Simple analytics show what’s working, so you can improve your process and give every candidate a better experience." },
+            { t: "3. Organized opportunity seeking", d: "Find opportunities across many hiring organizations and keep your potential jobs and applications organized " },
           ].map((s) => (
             <div key={s.t} className="glass rounded-2xl p-6">
               <h3 className="font-display text-lg font-semibold">{s.t}</h3>
