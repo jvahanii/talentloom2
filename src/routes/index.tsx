@@ -46,10 +46,10 @@ function Landing() {
                 <Briefcase className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">I’m hiring</span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Give candidates a standout experience while keeping every hire moving in one calm, clear organisation.
+                  Give candidates a standout experience while keeping all positions and processes flowing
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Build a better hiring experience
+                  Create your organization
                 </span>
               </Link>
               <Link
