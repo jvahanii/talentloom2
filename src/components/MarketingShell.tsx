@@ -5,12 +5,15 @@ import { clerkSignOut } from "@/lib/clerk";
 import { useSession } from "@/lib/auth";
 import loomLogo from "@/assets/kawaii-loom-logo.png";
 
-function SignedInChip() {
+function HeaderActions() {
   const { user, loading } = useSession();
   const navigate = useNavigate();
   if (loading || !user) {
     return (
-      <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">Recruiter sign in</Link>
+      <div className="flex items-center gap-2">
+        <Link to="/candidate/auth" className="rounded-xl px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary/80">Opportunity seeker sign-in</Link>
+        <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">Recruiter sign in</Link>
+      </div>
     );
   }
   const name = (user.user_metadata?.full_name as string | undefined) || user.email || "Account";
@@ -50,7 +53,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <span className="font-display text-lg font-bold tracking-tight">Talentloom</span>
           </Link>
           <div className="flex items-center gap-1 sm:gap-3">
-            <SignedInChip />
+            <HeaderActions />
           </div>
         </nav>
       </header>
