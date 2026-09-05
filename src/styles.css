@@ -281,6 +281,18 @@
   &:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(189, 245, 224, 0.9); }
 }
 
+@utility btn-butter {
+  background: linear-gradient(180deg, #FFF0C2 0%, #FFE9A8 100%);
+  color: #4A3A55;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 2px solid #FFD56E;
+  box-shadow: 0 4px 0 #F4C542;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.2s ease;
+  &:hover { filter: brightness(1.04); transform: translateY(-2px); box-shadow: 0 6px 0 #F4C542; }
+  &:active { transform: translateY(3px); box-shadow: 0 1px 0 #F4C542; }
+}
+
 /* ---------- Playful text ---------- */
 
 @utility text-duotone {
