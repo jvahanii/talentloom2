@@ -47,7 +47,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-40 px-4 py-3 sm:px-6">
         <nav className="glass mx-auto flex max-w-6xl items-center justify-between rounded-2xl px-4 py-3 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
-            <div className="wiggle-hover grid h-9 w-9 shrink-0 place-items-center rounded-2xl border-2 border-primary bg-accent text-accent-foreground font-bold shadow-[0_3px_0_var(--brand-bubblegum)]">
+            <div className="wiggle-hover grid h-9 w-9 shrink-0 place-items-center rounded-2xl border-2 border-primary bg-white text-accent-foreground font-bold shadow-[0_3px_0_var(--brand-bubblegum)]">
               <img src={loomLogo} alt="Talentloom logo" width={512} height={512} className="h-6 w-6" />
             </div>
             <span className="font-display text-lg font-bold tracking-tight">Talentloom</span>
