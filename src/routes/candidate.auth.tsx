@@ -39,7 +39,7 @@ function CandidateAuthPage() {
   return (
     <MarketingShell>
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-        <div className="glass-strong rounded-3xl p-6 sm:p-8">
+        <div className="glass-strong w-full max-w-md rounded-3xl p-6 sm:p-8">
           <h1 className="font-display text-2xl font-bold">Candidate sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "signin" ? "Pick up where you left off, track your applications, and keep your documents ready." : "Save your applications and documents in one place — so you can spend less time on admin and more time finding the right role."}
