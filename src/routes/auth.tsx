@@ -1,7 +1,16 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SignIn, SignUp, useAuth } from "@clerk/clerk-react";
 import { MarketingShell } from "@/components/MarketingShell";
+import { getClerkToken } from "@/lib/clerk";
+
+async function waitForBackendToken(maxMs = 5000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    if (await getClerkToken()) return;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Recruiter organisation — Talentloom" }] }),
@@ -23,12 +32,24 @@ const clerkAppearance = {
 
 function AuthPage() {
   const navigate = useNavigate();
+  const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) navigate({ to: "/pipeline", replace: true });
-  }, [isLoaded, isSignedIn, navigate]);
+    if (!(isLoaded && isSignedIn)) return;
+    let cancelled = false;
+    void (async () => {
+      await waitForBackendToken();
+      if (cancelled) return;
+      await router.invalidate();
+      if (cancelled) return;
+      navigate({ to: "/pipeline", replace: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn, navigate, router]);
 
   return (
     <MarketingShell>
