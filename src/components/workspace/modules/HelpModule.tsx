@@ -5,7 +5,9 @@ export function HelpModule() {
   return (
     <div className="glass rounded-2xl p-5">
       <h3 className="font-display text-lg font-semibold text-foreground">Commands</h3>
-      <p className="mt-1 text-xs text-muted-foreground">Type any of these, or ask in plain language.</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Type any of these, or ask in plain language.
+      </p>
       <div className="mt-3 grid gap-1.5">
         {SLASH_COMMANDS.map((s, i) => (
           <motion.div

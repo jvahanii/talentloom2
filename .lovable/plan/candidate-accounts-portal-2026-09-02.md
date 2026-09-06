@@ -5,6 +5,7 @@ Give candidates their own sign-in (email+password, magic link, and Google) and a
 ## 1. Candidate sign-in — `/candidate/auth`
 
 New public route, styled like the existing auth page but candidate-branded:
+
 - **Email + password** (sign up / sign in toggle), same pattern as `/auth`.
 - **Magic link**: "Email me a sign-in link" using `supabase.auth.signInWithOtp` with `emailRedirectTo = origin + "/candidate/applications"`.
 - **Google** via the existing `lovable.auth.signInWithOAuth("google")` broker.
@@ -34,6 +35,7 @@ New server function `claimMyApplications`: on first visit to the portal, matches
 ## 5. Applying while signed in
 
 `apply.position.$id` and `apply.$orgId` forms detect a signed-in candidate:
+
 - Name/email prefilled from their profile.
 - CV/cover letter pickers offer **saved documents** (dropdown of their uploaded files) **or** a fresh upload; a fresh upload can optionally be saved to their documents with a label.
 - Submission sets `applicant_user_id` so the application appears in their portal.

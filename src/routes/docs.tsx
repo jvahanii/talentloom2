@@ -20,7 +20,16 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/docs")({
-  head: () => ({ meta: [{ title: "Talentloom user guide" }, { name: "description", content: "Learn how to find roles, manage applications, and run your hiring workspace with Talentloom." }] }),
+  head: () => ({
+    meta: [
+      { title: "Talentloom user guide" },
+      {
+        name: "description",
+        content:
+          "Learn how to find roles, manage applications, and run your hiring workspace with Talentloom.",
+      },
+    ],
+  }),
   component: Docs,
 });
 
@@ -91,13 +100,21 @@ function Docs() {
         <header className="glass-strong pop-in relative overflow-hidden rounded-3xl p-8 text-center sm:p-10">
           <div className="candy-stripes absolute inset-x-0 top-0 h-3" />
           <div className="bob mx-auto grid h-16 w-16 place-items-center rounded-3xl border-2 border-primary bg-accent shadow-[0_4px_0_var(--brand-bubblegum)]">
-            <img src={loomLogo} alt="Talentloom loom mascot" width={512} height={512} loading="lazy" className="h-11 w-11" />
+            <img
+              src={loomLogo}
+              alt="Talentloom loom mascot"
+              width={512}
+              height={512}
+              loading="lazy"
+              className="h-11 w-11"
+            />
           </div>
           <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
             Talentloom <span className="text-duotone">user guide</span>
           </h1>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            Everything you need to find a role or run a clear, organised hiring process — explained step by step.
+            Everything you need to find a role or run a clear, organised hiring process — explained
+            step by step.
           </p>
         </header>
 
@@ -105,25 +122,128 @@ function Docs() {
           <Section icon={Search} title="For candidates" blurb="From browsing to landing the role.">
             <StepList
               steps={[
-                { icon: Search, text: <>Open <strong>Find a role</strong> to browse public opportunities. Search by title, department, or company, then filter and sort the results.</> },
-                { icon: FileText, text: <>Open a position to read its description, dates, and hiring manager, then select <strong>Apply for this position</strong>.</> },
-                { icon: Send, text: <>Submit an application with your contact details and optional CV or cover letter. You can apply without an account.</> },
-                { icon: UserRound, text: <>Create a candidate account with email, Google, or a magic link to connect past applications, track their stages, and save a shortlist.</> },
-                { icon: FolderHeart, text: <>Use <strong>My applications</strong> to upload, label, rename, download, or delete reusable CVs and cover letters.</> },
+                {
+                  icon: Search,
+                  text: (
+                    <>
+                      Open <strong>Find a role</strong> to browse public opportunities. Search by
+                      title, department, or company, then filter and sort the results.
+                    </>
+                  ),
+                },
+                {
+                  icon: FileText,
+                  text: (
+                    <>
+                      Open a position to read its description, dates, and hiring manager, then
+                      select <strong>Apply for this position</strong>.
+                    </>
+                  ),
+                },
+                {
+                  icon: Send,
+                  text: (
+                    <>
+                      Submit an application with your contact details and optional CV or cover
+                      letter. You can apply without an account.
+                    </>
+                  ),
+                },
+                {
+                  icon: UserRound,
+                  text: (
+                    <>
+                      Create a candidate account with email, Google, or a magic link to connect past
+                      applications, track their stages, and save a shortlist.
+                    </>
+                  ),
+                },
+                {
+                  icon: FolderHeart,
+                  text: (
+                    <>
+                      Use <strong>My applications</strong> to upload, label, rename, download, or
+                      delete reusable CVs and cover letters.
+                    </>
+                  ),
+                },
               ]}
             />
           </Section>
 
-          <Section icon={Building2} title="For recruiting teams" blurb="One shared funnel for your whole team.">
+          <Section
+            icon={Building2}
+            title="For recruiting teams"
+            blurb="One shared funnel for your whole team."
+          >
             <StepList
               steps={[
-                { icon: UserRound, text: <>Sign up with email or Google and complete onboarding with your personal and company details. Start with sample data or import candidates from CSV.</> },
-                { icon: Building2, text: <>Create positions with a department, hiring manager, status, start date, application deadline, public description, internal notes, and attachments.</> },
-                { icon: KanbanSquare, text: <>Use the <strong>Funnel</strong> board to filter candidates by position or source, add candidates, and move them through Applied, Screen, Interview, Offer, Hired, and Rejected.</> },
-                { icon: FileText, text: <>Open a candidate to edit their contact details, position, source, stage, rating, notes, and resume link. Upload or replace a CV and cover letter, review stage history, or delete the record when permitted.</> },
-                { icon: Search, text: <>Use <strong>Candidates</strong> to search the complete workspace by name, email, or position.</> },
-                { icon: BarChart3, text: <>Review <strong>Analytics</strong> for open positions, candidate totals, hires, conversion, funnel stages, source mix, and average time in stage.</> },
-                { icon: Download, text: <>Use <strong>Export</strong> to download candidate or position CSVs, and <strong>Import</strong> to preview, map, and upload candidate CSV data. Download the import template for the supported columns.</> },
+                {
+                  icon: UserRound,
+                  text: (
+                    <>
+                      Sign up with email or Google and complete onboarding with your personal and
+                      company details. Start with sample data or import candidates from CSV.
+                    </>
+                  ),
+                },
+                {
+                  icon: Building2,
+                  text: (
+                    <>
+                      Create positions with a department, hiring manager, status, start date,
+                      application deadline, public description, internal notes, and attachments.
+                    </>
+                  ),
+                },
+                {
+                  icon: KanbanSquare,
+                  text: (
+                    <>
+                      Use the <strong>Funnel</strong> board to filter candidates by position or
+                      source, add candidates, and move them through Applied, Screen, Interview,
+                      Offer, Hired, and Rejected.
+                    </>
+                  ),
+                },
+                {
+                  icon: FileText,
+                  text: (
+                    <>
+                      Open a candidate to edit their contact details, position, source, stage,
+                      rating, notes, and resume link. Upload or replace a CV and cover letter,
+                      review stage history, or delete the record when permitted.
+                    </>
+                  ),
+                },
+                {
+                  icon: Search,
+                  text: (
+                    <>
+                      Use <strong>Candidates</strong> to search the complete workspace by name,
+                      email, or position.
+                    </>
+                  ),
+                },
+                {
+                  icon: BarChart3,
+                  text: (
+                    <>
+                      Review <strong>Analytics</strong> for open positions, candidate totals, hires,
+                      conversion, funnel stages, source mix, and average time in stage.
+                    </>
+                  ),
+                },
+                {
+                  icon: Download,
+                  text: (
+                    <>
+                      Use <strong>Export</strong> to download candidate or position CSVs, and{" "}
+                      <strong>Import</strong> to preview, map, and upload candidate CSV data.
+                      Download the import template for the supported columns.
+                    </>
+                  ),
+                },
               ]}
             />
           </Section>
@@ -131,20 +251,78 @@ function Docs() {
           <Section icon={Settings2} title="Workspace settings" blurb="Make the workspace yours.">
             <StepList
               steps={[
-                { icon: Settings2, text: <>Update your name, role, company details, and appearance in <strong>Settings</strong>.</> },
-                { icon: Building2, text: <>Organisation settings provide workspace branding, members, invitations, and role-based permissions where enabled.</> },
-                { icon: Sparkles, text: <>Clear sample candidates and positions without affecting your own data.</> },
-                { icon: Clock3, text: <>LinkedIn, Indeed, and ATS connections are marked <strong>Coming soon</strong>; CSV import is available now.</> },
+                {
+                  icon: Settings2,
+                  text: (
+                    <>
+                      Update your name, role, company details, and appearance in{" "}
+                      <strong>Settings</strong>.
+                    </>
+                  ),
+                },
+                {
+                  icon: Building2,
+                  text: (
+                    <>
+                      Organisation settings provide workspace branding, members, invitations, and
+                      role-based permissions where enabled.
+                    </>
+                  ),
+                },
+                {
+                  icon: Sparkles,
+                  text: <>Clear sample candidates and positions without affecting your own data.</>,
+                },
+                {
+                  icon: Clock3,
+                  text: (
+                    <>
+                      LinkedIn, Indeed, and ATS connections are marked <strong>Coming soon</strong>;
+                      CSV import is available now.
+                    </>
+                  ),
+                },
               ]}
             />
           </Section>
 
           <Section icon={Sparkles} title="Good to know" blurb="Handy facts before you dive in.">
             <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
-              <Fact icon={ShieldCheck} text={<>The public job board and apply pages work without sign-in. Recruiter tools require a recruiter account; application history requires a candidate account.</>} />
-              <Fact icon={Smartphone} text={<>Funnel drag-and-drop is designed for desktop. On touch devices, use the stage selector on the candidate record.</>} />
-              <Fact icon={FileText} text={<>Candidate files accept PDF, DOC, and DOCX up to 10 MB. Secure file links expire after one hour.</>} />
-              <Fact icon={ShieldCheck} text={<>Workspace data is isolated by organisation and protected by row-level security.</>} />
+              <Fact
+                icon={ShieldCheck}
+                text={
+                  <>
+                    The public job board and apply pages work without sign-in. Recruiter tools
+                    require a recruiter account; application history requires a candidate account.
+                  </>
+                }
+              />
+              <Fact
+                icon={Smartphone}
+                text={
+                  <>
+                    Funnel drag-and-drop is designed for desktop. On touch devices, use the stage
+                    selector on the candidate record.
+                  </>
+                }
+              />
+              <Fact
+                icon={FileText}
+                text={
+                  <>
+                    Candidate files accept PDF, DOC, and DOCX up to 10 MB. Secure file links expire
+                    after one hour.
+                  </>
+                }
+              />
+              <Fact
+                icon={ShieldCheck}
+                text={
+                  <>
+                    Workspace data is isolated by organisation and protected by row-level security.
+                  </>
+                }
+              />
             </ul>
           </Section>
         </div>

@@ -41,11 +41,10 @@ export function AgentPrompt({
   return (
     <motion.div layout className="sticky bottom-0 z-30 px-3 pb-4 sm:px-6">
       <div className="mx-auto max-w-3xl">
-        <motion.div
-          layout
-          className="glass-strong flex items-end gap-2 rounded-2xl px-3 py-2.5"
-        >
-          <label htmlFor="agent-prompt" className="sr-only">Ask the agent</label>
+        <motion.div layout className="glass-strong flex items-end gap-2 rounded-2xl px-3 py-2.5">
+          <label htmlFor="agent-prompt" className="sr-only">
+            Ask the agent
+          </label>
           <textarea
             id="agent-prompt"
             ref={ref}

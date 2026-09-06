@@ -58,7 +58,9 @@ export const Route = createFileRoute("/_authenticated")({
     try {
       const inviteToken = window.sessionStorage.getItem(PENDING_INVITE_KEY);
       if (inviteToken) {
-        const { data: orgId, error: inviteError } = await supabase.rpc("accept_invite", { _token: inviteToken });
+        const { data: orgId, error: inviteError } = await supabase.rpc("accept_invite", {
+          _token: inviteToken,
+        });
         if (!inviteError && orgId) {
           window.sessionStorage.removeItem(PENDING_INVITE_KEY);
           window.localStorage.setItem("talently:current-org", orgId as string);
@@ -78,7 +80,10 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthedLayout,
 });
 
-
 function AuthedLayout() {
-  return <AppShell><Outlet /></AppShell>;
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  );
 }

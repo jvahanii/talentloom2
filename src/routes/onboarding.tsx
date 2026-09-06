@@ -43,26 +43,41 @@ const INDUSTRIES = [
 ] as const;
 const COMPANY_SIZES = ["1–10", "11–50", "51–200", "201–1,000", "1,000+"] as const;
 
-const TEMPLATE = "name,email,phone,requisition_title,source,stage,notes\nJane Doe,jane@example.com,555-0100,Senior Frontend Engineer,LinkedIn,applied,\n";
+const TEMPLATE =
+  "name,email,phone,requisition_title,source,stage,notes\nJane Doe,jane@example.com,555-0100,Senior Frontend Engineer,LinkedIn,applied,\n";
 
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
-  let cur = ""; let row: string[] = []; let inQ = false;
+  let cur = "";
+  let row: string[] = [];
+  let inQ = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (inQ) {
-      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
-      else if (c === '"') inQ = false;
+      if (c === '"' && text[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (c === '"') inQ = false;
       else cur += c;
     } else {
       if (c === '"') inQ = true;
-      else if (c === ",") { row.push(cur); cur = ""; }
-      else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
-      else if (c === "\r") { /* skip */ }
-      else cur += c;
+      else if (c === ",") {
+        row.push(cur);
+        cur = "";
+      } else if (c === "\n") {
+        row.push(cur);
+        rows.push(row);
+        row = [];
+        cur = "";
+      } else if (c === "\r") {
+        /* skip */
+      } else cur += c;
     }
   }
-  if (cur || row.length) { row.push(cur); rows.push(row); }
+  if (cur || row.length) {
+    row.push(cur);
+    rows.push(row);
+  }
   return rows.filter((r) => r.some((cell) => cell.trim() !== ""));
 }
 
@@ -98,7 +113,10 @@ function Onboarding() {
   useEffect(() => {
     (async () => {
       const uid = await getMyProfileId();
-      if (!uid) { navigate({ to: "/auth" }); return; }
+      if (!uid) {
+        navigate({ to: "/auth" });
+        return;
+      }
       setUid(uid);
       // Accept a pending workspace invite, if the user arrived via one
       try {
@@ -117,7 +135,9 @@ function Onboarding() {
       }
       const { data: p } = await supabase
         .from("profiles")
-        .select("full_name, job_title, job_title_other, company_name, company_industry, company_size, onboarding_step")
+        .select(
+          "full_name, job_title, job_title_other, company_name, company_industry, company_size, onboarding_step",
+        )
         .eq("id", uid)
         .maybeSingle();
       if (p) {
@@ -143,12 +163,14 @@ function Onboarding() {
     await supabase.from("profiles").update(next).eq("id", uid);
   };
 
-  const step1Valid = state.full_name.trim().length > 0
-    && state.job_title.length > 0
-    && (state.job_title !== "Other" || state.job_title_other.trim().length > 0);
-  const step2Valid = state.company_name.trim().length > 0
-    && state.company_industry.length > 0
-    && state.company_size.length > 0;
+  const step1Valid =
+    state.full_name.trim().length > 0 &&
+    state.job_title.length > 0 &&
+    (state.job_title !== "Other" || state.job_title_other.trim().length > 0);
+  const step2Valid =
+    state.company_name.trim().length > 0 &&
+    state.company_industry.length > 0 &&
+    state.company_size.length > 0;
 
   const goNext = async () => {
     if (step === 1 && !step1Valid) return;
@@ -198,7 +220,9 @@ function Onboarding() {
             : "Failed to finish onboarding";
       console.error("[onboarding] finish failed:", e);
       toast.error(message);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const skipStep3 = async () => complete({ seedSamples: false });
@@ -209,7 +233,11 @@ function Onboarding() {
   };
 
   if (loading) {
-    return <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">Loading…</div>;
+    return (
+      <div className="min-h-screen grid place-items-center text-sm text-muted-foreground">
+        Loading…
+      </div>
+    );
   }
 
   return (
@@ -229,16 +257,10 @@ function Onboarding() {
 
         <div className="glass-strong mt-6 rounded-3xl p-6 sm:p-8">
           {step === 1 && (
-            <Step1
-              state={state}
-              onChange={(patch) => setState({ ...state, ...patch })}
-            />
+            <Step1 state={state} onChange={(patch) => setState({ ...state, ...patch })} />
           )}
           {step === 2 && (
-            <Step2
-              state={state}
-              onChange={(patch) => setState({ ...state, ...patch })}
-            />
+            <Step2 state={state} onChange={(patch) => setState({ ...state, ...patch })} />
           )}
           {step === 3 && (
             <Step3
@@ -307,7 +329,12 @@ function Progress({ step }: { step: number }) {
               {done ? <Check className="h-3.5 w-3.5" /> : n}
             </div>
             <div className="min-w-0">
-              <div className={"truncate text-xs font-medium " + (active ? "text-foreground" : "text-muted-foreground")}>
+              <div
+                className={
+                  "truncate text-xs font-medium " +
+                  (active ? "text-foreground" : "text-muted-foreground")
+                }
+              >
                 Step {n}
               </div>
               <div className="hidden truncate text-xs text-muted-foreground sm:block">{label}</div>
@@ -328,13 +355,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const inputCls = "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
+const inputCls =
+  "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
 
-function Step1({ state, onChange }: { state: ProfileState; onChange: (patch: Partial<ProfileState>) => void }) {
+function Step1({
+  state,
+  onChange,
+}: {
+  state: ProfileState;
+  onChange: (patch: Partial<ProfileState>) => void;
+}) {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Let’s make this yours</h1>
-      <p className="mt-1 text-sm text-muted-foreground">A couple of quick details so we can personalise Talentloom.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        A couple of quick details so we can personalise Talentloom.
+      </p>
       <div className="mt-6 space-y-4">
         <Field label="Full name">
           <input
@@ -352,7 +388,11 @@ function Step1({ state, onChange }: { state: ProfileState; onChange: (patch: Par
             onChange={(e) => onChange({ job_title: e.target.value })}
           >
             <option value="">Select a role…</option>
-            {JOB_TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
+            {JOB_TITLES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </Field>
         {state.job_title === "Other" && (
@@ -370,11 +410,19 @@ function Step1({ state, onChange }: { state: ProfileState; onChange: (patch: Par
   );
 }
 
-function Step2({ state, onChange }: { state: ProfileState; onChange: (patch: Partial<ProfileState>) => void }) {
+function Step2({
+  state,
+  onChange,
+}: {
+  state: ProfileState;
+  onChange: (patch: Partial<ProfileState>) => void;
+}) {
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Tell us about your team</h1>
-      <p className="mt-1 text-sm text-muted-foreground">We'll tailor examples and defaults to match.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        We'll tailor examples and defaults to match.
+      </p>
       <div className="mt-6 space-y-4">
         <Field label="Company name">
           <input
@@ -392,7 +440,11 @@ function Step2({ state, onChange }: { state: ProfileState; onChange: (patch: Par
             onChange={(e) => onChange({ company_industry: e.target.value })}
           >
             <option value="">Select an industry…</option>
-            {INDUSTRIES.map((t) => <option key={t} value={t}>{t}</option>)}
+            {INDUSTRIES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="Company size">
@@ -423,7 +475,12 @@ function Step2({ state, onChange }: { state: ProfileState; onChange: (patch: Par
 }
 
 function Step3({
-  orgId, onImport, onSeedSamples, onSkip, onBack, busy,
+  orgId,
+  onImport,
+  onSeedSamples,
+  onSkip,
+  onBack,
+  busy,
 }: {
   orgId: string | null;
   onImport: (count: number) => Promise<void>;
@@ -455,30 +512,43 @@ function Step3({
       if (nameI < 0) throw new Error("CSV needs a 'name' column");
       const uid = await getMyProfileId();
       if (!uid) throw new Error("Not authenticated");
-      if (!orgId) throw new Error("Organisation not ready yet — go back one step and continue again");
-      const emailI = idx("email"), phoneI = idx("phone"), sourceI = idx("source"),
-        stageI = idx("stage"), notesI = idx("notes"), reqI = idx("requisition_title");
-      const inserts = rows.slice(1).map((r) => {
-        const get = (i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
-        const stageRaw = get(stageI).toLowerCase();
-        const stage = (STAGES as readonly string[]).includes(stageRaw) ? (stageRaw as Stage) : "applied";
-        return {
-          user_id: uid,
-          org_id: orgId,
-          name: get(nameI) || "Unnamed",
-          email: get(emailI) || null,
-          phone: get(phoneI) || null,
-          source: get(sourceI) || null,
-          notes: get(notesI) || null,
-          stage,
-          // requisition_title lookup skipped in onboarding; user can link later
-          _req: get(reqI),
-        };
-      }).filter((r) => r.name && r.name !== "Unnamed" || r.email);
+      if (!orgId)
+        throw new Error("Organisation not ready yet — go back one step and continue again");
+      const emailI = idx("email"),
+        phoneI = idx("phone"),
+        sourceI = idx("source"),
+        stageI = idx("stage"),
+        notesI = idx("notes"),
+        reqI = idx("requisition_title");
+      const inserts = rows
+        .slice(1)
+        .map((r) => {
+          const get = (i: number) => (i >= 0 ? (r[i] ?? "").trim() : "");
+          const stageRaw = get(stageI).toLowerCase();
+          const stage = (STAGES as readonly string[]).includes(stageRaw)
+            ? (stageRaw as Stage)
+            : "applied";
+          return {
+            user_id: uid,
+            org_id: orgId,
+            name: get(nameI) || "Unnamed",
+            email: get(emailI) || null,
+            phone: get(phoneI) || null,
+            source: get(sourceI) || null,
+            notes: get(notesI) || null,
+            stage,
+            // requisition_title lookup skipped in onboarding; user can link later
+            _req: get(reqI),
+          };
+        })
+        .filter((r) => (r.name && r.name !== "Unnamed") || r.email);
       if (inserts.length === 0) throw new Error("No valid rows found");
 
       // resolve requisition titles → ids if any exist
-      const { data: reqs } = await supabase.from("requisitions").select("id,title").eq("org_id", orgId);
+      const { data: reqs } = await supabase
+        .from("requisitions")
+        .select("id,title")
+        .eq("org_id", orgId);
       const reqByTitle = new Map((reqs ?? []).map((r) => [r.title.toLowerCase(), r.id]));
       const payload = inserts.map(({ _req, ...rest }) => ({
         ...rest,
@@ -489,13 +559,18 @@ function Step3({
       await onImport(payload.length);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed");
-    } finally { setImporting(false); }
+    } finally {
+      setImporting(false);
+    }
   };
 
   const downloadTemplate = () => {
     const blob = new Blob([TEMPLATE], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "talentloom-template.csv"; a.click();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "talentloom-template.csv";
+    a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -503,7 +578,8 @@ function Step3({
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Ready to get hiring?</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Bring in your candidates now, or take a quick tour with sample data. You can change everything later.
+        Bring in your candidates now, or take a quick tour with sample data. You can change
+        everything later.
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -512,19 +588,31 @@ function Step3({
             <Upload className="h-4 w-4 text-teal-600" />
             <h3 className="font-display font-semibold">Bring in candidates (CSV)</h3>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Columns: name, email, phone, requisition_title, source, stage, notes.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Columns: name, email, phone, requisition_title, source, stage, notes.
+          </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={downloadTemplate} className="glass inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium hover:bg-white/80">
+            <button
+              onClick={downloadTemplate}
+              className="glass inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium hover:bg-white/80"
+            >
               <Download className="h-3.5 w-3.5" /> Template
             </button>
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/80">
               Choose CSV
-              <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
+              />
             </label>
           </div>
 
-          {file && <div className="mt-3 truncate text-xs text-muted-foreground">Selected: {file.name}</div>}
+          {file && (
+            <div className="mt-3 truncate text-xs text-muted-foreground">Selected: {file.name}</div>
+          )}
 
           <button
             onClick={doImport}
@@ -541,7 +629,8 @@ function Step3({
             <h3 className="font-display font-semibold">Take a test drive</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            We'll seed a few example positions and candidates so you can click around. You can clear them from Settings anytime.
+            We'll seed a few example positions and candidates so you can click around. You can clear
+            them from Settings anytime.
           </p>
           <button
             onClick={onSeedSamples}

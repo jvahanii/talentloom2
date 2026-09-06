@@ -30,17 +30,18 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    try { window.localStorage.setItem(KEY, theme); } catch { /* noop */ }
+    try {
+      window.localStorage.setItem(KEY, theme);
+    } catch {
+      /* noop */
+    }
   }, [theme, hydrated]);
-
 
   const setTheme = useCallback((t: Theme) => setThemeState(t), []);
   const toggle = useCallback(() => setThemeState((t) => (t === "dark" ? "light" : "dark")), []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggle }}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={{ theme, setTheme, toggle }}>{children}</ThemeContext.Provider>
   );
 }
 

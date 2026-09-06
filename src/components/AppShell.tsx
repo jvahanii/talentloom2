@@ -1,6 +1,17 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { KanbanSquare, Users, Briefcase, Settings, BarChart3, Download, Upload, LogOut, Building2, Plus } from "lucide-react";
+import {
+  KanbanSquare,
+  Users,
+  Briefcase,
+  Settings,
+  BarChart3,
+  Download,
+  Upload,
+  LogOut,
+  Building2,
+  Plus,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut } from "@/lib/clerk";
@@ -8,7 +19,14 @@ import { useSession, type AppUser } from "@/lib/auth";
 import { OrgProvider, useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -61,7 +79,9 @@ function NavUser({ user, fullName }: { user: AppUser | null; fullName?: string |
   return (
     <div className="mt-auto flex items-center gap-2 border-t border-border px-2 pt-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-medium">{fullName || user.user_metadata?.full_name || user.email || "Account"}</p>
+        <p className="truncate text-xs font-medium">
+          {fullName || user.user_metadata?.full_name || user.email || "Account"}
+        </p>
         <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>
       </div>
       <button
@@ -99,7 +119,10 @@ function OrgSwitcher() {
   return (
     <>
       <Select value={orgId} onValueChange={handleChange}>
-        <SelectTrigger disabled={creating} className="h-8 w-auto max-w-44 gap-1.5 border-border/70 bg-secondary/60 text-xs font-medium">
+        <SelectTrigger
+          disabled={creating}
+          className="h-8 w-auto max-w-44 gap-1.5 border-border/70 bg-secondary/60 text-xs font-medium"
+        >
           <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <SelectValue placeholder="Choose organisation" />
         </SelectTrigger>
@@ -125,7 +148,9 @@ function OrgSwitcher() {
               if (!name) return;
               setCreating(true);
               try {
-                const { data: newId, error } = await supabase.rpc("create_organization", { _name: name });
+                const { data: newId, error } = await supabase.rpc("create_organization", {
+                  _name: name,
+                });
                 if (error) throw error;
                 refresh();
                 setOrgId(newId as string);
@@ -141,7 +166,8 @@ function OrgSwitcher() {
             <DialogHeader>
               <DialogTitle>Start a new organisation</DialogTitle>
               <DialogDescription>
-                Keep each hiring project focused and easy to find. Choose a name your team will recognise.
+                Keep each hiring project focused and easy to find. Choose a name your team will
+                recognise.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
@@ -156,7 +182,12 @@ function OrgSwitcher() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creating}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+                disabled={creating}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={creating || !workspaceName.trim()}>
@@ -200,7 +231,11 @@ function ShellInner({ children }: { children: ReactNode }) {
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-56 flex-col border-r border-border bg-card p-4">
-            <Link to="/pipeline" className="mb-6 flex items-center gap-2 px-2" onClick={() => setMobileOpen(false)}>
+            <Link
+              to="/pipeline"
+              className="mb-6 flex items-center gap-2 px-2"
+              onClick={() => setMobileOpen(false)}
+            >
               <KanbanSquare className="h-5 w-5 text-primary" />
               <span className="text-lg font-bold tracking-tight">Talentloom</span>
             </Link>
@@ -222,9 +257,15 @@ function ShellInner({ children }: { children: ReactNode }) {
             {user && (
               <div className="flex items-center gap-2 rounded-xl border-2 border-border bg-card px-2 py-1 shadow-[0_2px_0_var(--brand-mint)]">
                 <div className="grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 border-primary bg-primary/15 text-[11px] font-bold text-primary">
-                  {(profile?.full_name || user.user_metadata?.full_name || user.email || "?").trim().charAt(0).toUpperCase()}
+                  {(profile?.full_name || user.user_metadata?.full_name || user.email || "?")
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase()}
                 </div>
-                <span className="hidden max-w-44 truncate text-xs font-medium sm:inline" title={user.email ?? undefined}>
+                <span
+                  className="hidden max-w-44 truncate text-xs font-medium sm:inline"
+                  title={user.email ?? undefined}
+                >
                   {profile?.full_name || user.user_metadata?.full_name || user.email}
                 </span>
               </div>

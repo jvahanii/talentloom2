@@ -7,6 +7,7 @@ The save-to-My-documents step only runs when the application submission recognis
 Result: every application is treated as anonymous — no document copy is created in My documents, and the application is not linked to the candidate's account either (it only gets picked up later by the email-matching claim step).
 
 Confirmed by reading the code:
+
 - `src/lib/apply.functions.ts` builds its token-check client from `process.env.SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY`, which point at the previous backend.
 - Every other server function uses `serverSupabaseConfig()` (`EXT_SUPABASE_*`, falling back to the current project) plus `createSupabaseFetch`, which is required for the new `sb_publishable_...` key format to be accepted.
 

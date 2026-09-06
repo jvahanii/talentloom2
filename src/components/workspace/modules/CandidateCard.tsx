@@ -37,7 +37,9 @@ export function CandidateCard({
   const cands = useQuery({
     queryKey: ["candidates"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("candidates").select("id,name,email,stage,source,requisition_id,notes");
+      const { data, error } = await supabase
+        .from("candidates")
+        .select("id,name,email,stage,source,requisition_id,notes");
       if (error) throw error;
       return (data ?? []) as Cand[];
     },
@@ -47,12 +49,14 @@ export function CandidateCard({
     const list = cands.data ?? [];
     if (!query) return list.slice(0, 6);
     const q = query.toLowerCase();
-    return list.filter((c) => c.name.toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q));
+    return list.filter(
+      (c) => c.name.toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q),
+    );
   }, [cands.data, query]);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const active = selectedId
-    ? matches.find((c) => c.id === selectedId) ?? null
+    ? (matches.find((c) => c.id === selectedId) ?? null)
     : matches.length === 1
       ? matches[0]
       : null;
@@ -71,13 +75,18 @@ export function CandidateCard({
   });
 
   if (cands.isLoading) {
-    return <div className="glass rounded-2xl p-5 text-sm text-muted-foreground">Loading candidates…</div>;
+    return (
+      <div className="glass rounded-2xl p-5 text-sm text-muted-foreground">Loading candidates…</div>
+    );
   }
 
   if (matches.length === 0) {
     return (
       <div className="glass rounded-2xl p-5">
-        <p className="text-sm text-foreground">No candidates match {query ? <span className="font-mono">"{query}"</span> : "your filter"}.</p>
+        <p className="text-sm text-foreground">
+          No candidates match {query ? <span className="font-mono">"{query}"</span> : "your filter"}
+          .
+        </p>
       </div>
     );
   }
@@ -97,7 +106,9 @@ export function CandidateCard({
                 <div className="text-sm font-medium text-foreground">{c.name}</div>
                 <div className="text-xs text-muted-foreground">{c.email ?? "—"}</div>
               </div>
-              <span className={`rounded-full border px-2 py-0.5 text-xs ${STAGE_TONE[c.stage]}`}>{STAGE_LABEL[c.stage]}</span>
+              <span className={`rounded-full border px-2 py-0.5 text-xs ${STAGE_TONE[c.stage]}`}>
+                {STAGE_LABEL[c.stage]}
+              </span>
             </button>
           ))}
         </div>
@@ -116,8 +127,12 @@ export function CandidateCard({
               <User className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <div className="font-display text-lg font-semibold text-foreground truncate">{active.name}</div>
-              <div className="text-xs text-muted-foreground truncate">{active.email ?? "no email"} · {active.source ?? "unknown source"}</div>
+              <div className="font-display text-lg font-semibold text-foreground truncate">
+                {active.name}
+              </div>
+              <div className="text-xs text-muted-foreground truncate">
+                {active.email ?? "no email"} · {active.source ?? "unknown source"}
+              </div>
             </div>
           </div>
           <Link
@@ -130,7 +145,9 @@ export function CandidateCard({
         </div>
 
         <div className="mt-4">
-          <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Move to</div>
+          <div className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+            Move to
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {STAGES.map((s) => {
               const isCurrent = active.stage === s;
@@ -166,7 +183,10 @@ export function CandidateCard({
             animate={{ opacity: 1, y: 0 }}
             className="mt-4 flex items-center justify-between rounded-xl bg-[rgb(6_182_212_/_0.12)] border border-[rgb(103_232_249_/_0.35)] px-3 py-2 text-sm"
           >
-            <span className="text-foreground">Move {active.name.split(" ")[0]} to <b className="text-[#FF5FA2]">{STAGE_LABEL[targetStage]}</b>?</span>
+            <span className="text-foreground">
+              Move {active.name.split(" ")[0]} to{" "}
+              <b className="text-[#FF5FA2]">{STAGE_LABEL[targetStage]}</b>?
+            </span>
             <button
               onClick={() => move.mutate({ id: active.id, stage: targetStage })}
               disabled={move.isPending}

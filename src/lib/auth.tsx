@@ -19,7 +19,10 @@ export function useSession() {
     enabled: Boolean(isLoaded && isSignedIn),
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data } = await (supabase as any).rpc("current_profile_id");
+      const client = supabase as unknown as {
+        rpc: (fn: string) => Promise<{ data: string | null }>;
+      };
+      const { data } = await client.rpc("current_profile_id");
       return (data as string | null) ?? null;
     },
   });
@@ -43,7 +46,10 @@ export function useSession() {
 /** Resolves the current user's TalentLoom profile id via RLS helper. */
 export async function getMyProfileId(): Promise<string | null> {
   try {
-    const { data } = await (supabase as any).rpc("current_profile_id");
+    const client = supabase as unknown as {
+      rpc: (fn: string) => Promise<{ data: string | null }>;
+    };
+    const { data } = await client.rpc("current_profile_id");
     return (data as string | null) ?? null;
   } catch {
     return null;

@@ -39,7 +39,6 @@ export async function getClerkToken(): Promise<string | null> {
   return null;
 }
 
-
 /** Waits for clerk-js (loaded by ClerkProvider) to finish initialising. */
 export async function waitForClerk(timeoutMs = 8000): Promise<ClerkLike | null> {
   const start = Date.now();

@@ -4,11 +4,7 @@
 // Import like: import { supabase } from "@/integrations/supabase/app-client";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
-import {
-  APP_SUPABASE_PUBLISHABLE_KEY,
-  APP_SUPABASE_URL,
-  createSupabaseFetch,
-} from "./app-config";
+import { APP_SUPABASE_PUBLISHABLE_KEY, APP_SUPABASE_URL, createSupabaseFetch } from "./app-config";
 import { getClerkToken } from "@/lib/clerk";
 
 function createAppSupabaseClient() {

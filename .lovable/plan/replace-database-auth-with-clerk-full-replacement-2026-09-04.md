@@ -31,21 +31,25 @@ Database verifies token → RLS resolves Clerk user → profile row (uuid)
 ## Changes
 
 **New dependencies & secrets**
+
 - `@clerk/clerk-react` (+ `@clerk/backend` for server-side token verification).
 - Secrets: `CLERK_SECRET_KEY` (server), publishable key as a `VITE_` env value.
 
 **Auth UI (restyled to the kawaii theme)**
+
 - `/auth` (recruiter) and `/candidate/auth` — replace hand-rolled forms with Clerk `<SignIn>` / `<SignUp>` components, themed with the Mint Soda Pop palette. Magic-link-style email codes and Google sign-in are configured in Clerk (Google is a toggle in the Clerk dashboard).
 - Header chips in `MarketingShell` / `AppShell` switch to Clerk's session + `<UserButton>`-style avatar with sign-out.
 - `/onboarding` and invite acceptance keep working, driven by the profile lookup instead of the old session.
 
 **Client & server plumbing**
+
 - `src/lib/auth.tsx`, `app-auth-attacher.ts` → attach the Clerk session token (Supabase JWT template) as the bearer on every request.
 - `app-auth-middleware.ts` → verify the Clerk token server-side and resolve `userId` via the profile mapping; keep the same `requireSupabaseAuth` interface so no route code changes.
 - `_authenticated/route.tsx`, `apply.$orgId.tsx`, candidate portal functions, `accept_invite`, invite page — switch session/profile reads to Clerk + mapping table.
 - Remove now-dead code: old signUp/signIn/OAuth calls, password inputs, `supabase.auth` usage in ~25 files.
 
 **Database migration (external project)**
+
 - `profiles.clerk_user_id text unique`, plus `profiles.email` (for invite matching, replacing the `auth.users` email lookup).
 - `current_profile_id()` helper; rewrite all RLS policies on every table + storage policies on `candidate-files`, and the security-definer functions (`accept_invite`, `create_organization`, `bump_ai_usage`, `seed_sample_data`, admin-guard triggers) to use it.
 - Drop the `handle_new_user` trigger (no longer fires) — profile creation moves to first-sign-in upsert.

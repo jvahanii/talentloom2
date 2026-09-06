@@ -7,6 +7,7 @@ Add a public application page candidates can fill in themselves, plus recruiter-
 New route `/apply/$orgId` (and optional `?req=<requisition id>` to pre-select a role).
 
 Fields — same as the recruiter "Add candidate" form:
+
 - Full name (required), email, phone
 - Requisition (dropdown of that organisation's open roles)
 - Source (Referral, LinkedIn, Job board, Agency, Website, Other)

@@ -10,9 +10,15 @@ export const Route = createFileRoute("/apply/position/$id")({
   head: () => ({
     meta: [
       { title: "Position details — Talentloom" },
-      { name: "description", content: "Read the full job description and apply with your CV and cover letter." },
+      {
+        name: "description",
+        content: "Read the full job description and apply with your CV and cover letter.",
+      },
       { property: "og:title", content: "Position details — Talentloom" },
-      { property: "og:description", content: "Read the full job description and apply with your CV and cover letter." },
+      {
+        property: "og:description",
+        content: "Read the full job description and apply with your CV and cover letter.",
+      },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -31,7 +37,10 @@ function PositionPage() {
   return (
     <MarketingShell>
       <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <Link to="/apply" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          to="/apply"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" /> All positions
         </Link>
 
@@ -54,7 +63,9 @@ function PositionPage() {
                 <Building2 className="h-3.5 w-3.5" /> {position.orgName}
               </span>
               {position.department && (
-                <span className="rounded-full border border-border bg-muted px-2.5 py-1">{position.department}</span>
+                <span className="rounded-full border border-border bg-muted px-2.5 py-1">
+                  {position.department}
+                </span>
               )}
               {position.hiringManager && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1">
@@ -74,7 +85,8 @@ function PositionPage() {
             </div>
 
             <div className="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-              {position.description || "No description has been added for this position yet — apply and the team will share the details."}
+              {position.description ||
+                "No description has been added for this position yet — apply and the team will share the details."}
             </div>
 
             <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-muted/40 p-4">
@@ -93,9 +105,13 @@ function PositionPage() {
                   className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
                 >
                   {ratings.isDiscarded(id) ? (
-                    <><RotateCcw className="h-3.5 w-3.5" /> Restore</>
+                    <>
+                      <RotateCcw className="h-3.5 w-3.5" /> Restore
+                    </>
                   ) : (
-                    <><EyeOff className="h-3.5 w-3.5" /> Discard</>
+                    <>
+                      <EyeOff className="h-3.5 w-3.5" /> Discard
+                    </>
                   )}
                 </button>
               ) : (

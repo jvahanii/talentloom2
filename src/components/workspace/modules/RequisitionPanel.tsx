@@ -28,14 +28,18 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
     queryKey: ["reqs", orgId],
     enabled: !!orgId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("requisitions").select("*").eq("org_id", orgId!).order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("requisitions")
+        .select("*")
+        .eq("org_id", orgId!)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as Req[];
     },
   });
 
   const existing = query
-    ? (reqs.data ?? []).find((r) => r.title.toLowerCase().includes(query.toLowerCase())) ?? null
+    ? ((reqs.data ?? []).find((r) => r.title.toLowerCase().includes(query.toLowerCase())) ?? null)
     : null;
 
   const [title, setTitle] = useState(existing?.title ?? query ?? "");
@@ -73,10 +77,15 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         notes: notes || null,
       };
       if (existing) {
-        const { error } = await supabase.from("requisitions").update(payload as never).eq("id", existing.id);
+        const { error } = await supabase
+          .from("requisitions")
+          .update(payload as never)
+          .eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("requisitions").insert({ ...payload, user_id: uid, org_id: orgId! } as never);
+        const { error } = await supabase
+          .from("requisitions")
+          .insert({ ...payload, user_id: uid, org_id: orgId! } as never);
         if (error) throw error;
       }
     },
@@ -99,18 +108,37 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
       </div>
 
       <form
-        onSubmit={(e) => { e.preventDefault(); if (title.trim()) save.mutate(); }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (title.trim()) save.mutate();
+        }}
         className="mt-4 grid gap-3"
       >
         <Field label="Title">
-          <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Senior Engineer" className={inputCls} />
+          <input
+            required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Senior Engineer"
+            className={inputCls}
+          />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Department">
-            <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Engineering" className={inputCls} />
+            <input
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              placeholder="Engineering"
+              className={inputCls}
+            />
           </Field>
           <Field label="Hiring manager">
-            <input value={hiringManager} onChange={(e) => setHiringManager(e.target.value)} placeholder="Name" className={inputCls} />
+            <input
+              value={hiringManager}
+              onChange={(e) => setHiringManager(e.target.value)}
+              placeholder="Name"
+              className={inputCls}
+            />
           </Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -133,14 +161,30 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
             </div>
           </Field>
           <Field label="Target start">
-            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
+            <input
+              type="date"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className={inputCls}
+            />
           </Field>
           <Field label="Application deadline">
-            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls} />
+            <input
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className={inputCls}
+            />
           </Field>
         </div>
         <Field label="Notes">
-          <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Scope, level, comp band…" className={inputCls} />
+          <textarea
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Scope, level, comp band…"
+            className={inputCls}
+          />
         </Field>
         <div className="flex justify-end">
           <button
@@ -156,12 +200,15 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
   );
 }
 
-const inputCls = "w-full rounded-xl bg-background text-foreground px-3 py-2 text-sm border border-border focus:border-primary focus:outline-none";
+const inputCls =
+  "w-full rounded-xl bg-background text-foreground px-3 py-2 text-sm border border-border focus:border-primary focus:outline-none";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+        {label}
+      </span>
       {children}
     </label>
   );

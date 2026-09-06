@@ -85,13 +85,16 @@ export const askAgent = createServerFn({ method: "POST" })
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3.1-pro-preview");
 
-
     const tools = {
       list_candidates: tool({
         description:
           "Search the user's candidates. Returns id, name, email, stage, source, rating, requisition title, notes, last_activity_at. Use for questions about people or who is at what stage.",
         inputSchema: z.object({
-          name_query: z.string().max(80).nullable().describe("Partial name or email match (case-insensitive)."),
+          name_query: z
+            .string()
+            .max(80)
+            .nullable()
+            .describe("Partial name or email match (case-insensitive)."),
           stage: z.enum(STAGES).nullable().describe("Filter by stage."),
           source: z.string().max(80).nullable().describe("Filter by source, e.g. 'LinkedIn'."),
           requisition_title: z
@@ -142,7 +145,9 @@ export const askAgent = createServerFn({ method: "POST" })
         execute: async ({ title_query, department, status, limit }) => {
           let q = supabase
             .from("requisitions")
-            .select("id, title, department, hiring_manager, status, target_start_date, notes, created_at")
+            .select(
+              "id, title, department, hiring_manager, status, target_start_date, notes, created_at",
+            )
             .eq("org_id", orgId)
             .order("created_at", { ascending: false })
             .limit(limit ?? 25);
@@ -190,10 +195,14 @@ export const askAgent = createServerFn({ method: "POST" })
       }),
 
       source_breakdown: tool({
-        description: "Counts of candidates grouped by acquisition source (LinkedIn, referral, job board, etc.).",
+        description:
+          "Counts of candidates grouped by acquisition source (LinkedIn, referral, job board, etc.).",
         inputSchema: z.object({}),
         execute: async () => {
-          const { data, error } = await supabase.from("candidates").select("source, stage").eq("org_id", orgId);
+          const { data, error } = await supabase
+            .from("candidates")
+            .select("source, stage")
+            .eq("org_id", orgId);
           if (error) {
             console.error(error);
             return { error: "lookup failed" };

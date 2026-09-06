@@ -1,7 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Briefcase, UserRound } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import heroImage from "@/assets/kawaii-hero-illustration.svg";
 
 export const Route = createFileRoute("/")({
@@ -53,9 +58,12 @@ function Landing() {
                 className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <Briefcase className="h-7 w-7 text-white" />
-                <span className="mt-4 block font-display text-lg font-semibold text-white">We're hiring</span>
+                <span className="mt-4 block font-display text-lg font-semibold text-white">
+                  We're hiring
+                </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Give candidates a standout experience while keeping all positions and processes flowing
+                  Give candidates a standout experience while keeping all positions and processes
+                  flowing
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
                   Create organization
@@ -66,17 +74,22 @@ function Landing() {
                 className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <UserRound className="h-7 w-7 text-white" />
-                <span className="mt-4 block font-display text-lg font-semibold text-white">I’m looking for work</span>
+                <span className="mt-4 block font-display text-lg font-semibold text-white">
+                  I’m looking for work
+                </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Find roles worth your time, apply in minutes, and keep your potential positions, applications and
-                  documents organized.
+                  Find roles worth your time, apply in minutes, and keep your potential positions,
+                  applications and documents organized.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
                   Explore open roles
                 </span>
               </Link>
               <div className="-mt-2 text-center">
-                <Link to="/candidate/auth" className="text-xs text-white/80 underline-offset-2 hover:underline"></Link>
+                <Link
+                  to="/candidate/auth"
+                  className="text-xs text-white/80 underline-offset-2 hover:underline"
+                ></Link>
               </div>
             </div>
             <Link
@@ -90,7 +103,9 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-        <h2 className="font-display text-3xl font-bold text-center">Less busywork. Better hiring.</h2>
+        <h2 className="font-display text-3xl font-bold text-center">
+          Less busywork. Better hiring.
+        </h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {[
             {
@@ -115,14 +130,16 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
-        <h2 className="font-display text-3xl font-bold text-center">Good questions. Straight answers.</h2>
+        <h2 className="font-display text-3xl font-bold text-center">
+          Good questions. Straight answers.
+        </h2>
         <div className="glass mt-8 rounded-2xl p-2 sm:p-4">
           <Accordion type="single" collapsible>
             <AccordionItem value="a">
               <AccordionTrigger>Is my data shared with other organizations?</AccordionTrigger>
               <AccordionContent>
-                Each organization is isolated from other organizations, but a person on the hiring side can belong to
-                multiple organizations.
+                Each organization is isolated from other organizations, but a person on the hiring
+                side can belong to multiple organizations.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="b">
@@ -132,8 +149,8 @@ function Landing() {
             <AccordionItem value="c">
               <AccordionTrigger>Can I remix this app?</AccordionTrigger>
               <AccordionContent>
-                Yes. Schema, RLS, auth, and sample seeds carry over on remix. Your candidate data does not — see the
-                Docs page for details.
+                Yes. Schema, RLS, auth, and sample seeds carry over on remix. Your candidate data
+                does not — see the Docs page for details.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="d" className="border-b-0">

@@ -8,7 +8,10 @@ export const Route = createFileRoute("/invite/$token")({
   head: () => ({
     meta: [
       { title: "Accept invite — Talentloom" },
-      { name: "description", content: "Accept your invitation to join a hiring organisation on Talentloom." },
+      {
+        name: "description",
+        content: "Accept your invitation to join a hiring organisation on Talentloom.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),

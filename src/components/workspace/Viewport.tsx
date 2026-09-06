@@ -56,8 +56,8 @@ export function Viewport({ turns }: { turns: ChatTurn[] }) {
               Ask anything.
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
-              Your organization's recruiting brain. Ask in plain English — I'll pull from
-              your candidate flow, positions, candidates, and stage history to answer.
+              Your organization's recruiting brain. Ask in plain English — I'll pull from your
+              candidate flow, positions, candidates, and stage history to answer.
             </p>
 
             <div className="mx-auto mt-6 max-w-xl text-left">
@@ -73,8 +73,8 @@ export function Viewport({ turns }: { turns: ChatTurn[] }) {
               </ul>
 
               <p className="mt-5 text-xs text-muted-foreground">
-                Answers are grounded in your data — you're still the reviewer. Double-check
-                anything you'd send to a candidate or hiring manager.
+                Answers are grounded in your data — you're still the reviewer. Double-check anything
+                you'd send to a candidate or hiring manager.
               </p>
             </div>
           </motion.div>

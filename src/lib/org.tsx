@@ -22,7 +22,7 @@ export const PERMISSIONS = [
   "manage_titles",
 ] as const;
 
-export type Permission = typeof PERMISSIONS[number];
+export type Permission = (typeof PERMISSIONS)[number];
 
 export const PERMISSION_GROUPS: { label: string; items: { key: Permission; label: string }[] }[] = [
   {
@@ -88,7 +88,9 @@ const EMPTY_PERMS = Object.fromEntries(PERMISSIONS.map((p) => [p, false])) as Ti
 
 function toPermissions(row: Record<string, unknown> | null | undefined): TitlePermissions {
   if (!row) return EMPTY_PERMS;
-  return Object.fromEntries(PERMISSIONS.map((p) => [p, Boolean(row[permColumn(p)])])) as TitlePermissions;
+  return Object.fromEntries(
+    PERMISSIONS.map((p) => [p, Boolean(row[permColumn(p)])]),
+  ) as TitlePermissions;
 }
 
 type MemberRow = {
@@ -100,9 +102,9 @@ type MemberRow = {
 };
 
 async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
-  const { data: uid, error: uidError } = (await (supabase.rpc as unknown as (
-    fn: string,
-  ) => Promise<{ data: string | null; error: unknown }>)("current_profile_id"));
+  const { data: uid, error: uidError } = await (
+    supabase.rpc as unknown as (fn: string) => Promise<{ data: string | null; error: unknown }>
+  )("current_profile_id");
   if (uidError || !uid) {
     // A signed-in user with no profile id means the request ran without a valid
     // session token (e.g. right after OAuth sign-in). Fail the query so React

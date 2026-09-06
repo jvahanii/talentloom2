@@ -78,7 +78,9 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(async
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   const { data: reqsRaw } = await supabaseAdmin
     .from("requisitions")
-    .select("id, title, org_id, department, target_start_date, deadline_date, description, created_at")
+    .select(
+      "id, title, org_id, department, target_start_date, deadline_date, description, created_at",
+    )
     .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -107,10 +109,13 @@ export const getPosition = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const { data: reqRaw } = await supabaseAdmin
       .from("requisitions")
-      .select("id, title, org_id, department, hiring_manager, target_start_date, deadline_date, description, status")
+      .select(
+        "id, title, org_id, department, hiring_manager, target_start_date, deadline_date, description, status",
+      )
       .eq("id", data.id)
       .maybeSingle();
-    const req = reqRaw as unknown as (PositionListRow & { hiring_manager: string | null; status: string }) | null;
+    const req = reqRaw as unknown as
+      (PositionListRow & { hiring_manager: string | null; status: string }) | null;
     if (!req || req.status !== "open") return null;
     const { data: org } = await supabaseAdmin
       .from("organizations")
@@ -142,7 +147,13 @@ export const getApplyContext = createServerFn({ method: "POST" })
     if (!org)
       return {
         org: null,
-        roles: [] as { id: string; title: string; department: string | null; description: string | null; deadline_date: string | null }[],
+        roles: [] as {
+          id: string;
+          title: string;
+          department: string | null;
+          description: string | null;
+          deadline_date: string | null;
+        }[],
       };
     const { data: reqsRaw } = await supabaseAdmin
       .from("requisitions")
@@ -167,11 +178,13 @@ export const submitApplication = createServerFn({ method: "POST" })
       getRequestHeader("cf-connecting-ip") ??
       getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ??
       "unknown";
-    if (rateLimited(ip)) throw new Error("Too many applications from this device. Please try again later.");
+    if (rateLimited(ip))
+      throw new Error("Too many applications from this device. Please try again later.");
 
     for (const f of [data.cv, data.cover_letter]) {
       if (!f) continue;
-      if (!ALLOWED_EXT.includes(extOf(f.name))) throw new Error("Only PDF, DOC or DOCX files are accepted.");
+      if (!ALLOWED_EXT.includes(extOf(f.name)))
+        throw new Error("Only PDF, DOC or DOCX files are accepted.");
       if (Buffer.from(f.data, "base64").byteLength > MAX_FILE_BYTES)
         throw new Error("Files must be 10 MB or smaller.");
     }
@@ -186,9 +199,8 @@ export const submitApplication = createServerFn({ method: "POST" })
     const token = bearer?.startsWith("Bearer ") ? bearer.slice(7).trim() : null;
     if (token && token.split(".").length === 3) {
       try {
-        const { verifyClerkToken, provisionProfileForClerkUser } = await import(
-          "@/integrations/supabase/clerk-sync.server"
-        );
+        const { verifyClerkToken, provisionProfileForClerkUser } =
+          await import("@/integrations/supabase/clerk-sync.server");
         const clerkUserId = await verifyClerkToken(token);
         const profile = await provisionProfileForClerkUser(clerkUserId);
         applicantUserId = profile.id;
@@ -276,7 +288,8 @@ export const submitApplication = createServerFn({ method: "POST" })
                 upsert: false,
               });
             if (!docUpErr) {
-              const label = file.name.replace(/\.[^.]+$/, "").slice(0, 120) || file.name.slice(0, 120);
+              const label =
+                file.name.replace(/\.[^.]+$/, "").slice(0, 120) || file.name.slice(0, 120);
               const { error: docErr } = await supabaseAdmin
                 .from("candidate_documents")
                 .insert({ user_id: applicantUserId, kind, label, path: docPath });
@@ -284,7 +297,6 @@ export const submitApplication = createServerFn({ method: "POST" })
             }
           }
         }
-
       } else if (sourcePath) {
         // Copy the candidate's saved document into the org-owned prefix so the
         // hiring team can open it under their storage policy.

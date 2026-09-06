@@ -16,6 +16,7 @@ This change saves those selections too, per signed-in candidate.
 ## Data
 
 New table `candidate_board_prefs` on the backend project:
+
 - one row per candidate (their user id is the key)
 - stored fields: search text, selected company, sort option, view option, plus created/updated timestamps
 - access rules: a candidate can only read, create and change their own row; nobody else can see it

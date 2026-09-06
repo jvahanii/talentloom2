@@ -2,13 +2,15 @@
 import { createClerkClient, verifyToken } from "@clerk/backend";
 
 function b64urlToBytes(input: string): Uint8Array<ArrayBuffer> {
-  const b64 = input.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(input.length / 4) * 4, "=");
+  const b64 = input
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(input.length / 4) * 4, "=");
   const bin = atob(b64);
   const out = new Uint8Array(new ArrayBuffer(bin.length));
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-
 
 /** Verifies an HS256 JWT against the shared signing secret (WebCrypto only). */
 async function verifyHs256(token: string, secret: string): Promise<Record<string, unknown>> {
@@ -33,7 +35,10 @@ async function verifyHs256(token: string, secret: string): Promise<Record<string
   );
   if (!ok) throw new Error("signature mismatch");
 
-  const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadB64))) as Record<string, unknown>;
+  const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(payloadB64))) as Record<
+    string,
+    unknown
+  >;
   const exp = typeof payload["exp"] === "number" ? (payload["exp"] as number) : undefined;
   if (exp && exp * 1000 < Date.now() - 5000) throw new Error("token expired");
   return payload;
@@ -45,7 +50,11 @@ export async function verifyClerkToken(token: string): Promise<string> {
 
   const alg = (() => {
     try {
-      return (JSON.parse(new TextDecoder().decode(b64urlToBytes(token.split(".")[0]!))) as { alg?: string }).alg;
+      return (
+        JSON.parse(new TextDecoder().decode(b64urlToBytes(token.split(".")[0]!))) as {
+          alg?: string;
+        }
+      ).alg;
     } catch {
       return undefined;
     }
@@ -77,8 +86,6 @@ export async function verifyClerkToken(token: string): Promise<string> {
   return payload.sub;
 }
 
-
-
 interface ProfileRow {
   id: string;
   onboarding_completed_at: string | null;
@@ -94,6 +101,7 @@ interface ProfileRow {
 export async function provisionProfileForClerkUser(clerkUserId: string): Promise<ProfileRow> {
   const { supabaseAdmin } = await import("./app-admin.server");
   const admin = supabaseAdmin as unknown as {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     from: (t: string) => any;
   };
 

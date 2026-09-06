@@ -26,18 +26,32 @@ export const Route = createFileRoute("/apply/")({
   head: () => ({
     meta: [
       { title: "Find your next role — Talentloom" },
-      { name: "description", content: "Explore roles from companies hiring on Talentloom. Find a great fit and apply without wasting your time." },
+      {
+        name: "description",
+        content:
+          "Explore roles from companies hiring on Talentloom. Find a great fit and apply without wasting your time.",
+      },
       { property: "og:title", content: "Find your next role — Talentloom" },
-      { property: "og:description", content: "Explore roles from companies hiring on Talentloom. Find a great fit and apply without wasting your time." },
+      {
+        property: "og:description",
+        content:
+          "Explore roles from companies hiring on Talentloom. Find a great fit and apply without wasting your time.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>): { q?: string; org?: string; sort?: string; view?: string } => ({
-    ...(typeof search['q'] === "string" && search['q'] ? { q: search['q'] as string } : {}),
-    ...(typeof search['org'] === "string" && search['org'] ? { org: search['org'] as string } : {}),
-    ...(typeof search['sort'] === "string" && search['sort'] ? { sort: search['sort'] as string } : {}),
-    ...(typeof search['view'] === "string" && search['view'] ? { view: search['view'] as string } : {}),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { q?: string; org?: string; sort?: string; view?: string } => ({
+    ...(typeof search["q"] === "string" && search["q"] ? { q: search["q"] as string } : {}),
+    ...(typeof search["org"] === "string" && search["org"] ? { org: search["org"] as string } : {}),
+    ...(typeof search["sort"] === "string" && search["sort"]
+      ? { sort: search["sort"] as string }
+      : {}),
+    ...(typeof search["view"] === "string" && search["view"]
+      ? { view: search["view"] as string }
+      : {}),
   }),
   component: JobBoard,
 });
@@ -81,7 +95,6 @@ function JobBoard() {
     boardPrefs.save({ q: "", org: "", sort: "newest", view: "active" });
   };
 
-
   const { data: positions, isLoading } = useQuery({
     queryKey: ["open-positions"],
     queryFn: () => listOpenPositions(),
@@ -122,9 +135,12 @@ function JobBoard() {
     <MarketingShell>
       <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-20">
         <div className="text-center">
-          <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">Find a role worth your time</h1>
+          <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
+            Find a role worth your time
+          </h1>
           <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            Browse clear, current opportunities and apply in minutes. No account needed — create one when you want to save time later.
+            Browse clear, current opportunities and apply in minutes. No account needed — create one
+            when you want to save time later.
           </p>
         </div>
 
@@ -147,7 +163,9 @@ function JobBoard() {
           >
             <option value="">Every company</option>
             {companies.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
+              <option key={id} value={id}>
+                {name}
+              </option>
             ))}
           </select>
           <select
@@ -157,7 +175,9 @@ function JobBoard() {
             className="glass rounded-xl px-3 py-2 text-sm sm:w-48"
           >
             {SORTS.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
             ))}
           </select>
         </div>
@@ -188,14 +208,18 @@ function JobBoard() {
           </div>
         ) : (
           <p className="mt-3 text-center text-sm text-muted-foreground">
-            <Link to="/candidate/auth" className="font-semibold text-primary">Sign in</Link> to save your shortlist and keep your search organised.
+            <Link to="/candidate/auth" className="font-semibold text-primary">
+              Sign in
+            </Link>{" "}
+            to save your shortlist and keep your search organised.
           </p>
         )}
 
-
         <div className="mt-6 grid gap-4">
           {isLoading &&
-            Array.from({ length: 4 }).map((_, i) => <div key={i} className="glass h-28 animate-pulse rounded-2xl" />)}
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="glass h-28 animate-pulse rounded-2xl" />
+            ))}
 
           {!isLoading && filtered.length === 0 && (
             <div className="glass rounded-2xl p-10 text-center">
@@ -239,7 +263,9 @@ function JobBoard() {
                   )}
                 </span>
               </div>
-              {p.excerpt && <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>}
+              {p.excerpt && (
+                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>
+              )}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <span className="text-sm font-semibold text-primary">See the role and apply →</span>
                 <span className="flex items-center gap-2">
@@ -260,9 +286,13 @@ function JobBoard() {
                       className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
                     >
                       {ratings.isDiscarded(p.id) ? (
-                        <><RotateCcw className="h-3.5 w-3.5" /> Restore</>
+                        <>
+                          <RotateCcw className="h-3.5 w-3.5" /> Restore
+                        </>
                       ) : (
-                        <><EyeOff className="h-3.5 w-3.5" /> Discard</>
+                        <>
+                          <EyeOff className="h-3.5 w-3.5" /> Discard
+                        </>
                       )}
                     </button>
                   )}

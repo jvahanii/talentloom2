@@ -16,7 +16,10 @@ function safeName(value: string) {
  * Bundles every applicant CV / cover letter for a position into a single zip
  * and triggers a browser download. Returns how many files were included.
  */
-export async function downloadPositionAttachments(requisitionId: string, positionTitle: string): Promise<number> {
+export async function downloadPositionAttachments(
+  requisitionId: string,
+  positionTitle: string,
+): Promise<number> {
   const { data, error } = await supabase
     .from("candidates")
     .select("name, cv_path, cover_letter_path")
@@ -27,7 +30,8 @@ export async function downloadPositionAttachments(requisitionId: string, positio
   const files = rows.flatMap((r) => {
     const out: { path: string; label: string }[] = [];
     if (r.cv_path) out.push({ path: r.cv_path, label: `${safeName(r.name)} - CV` });
-    if (r.cover_letter_path) out.push({ path: r.cover_letter_path, label: `${safeName(r.name)} - Cover letter` });
+    if (r.cover_letter_path)
+      out.push({ path: r.cover_letter_path, label: `${safeName(r.name)} - Cover letter` });
     return out;
   });
   if (files.length === 0) return 0;

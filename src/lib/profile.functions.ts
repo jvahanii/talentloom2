@@ -11,9 +11,8 @@ export const ensureMyProfile = createServerFn({ method: "POST" }).handler(async 
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   if (!token || token.split(".").length !== 3) throw new Error("Unauthorized");
 
-  const { verifyClerkToken, provisionProfileForClerkUser } = await import(
-    "@/integrations/supabase/clerk-sync.server"
-  );
+  const { verifyClerkToken, provisionProfileForClerkUser } =
+    await import("@/integrations/supabase/clerk-sync.server");
   const clerkUserId = await verifyClerkToken(token);
   const profile = await provisionProfileForClerkUser(clerkUserId);
   return {

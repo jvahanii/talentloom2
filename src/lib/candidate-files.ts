@@ -21,7 +21,12 @@ export function validateCandidateFile(file: File): string | null {
   return null;
 }
 
-export function storagePath(orgId: string, candidateId: string, kind: CandidateFileKind, fileName: string) {
+export function storagePath(
+  orgId: string,
+  candidateId: string,
+  kind: CandidateFileKind,
+  fileName: string,
+) {
   const ext = fileExtension(fileName) || "pdf";
   return `${orgId}/${candidateId}/${kind}-${Date.now()}.${ext}`;
 }

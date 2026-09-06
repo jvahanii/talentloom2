@@ -16,15 +16,21 @@ export const Route = createFileRoute("/apply/$orgId")({
   head: () => ({
     meta: [
       { title: "Apply for a role — Talentloom" },
-      { name: "description", content: "Apply in minutes with a clear, candidate-friendly application experience." },
+      {
+        name: "description",
+        content: "Apply in minutes with a clear, candidate-friendly application experience.",
+      },
       { property: "og:title", content: "Apply for a role" },
-      { property: "og:description", content: "Submit your application, CV and cover letter in a couple of minutes." },
+      {
+        property: "og:description",
+        content: "Submit your application, CV and cover letter in a couple of minutes.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   validateSearch: (search: Record<string, unknown>) => ({
-    req: typeof search['req'] === "string" ? (search['req'] as string) : undefined,
+    req: typeof search["req"] === "string" ? (search["req"] as string) : undefined,
   }),
   component: ApplyPage,
 });
@@ -97,13 +103,19 @@ function ApplyPage() {
   const pickFile = (file: File | null, set: (f: File | null) => void) => {
     if (!file) return set(null);
     const err = validateCandidateFile(file);
-    if (err) { toast.error(err); return; }
+    if (err) {
+      toast.error(err);
+      return;
+    }
     set(file);
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cv && !savedCvId) { toast.error("Please attach your CV."); return; }
+    if (!cv && !savedCvId) {
+      toast.error("Please attach your CV.");
+      return;
+    }
     setBusy(true);
     try {
       await submitFn({
@@ -135,13 +147,19 @@ function ApplyPage() {
   };
 
   if (ctx.isLoading) {
-    return <Wrapper><p className="text-sm text-muted-foreground">Loading…</p></Wrapper>;
+    return (
+      <Wrapper>
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </Wrapper>
+    );
   }
   if (!ctx.data?.org) {
     return (
       <Wrapper>
         <h1 className="font-display text-2xl font-bold">Application link not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Please check the link with the person who sent it to you.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Please check the link with the person who sent it to you.
+        </p>
       </Wrapper>
     );
   }
@@ -152,7 +170,8 @@ function ApplyPage() {
         <CheckCircle2 className="h-10 w-10 text-primary" />
         <h1 className="mt-3 font-display text-2xl font-bold">Application received</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Thanks {name.split(" ")[0] || "for applying"} — the {ctx.data.org.name} team will be in touch by email.
+          Thanks {name.split(" ")[0] || "for applying"} — the {ctx.data.org.name} team will be in
+          touch by email.
         </p>
         <p className="mt-4 text-sm text-muted-foreground">
           <Link to="/candidate/auth" className="text-teal-700 hover:underline">
@@ -169,15 +188,24 @@ function ApplyPage() {
   return (
     <Wrapper>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Your next move starts here</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Apply to {ctx.data.org.name} in a few simple steps. Your time matters, so we’ve kept this quick.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Apply to {ctx.data.org.name} in a few simple steps. Your time matters, so we’ve kept this
+        quick.
+      </p>
       {signedIn ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          You're signed in — your saved documents are available below and the application will appear in{" "}
-          <Link to="/candidate/applications" className="text-teal-700 hover:underline">My applications</Link>.
+          You're signed in — your saved documents are available below and the application will
+          appear in{" "}
+          <Link to="/candidate/applications" className="text-teal-700 hover:underline">
+            My applications
+          </Link>
+          .
         </p>
       ) : (
         <p className="mt-2 text-xs text-muted-foreground">
-          <Link to="/candidate/auth" className="text-teal-700 hover:underline">Sign in as a candidate</Link>{" "}
+          <Link to="/candidate/auth" className="text-teal-700 hover:underline">
+            Sign in as a candidate
+          </Link>{" "}
           to prefill your details and reuse saved documents.
         </p>
       )}
@@ -185,34 +213,69 @@ function ApplyPage() {
       {selectedRole?.description && (
         <div className="mt-5 rounded-xl border border-border bg-muted/50 p-4">
           <h2 className="font-display text-sm font-semibold">{selectedRole.title}</h2>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{selectedRole.description}</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+            {selectedRole.description}
+          </p>
         </div>
       )}
 
       <form onSubmit={submit} className="mt-6 grid gap-3 sm:grid-cols-2">
         <Field label="Full name">
-          <input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+          <input
+            required
+            maxLength={120}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={inputCls}
+          />
         </Field>
         <Field label="Email">
-          <input required type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} />
+          <input
+            required
+            type="email"
+            maxLength={255}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={inputCls}
+          />
         </Field>
         <Field label="Phone">
-          <input maxLength={40} value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} />
+          <input
+            maxLength={40}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className={inputCls}
+          />
         </Field>
         <Field label="Role">
           <select value={reqId} onChange={(e) => setReqId(e.target.value)} className={inputCls}>
             <option value="">General application</option>
-            {ctx.data.roles.map((r) => <option key={r.id} value={r.id}>{r.title}{r.department ? ` · ${r.department}` : ""}</option>)}
+            {ctx.data.roles.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.title}
+                {r.department ? ` · ${r.department}` : ""}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="How did you hear about us?">
           <select value={source} onChange={(e) => setSource(e.target.value)} className={inputCls}>
-            {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+            {SOURCES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
           </select>
         </Field>
         <div className="sm:col-span-2">
           <Field label="Anything else we should know?">
-            <textarea rows={4} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} />
+            <textarea
+              rows={4}
+              maxLength={2000}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={inputCls}
+            />
           </Field>
         </div>
 
@@ -220,11 +283,18 @@ function ApplyPage() {
           <Field label="CV — use a saved document">
             <select
               value={savedCvId}
-              onChange={(e) => { setSavedCvId(e.target.value); if (e.target.value) setCv(null); }}
+              onChange={(e) => {
+                setSavedCvId(e.target.value);
+                if (e.target.value) setCv(null);
+              }}
               className={inputCls}
             >
               <option value="">Upload a new file instead</option>
-              {savedCvs.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+              {savedCvs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
             </select>
           </Field>
         )}
@@ -232,26 +302,47 @@ function ApplyPage() {
           <Field label="Cover letter — use a saved document">
             <select
               value={savedCoverId}
-              onChange={(e) => { setSavedCoverId(e.target.value); if (e.target.value) setCover(null); }}
+              onChange={(e) => {
+                setSavedCoverId(e.target.value);
+                if (e.target.value) setCover(null);
+              }}
               className={inputCls}
             >
               <option value="">Upload a new file instead</option>
-              {savedCovers.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+              {savedCovers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
             </select>
           </Field>
         )}
         {!savedCvId && (
-          <FilePicker label={`CV${savedCvs.length === 0 ? " (required)" : ""}`} file={cv} onPick={(f) => pickFile(f, setCv)} />
+          <FilePicker
+            label={`CV${savedCvs.length === 0 ? " (required)" : ""}`}
+            file={cv}
+            onPick={(f) => pickFile(f, setCv)}
+          />
         )}
         {!savedCoverId && (
-          <FilePicker label="Cover letter (optional)" file={cover} onPick={(f) => pickFile(f, setCover)} />
+          <FilePicker
+            label="Cover letter (optional)"
+            file={cover}
+            onPick={(f) => pickFile(f, setCover)}
+          />
         )}
 
         <div className="sm:col-span-2">
-          <button disabled={busy} type="submit" className="btn-teal w-full rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60">
+          <button
+            disabled={busy}
+            type="submit"
+            className="btn-teal w-full rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+          >
             {busy ? "Sending your application…" : "Send my application"}
           </button>
-          <p className="mt-2 text-center text-xs text-muted-foreground">PDF, DOC or DOCX · up to 10 MB per file</p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            PDF, DOC or DOCX · up to 10 MB per file
+          </p>
         </div>
       </form>
     </Wrapper>
@@ -275,7 +366,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function FilePicker({ label, file, onPick }: { label: string; file: File | null; onPick: (f: File | null) => void }) {
+function FilePicker({
+  label,
+  file,
+  onPick,
+}: {
+  label: string;
+  file: File | null;
+  onPick: (f: File | null) => void;
+}) {
   return (
     <div>
       <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>

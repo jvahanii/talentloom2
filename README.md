@@ -42,6 +42,7 @@ Managed Google OAuth is enabled by default via Lovable Cloud. To use your own Go
 **Onboarding**: `/onboarding` — 3-step flow shown after signup (personal info → company info → import data or pick sample data). Own auth gate (`ssr: false`), resumable via `profiles.onboarding_step`. The `/_authenticated` gate redirects here whenever `onboarding_completed_at` is null. Sample data no longer seeds automatically — it's an explicit choice on Step 3.
 
 **Authenticated (`/_authenticated/*`)**:
+
 - `/pipeline` — Kanban board (default view). Desktop drag-and-drop + stage dropdown as touch/mobile fallback. Filter by requisition and source.
 - `/requisitions` — grid of open roles with per-req candidate counts, create/edit/close
 - `/candidates/$id` — full candidate detail with stage history timeline
@@ -61,12 +62,14 @@ Managed Google OAuth is enabled by default via Lovable Cloud. To use your own Go
 ## Remix instructions
 
 **Carries over on remix:**
+
 - Full schema (enums, tables, triggers, RLS policies, GRANTs)
 - Google OAuth provider config (managed credentials)
 - Seed/clear sample-data helpers
 - All frontend code, design system, and routes
 
 **Does NOT carry over:**
+
 - Any real candidate or requisition data — remix produces a fresh backend
 - Custom Google OAuth credentials if you supplied your own (re-enter in Cloud settings)
 

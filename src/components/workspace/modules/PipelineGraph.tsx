@@ -19,8 +19,17 @@ export function PipelineGraph() {
   const [selected, setSelected] = useState<Stage | null>(null);
 
   const counts = useMemo(() => {
-    const c: Record<Stage, number> = { applied: 0, screen: 0, interview: 0, offer: 0, hired: 0, rejected: 0 };
-    (cands.data ?? []).forEach((r) => { c[r.stage] = (c[r.stage] ?? 0) + 1; });
+    const c: Record<Stage, number> = {
+      applied: 0,
+      screen: 0,
+      interview: 0,
+      offer: 0,
+      hired: 0,
+      rejected: 0,
+    };
+    (cands.data ?? []).forEach((r) => {
+      c[r.stage] = (c[r.stage] ?? 0) + 1;
+    });
     return c;
   }, [cands.data]);
 
@@ -43,11 +52,18 @@ export function PipelineGraph() {
     <div className="glass rounded-2xl p-5">
       <div className="flex items-baseline justify-between">
         <h3 className="font-display text-lg font-semibold text-foreground">Candidate flow graph</h3>
-        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{cands.data?.length ?? 0} candidates</span>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {cands.data?.length ?? 0} candidates
+        </span>
       </div>
 
       <div className="mt-4 -mx-1 overflow-x-auto">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[560px]" role="img" aria-label="Candidate flow stages graph">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full min-w-[560px]"
+          role="img"
+          aria-label="Candidate flow stages graph"
+        >
           <defs>
             <linearGradient id="edge" x1="0" x2="1">
               <stop offset="0%" stopColor="#FF5FA2" stopOpacity="0.7" />
@@ -92,7 +108,11 @@ export function PipelineGraph() {
             const r = nodeRadius(n);
             const isSelected = selected === s;
             return (
-              <g key={s} onClick={() => setSelected(isSelected ? null : s)} style={{ cursor: "pointer" }}>
+              <g
+                key={s}
+                onClick={() => setSelected(isSelected ? null : s)}
+                style={{ cursor: "pointer" }}
+              >
                 <motion.circle
                   cx={positiveXs[i]}
                   cy={yBase}
@@ -103,12 +123,29 @@ export function PipelineGraph() {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   whileHover={{ scale: 1.08 }}
-                  transition={{ delay: 0.1 + i * 0.06, type: "spring", stiffness: 260, damping: 20 }}
+                  transition={{
+                    delay: 0.1 + i * 0.06,
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20,
+                  }}
                 />
-                <text x={positiveXs[i]} y={yBase + 4} textAnchor="middle" className="fill-white font-bold" style={{ fontSize: 16 }}>
+                <text
+                  x={positiveXs[i]}
+                  y={yBase + 4}
+                  textAnchor="middle"
+                  className="fill-white font-bold"
+                  style={{ fontSize: 16 }}
+                >
                   {n}
                 </text>
-                <text x={positiveXs[i]} y={yBase + r + 18} textAnchor="middle" className="fill-foreground" style={{ fontSize: 11 }}>
+                <text
+                  x={positiveXs[i]}
+                  y={yBase + r + 18}
+                  textAnchor="middle"
+                  className="fill-foreground"
+                  style={{ fontSize: 11 }}
+                >
                   {STAGE_LABEL[s]}
                 </text>
               </g>
@@ -116,7 +153,10 @@ export function PipelineGraph() {
           })}
 
           {/* Rejected node */}
-          <g onClick={() => setSelected(selected === "rejected" ? null : "rejected")} style={{ cursor: "pointer" }}>
+          <g
+            onClick={() => setSelected(selected === "rejected" ? null : "rejected")}
+            style={{ cursor: "pointer" }}
+          >
             <motion.circle
               cx={rejectedX}
               cy={rejectedY}
@@ -128,10 +168,22 @@ export function PipelineGraph() {
               animate={{ scale: 1 }}
               transition={{ delay: 0.5, type: "spring" }}
             />
-            <text x={rejectedX} y={rejectedY + 4} textAnchor="middle" className="fill-[#fca5a5] font-bold" style={{ fontSize: 14 }}>
+            <text
+              x={rejectedX}
+              y={rejectedY + 4}
+              textAnchor="middle"
+              className="fill-[#fca5a5] font-bold"
+              style={{ fontSize: 14 }}
+            >
               {counts.rejected}
             </text>
-            <text x={rejectedX} y={rejectedY + nodeRadius(counts.rejected) + 16} textAnchor="middle" className="fill-muted-foreground" style={{ fontSize: 11 }}>
+            <text
+              x={rejectedX}
+              y={rejectedY + nodeRadius(counts.rejected) + 16}
+              textAnchor="middle"
+              className="fill-muted-foreground"
+              style={{ fontSize: 11 }}
+            >
               Rejected
             </text>
           </g>
@@ -161,7 +213,9 @@ export function PipelineGraph() {
                       <span className="text-xs text-muted-foreground">{c.source ?? "—"}</span>
                     </li>
                   ))}
-                  {counts[selected] > 6 && <li className="text-xs text-muted-foreground">+{counts[selected] - 6} more</li>}
+                  {counts[selected] > 6 && (
+                    <li className="text-xs text-muted-foreground">+{counts[selected] - 6} more</li>
+                  )}
                 </ul>
               )}
             </div>

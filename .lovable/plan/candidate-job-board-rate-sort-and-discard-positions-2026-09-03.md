@@ -5,6 +5,7 @@ Signed-in candidates get a private shortlist layer on the open-positions board: 
 ## What the candidate gets
 
 On `/apply` (open positions list):
+
 - A star row (1-5) on every position card. Clicking a star saves it instantly; clicking the same star again clears the rating.
 - A "Discard" action on each card that hides the position from the list.
 - A sort control: Newest (default), Highest rated, Lowest rated, Deadline soonest, Company A-Z.
@@ -18,6 +19,7 @@ Signed-out visitors see the stars greyed out with a short "Sign in to rate and s
 ## Data
 
 New table `candidate_position_ratings` on the external database:
+
 - candidate user, position, rating (1-5, optional), discarded flag, timestamps
 - one row per candidate + position
 - access rules: a candidate can only read, create, change and remove their own rows; nobody else, including recruiters, can read them.

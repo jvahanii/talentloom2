@@ -22,7 +22,10 @@ function NotFoundComponent() {
       <div className="glass rounded-3xl p-10 max-w-md text-center">
         <h1 className="text-7xl font-bold">404</h1>
         <p className="mt-4 text-muted-foreground">This page doesn't exist.</p>
-        <Link to="/" className="btn-teal mt-6 inline-block rounded-xl px-5 py-2.5 text-sm font-medium">
+        <Link
+          to="/"
+          className="btn-teal mt-6 inline-block rounded-xl px-5 py-2.5 text-sm font-medium"
+        >
           Go home
         </Link>
       </div>
@@ -47,9 +50,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         ) : null}
 
         <button
-          onClick={() => { router.invalidate(); reset(); }}
+          onClick={() => {
+            router.invalidate();
+            reset();
+          }}
           className="btn-teal mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
-        >Try again</button>
+        >
+          Try again
+        </button>
       </div>
     </div>
   );
@@ -61,9 +69,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Talentloom — One shared candidate flow" },
-      { name: "description", content: "Replace the spreadsheet-and-inbox recruiting process with one shared candidate flow. Track candidates, positions, and hiring analytics in one place." },
+      {
+        name: "description",
+        content:
+          "Replace the spreadsheet-and-inbox recruiting process with one shared candidate flow. Track candidates, positions, and hiring analytics in one place.",
+      },
       { property: "og:title", content: "Talentloom — One shared candidate flow" },
-      { property: "og:description", content: "A clean, glass-morphism candidate flow tracker for hiring teams." },
+      {
+        property: "og:description",
+        content: "A clean, glass-morphism candidate flow tracker for hiring teams.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -71,7 +86,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rubik:wght@400;500;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rubik:wght@400;500;600;700&display=swap",
+      },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],
   }),
@@ -84,8 +102,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }

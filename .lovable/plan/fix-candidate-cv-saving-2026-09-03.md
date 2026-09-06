@@ -7,6 +7,7 @@ Candidates can't save a CV to their profile. The file storage rules are the caus
 Candidate documents are stored under a folder path starting with `applicants/`, while recruiter files are stored under a folder named after the company's ID. The rules that let recruiters read/write company files try to interpret the first folder segment as a company ID — including when that segment is the word `applicants`. That conversion fails with a hard error, and because the rules are all evaluated together, the candidate's own upload is aborted too.
 
 Evidence:
+
 - Converting the folder name `applicants` to a company ID errors: `invalid input syntax for type uuid: "applicants"`.
 - The storage bucket contains zero objects under `applicants/` — no candidate-portal upload has ever succeeded, while recruiter-side uploads (which go through the admin path that bypasses these rules) are present.
 

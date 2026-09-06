@@ -7,7 +7,11 @@ export const Route = createFileRoute("/candidate/auth")({
   head: () => ({
     meta: [
       { title: "Your candidate space — Talentloom" },
-      { name: "description", content: "Keep your applications and documents in one place, so your next application takes minutes, not hours." },
+      {
+        name: "description",
+        content:
+          "Keep your applications and documents in one place, so your next application takes minutes, not hours.",
+      },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -42,17 +46,26 @@ function CandidateAuthPage() {
         <div className="glass-strong w-full max-w-md rounded-3xl p-6 sm:p-8">
           <h1 className="font-display text-2xl font-bold">Candidate sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin" ? "Pick up where you left off, track your applications, and keep your documents ready." : "Save your applications and documents in one place — so you can spend less time on admin and more time finding the right role."}
+            {mode === "signin"
+              ? "Pick up where you left off, track your applications, and keep your documents ready."
+              : "Save your applications and documents in one place — so you can spend less time on admin and more time finding the right role."}
           </p>
 
           <div className="mt-6">
             {mode === "signin" ? (
-              <SignIn routing="virtual" appearance={clerkAppearance} fallbackRedirectUrl="/candidate/applications" />
+              <SignIn
+                routing="virtual"
+                appearance={clerkAppearance}
+                fallbackRedirectUrl="/candidate/applications"
+              />
             ) : (
-              <SignUp routing="virtual" appearance={clerkAppearance} fallbackRedirectUrl="/candidate/applications" />
+              <SignUp
+                routing="virtual"
+                appearance={clerkAppearance}
+                fallbackRedirectUrl="/candidate/applications"
+              />
             )}
           </div>
-
         </div>
       </div>
     </MarketingShell>

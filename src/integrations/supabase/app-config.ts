@@ -7,8 +7,7 @@ export const APP_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_VbMrb3Yw0mzsaQU6wctp
 export function serverSupabaseConfig() {
   return {
     url: process.env["EXT_SUPABASE_URL"] || APP_SUPABASE_URL,
-    publishableKey:
-      process.env["EXT_SUPABASE_PUBLISHABLE_KEY"] || APP_SUPABASE_PUBLISHABLE_KEY,
+    publishableKey: process.env["EXT_SUPABASE_PUBLISHABLE_KEY"] || APP_SUPABASE_PUBLISHABLE_KEY,
     serviceRoleKey: process.env["EXT_SUPABASE_SERVICE_ROLE_KEY"] || "",
   };
 }
@@ -25,7 +24,10 @@ export function createSupabaseFetch(supabaseKey: string): typeof fetch {
     if (init?.headers) {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
-    if (isNewSupabaseApiKey(supabaseKey) && headers.get("Authorization") === `Bearer ${supabaseKey}`) {
+    if (
+      isNewSupabaseApiKey(supabaseKey) &&
+      headers.get("Authorization") === `Bearer ${supabaseKey}`
+    ) {
       headers.delete("Authorization");
     }
     headers.set("apikey", supabaseKey);

@@ -20,7 +20,11 @@ export function StarRating({ value, onChange, disabled, size = "sm", label }: St
             key={n}
             type="button"
             disabled={disabled}
-            aria-label={active && value === n ? `Clear rating (${n} stars)` : `Rate ${n} star${n > 1 ? "s" : ""}`}
+            aria-label={
+              active && value === n
+                ? `Clear rating (${n} stars)`
+                : `Rate ${n} star${n > 1 ? "s" : ""}`
+            }
             aria-pressed={active}
             onClick={(e) => {
               e.preventDefault();
@@ -34,10 +38,7 @@ export function StarRating({ value, onChange, disabled, size = "sm", label }: St
             )}
           >
             <Star
-              className={cn(
-                dim,
-                active ? "fill-primary text-primary" : "text-muted-foreground/50",
-              )}
+              className={cn(dim, active ? "fill-primary text-primary" : "text-muted-foreground/50")}
             />
           </button>
         );

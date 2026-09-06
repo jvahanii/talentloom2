@@ -11,8 +11,12 @@ function HeaderActions() {
   if (loading || !user) {
     return (
       <div className="flex items-center gap-2">
-        <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">Recruiter sign in</Link>
-        <Link to="/candidate/auth" className="btn-butter rounded-xl px-4 py-2 text-sm font-medium">Candidate sign in</Link>
+        <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">
+          Recruiter sign in
+        </Link>
+        <Link to="/candidate/auth" className="btn-butter rounded-xl px-4 py-2 text-sm font-medium">
+          Candidate sign in
+        </Link>
       </div>
     );
   }
@@ -23,7 +27,10 @@ function HeaderActions() {
       <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 border-primary bg-primary/15 text-xs font-bold text-primary">
         {initial}
       </div>
-      <span className="hidden max-w-40 truncate text-xs font-medium sm:inline" title={user.email ?? undefined}>
+      <span
+        className="hidden max-w-40 truncate text-xs font-medium sm:inline"
+        title={user.email ?? undefined}
+      >
         {name}
       </span>
       <button
@@ -48,7 +55,13 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         <nav className="glass mx-auto flex max-w-6xl items-center justify-between rounded-2xl px-4 py-3 sm:px-6">
           <Link to="/" className="flex items-center gap-2">
             <div className="wiggle-hover grid h-9 w-9 shrink-0 place-items-center rounded-2xl border-2 border-primary bg-white text-accent-foreground font-bold shadow-[0_3px_0_var(--brand-bubblegum)]">
-              <img src={loomLogo} alt="Talentloom logo" width={512} height={512} className="h-6 w-6" />
+              <img
+                src={loomLogo}
+                alt="Talentloom logo"
+                width={512}
+                height={512}
+                className="h-6 w-6"
+              />
             </div>
             <span className="font-display text-lg font-bold tracking-tight">Talentloom</span>
           </Link>
@@ -59,7 +72,12 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       </header>
       <main>{children}</main>
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
-        <p>Talentloom — Better hiring experiences for everyone · <Link to="/docs" className="underline hover:text-foreground">User guide</Link></p>
+        <p>
+          Talentloom — Better hiring experiences for everyone ·{" "}
+          <Link to="/docs" className="underline hover:text-foreground">
+            User guide
+          </Link>
+        </p>
       </footer>
     </div>
   );

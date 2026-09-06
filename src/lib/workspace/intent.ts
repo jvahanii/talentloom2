@@ -1,12 +1,6 @@
 import { STAGES, type Stage } from "@/lib/constants";
 
-export type ModuleKind =
-  | "candidate"
-  | "requisition"
-  | "graph"
-  | "analytics"
-  | "help"
-  | "text";
+export type ModuleKind = "candidate" | "requisition" | "graph" | "analytics" | "help" | "text";
 
 export type ModuleSpec =
   | { kind: "candidate"; query?: string; targetStage?: Stage }

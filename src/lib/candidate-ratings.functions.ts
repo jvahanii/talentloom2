@@ -40,7 +40,10 @@ const upsert = async (
   };
   const { error } = await db
     .from(TABLE)
-    .upsert({ user_id: userId, requisition_id: requisitionId, ...patch }, { onConflict: "user_id,requisition_id" });
+    .upsert(
+      { user_id: userId, requisition_id: requisitionId, ...patch },
+      { onConflict: "user_id,requisition_id" },
+    );
   if (error) throw new Error(error.message);
   return { ok: true };
 };

@@ -10,9 +10,17 @@ export const Route = createFileRoute("/_authenticated/candidates/")({
   head: () => ({
     meta: [
       { title: "Candidates — Talentloom" },
-      { name: "description", content: "Every candidate in your candidate flow with their stage and the role they're up for." },
+      {
+        name: "description",
+        content:
+          "Every candidate in your candidate flow with their stage and the role they're up for.",
+      },
       { property: "og:title", content: "Candidates — Talentloom" },
-      { property: "og:description", content: "Every candidate in your candidate flow with their stage and the role they're up for." },
+      {
+        property: "og:description",
+        content:
+          "Every candidate in your candidate flow with their stage and the role they're up for.",
+      },
     ],
   }),
   component: CandidatesPage,
@@ -59,7 +67,9 @@ function CandidatesPage() {
       <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-bold sm:text-3xl">Candidates</h1>
-          <p className="text-sm text-muted-foreground">One clear view of every person who could be your next great hire.</p>
+          <p className="text-sm text-muted-foreground">
+            One clear view of every person who could be your next great hire.
+          </p>
         </div>
         <div className="relative sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -80,8 +90,14 @@ function CandidatesPage() {
           <span>Position</span>
         </div>
 
-        {candidates.isLoading && <p className="p-10 text-center text-sm text-muted-foreground">Loading…</p>}
-        {candidates.isError && <p className="p-10 text-center text-sm text-muted-foreground">Couldn't load candidates.</p>}
+        {candidates.isLoading && (
+          <p className="p-10 text-center text-sm text-muted-foreground">Loading…</p>
+        )}
+        {candidates.isError && (
+          <p className="p-10 text-center text-sm text-muted-foreground">
+            Couldn't load candidates.
+          </p>
+        )}
 
         {!candidates.isLoading &&
           rows.map((c) => (
@@ -100,7 +116,9 @@ function CandidatesPage() {
                   {STAGE_LABEL[c.stage]}
                 </span>
               </div>
-              <p className="truncate text-sm text-muted-foreground">{c.requisitions?.title ?? "Unassigned"}</p>
+              <p className="truncate text-sm text-muted-foreground">
+                {c.requisitions?.title ?? "Unassigned"}
+              </p>
             </Link>
           ))}
 

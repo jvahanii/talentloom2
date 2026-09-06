@@ -82,6 +82,7 @@ export function usePositionRatings() {
     ratingOf: (id: string) => map.get(id)?.rating ?? null,
     isDiscarded: (id: string) => map.get(id)?.discarded ?? false,
     setRating: (positionId: string, rating: number | null) => rate.mutate({ positionId, rating }),
-    setDiscarded: (positionId: string, discarded: boolean) => discard.mutate({ positionId, discarded }),
+    setDiscarded: (positionId: string, discarded: boolean) =>
+      discard.mutate({ positionId, discarded }),
   };
 }

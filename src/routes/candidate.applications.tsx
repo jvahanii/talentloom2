@@ -16,16 +16,17 @@ import {
   stageLabel,
   type CandidateDocument,
 } from "@/lib/candidate-portal.functions";
-import { ACCEPTED_FILE_TYPES, validateCandidateFile, candidateFileUrl } from "@/lib/candidate-files";
+import {
+  ACCEPTED_FILE_TYPES,
+  validateCandidateFile,
+  candidateFileUrl,
+} from "@/lib/candidate-files";
 import { formatDate } from "@/lib/utils";
 import { FileText, Upload, Trash2, Pencil, Download, Briefcase } from "lucide-react";
 
 export const Route = createFileRoute("/candidate/applications")({
   head: () => ({
-    meta: [
-      { title: "My applications — Talentloom" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "My applications — Talentloom" }, { name: "robots", content: "noindex" }],
   }),
   component: CandidatePortalPage,
 });
@@ -56,9 +57,11 @@ function CandidatePortalPage() {
         navigate({ to: "/candidate/auth", replace: true });
       } else {
         setSessionChecked(true);
-        claimFn({}).then((r) => {
-          if (r.claimed > 0) queryClient.invalidateQueries({ queryKey: ["my-applications"] });
-        }).catch(() => {});
+        claimFn({})
+          .then((r) => {
+            if (r.claimed > 0) queryClient.invalidateQueries({ queryKey: ["my-applications"] });
+          })
+          .catch(() => {});
       }
     });
   }, [navigate, claimFn, queryClient]);
@@ -116,7 +119,11 @@ function CandidatePortalPage() {
             <div className="glass rounded-2xl p-10 text-center">
               <Briefcase className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">
-                No applications yet. <Link to="/apply" className="text-teal-700 hover:underline">Explore open roles</Link> and make your next move.
+                No applications yet.{" "}
+                <Link to="/apply" className="text-teal-700 hover:underline">
+                  Explore open roles
+                </Link>{" "}
+                and make your next move.
               </p>
             </div>
           )}
@@ -142,7 +149,9 @@ function CandidatePortalPage() {
                   </div>
                   {submitted.length > 0 ? (
                     <div className="mt-3 space-y-1.5">
-                      <p className="text-xs font-medium text-muted-foreground">Submitted documents</p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Submitted documents
+                      </p>
                       {submitted.map((d) => {
                         const saved = savedDocs.find((doc) => doc.path === d.path);
                         return (
@@ -151,7 +160,11 @@ function CandidatePortalPage() {
                             type="button"
                             onClick={async () => {
                               try {
-                                window.open(await candidateFileUrl(d.path!), "_blank", "noopener,noreferrer");
+                                window.open(
+                                  await candidateFileUrl(d.path!),
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                );
                               } catch {
                                 toast.error("Could not open the file");
                               }
@@ -172,7 +185,9 @@ function CandidatePortalPage() {
                       })}
                     </div>
                   ) : (
-                    <p className="mt-3 text-xs text-muted-foreground">No documents were attached to this application.</p>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      No documents were attached to this application.
+                    </p>
                   )}
                 </article>
               );
@@ -204,7 +219,9 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
     setFile(picked);
     if (!picked) return;
     const auto = picked.name.replace(/\.[^.]+$/, "").slice(0, 120);
-    setLabel((current) => (current.trim() === "" || current === autoLabelRef.current ? auto : current));
+    setLabel((current) =>
+      current.trim() === "" || current === autoLabelRef.current ? auto : current,
+    );
     autoLabelRef.current = auto;
   };
 
@@ -254,11 +271,16 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
     <section className="mt-10">
       <h2 className="font-display text-xl font-bold">My documents</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Keep different CVs and cover letters ready, then choose the right one without hunting through old files.
+        Keep different CVs and cover letters ready, then choose the right one without hunting
+        through old files.
       </p>
 
       <form onSubmit={upload} className="glass mt-4 grid gap-3 rounded-2xl p-5 sm:grid-cols-4">
-        <select value={kind} onChange={(e) => setKind(e.target.value as "cv" | "cover_letter")} className={inputCls}>
+        <select
+          value={kind}
+          onChange={(e) => setKind(e.target.value as "cv" | "cover_letter")}
+          className={inputCls}
+        >
           <option value="cv">CV</option>
           <option value="cover_letter">Cover letter</option>
         </select>
@@ -279,7 +301,10 @@ function DocumentsSection({ docs, loading }: { docs: CandidateDocument[]; loadin
             onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
           />
         </label>
-        <button disabled={busy} className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60">
+        <button
+          disabled={busy}
+          className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
+        >
           {busy ? "Saving…" : "Save for later"}
         </button>
       </form>
