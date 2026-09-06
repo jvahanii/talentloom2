@@ -21,6 +21,7 @@ function Pipeline() {
   const [srcFilter, setSrcFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<Stage | null>(null);
 
   const reqs = useQuery({
     queryKey: ["reqs", orgId],
@@ -93,9 +94,20 @@ function Pipeline() {
           return (
             <div
               key={stage}
-              onDragOver={(e) => { e.preventDefault(); }}
-              onDrop={() => { if (canEdit && dragId) { mutStage.mutate({ id: dragId, stage }); setDragId(null); } }}
-              className="glass min-w-[260px] shrink-0 rounded-2xl p-3 sm:min-w-0"
+              onDragOver={(e) => { e.preventDefault(); if (canEdit) setDragOverStage(stage); }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverStage(null);
+              }}
+              onDrop={() => {
+                if (canEdit && dragId) {
+                  mutStage.mutate({ id: dragId, stage });
+                  setDragId(null);
+                }
+                setDragOverStage(null);
+              }}
+              className={`glass min-w-[260px] shrink-0 rounded-2xl p-3 transition-all sm:min-w-0 ${
+                dragOverStage === stage && dragId ? "ring-2 ring-primary bg-primary/10" : ""
+              }`}
             >
               <div className="flex items-center justify-between px-1 pb-2">
                 <h3 className="font-display text-sm font-semibold text-teal-700">{STAGE_LABEL[stage]}</h3>
@@ -107,7 +119,7 @@ function Pipeline() {
                     key={c.id}
                     draggable={canEdit}
                     onDragStart={() => canEdit && setDragId(c.id)}
-                    onDragEnd={() => setDragId(null)}
+                    onDragEnd={() => { setDragId(null); setDragOverStage(null); }}
                     className="glass-strong group cursor-grab rounded-xl p-3 text-sm active:cursor-grabbing"
                   >
                     <Link to="/candidates/$id" params={{ id: c.id }} className="block">
