@@ -121,16 +121,13 @@ function Landing() {
             <AccordionItem value="a">
               <AccordionTrigger>Is my data shared with other organizations?</AccordionTrigger>
               <AccordionContent>
-                No. Each company works in its own isolated organisation. Row-level security scopes every candidate and
-                position to your organisation's members only.
+                Each organization is isolated from other organizations, but a person on the hiring side can belong to
+                multiple organizations.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="b">
               <AccordionTrigger>Do you integrate with LinkedIn or job boards?</AccordionTrigger>
-              <AccordionContent>
-                Not yet — this is a template. The Settings page has a "Connect your tools" section marked coming soon;
-                import via CSV works today.
-              </AccordionContent>
+              <AccordionContent>Not yet. Import via CSV works today.</AccordionContent>
             </AccordionItem>
             <AccordionItem value="c">
               <AccordionTrigger>Can I remix this app?</AccordionTrigger>
