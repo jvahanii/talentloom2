@@ -119,7 +119,7 @@ function Landing() {
         <div className="glass mt-8 rounded-2xl p-2 sm:p-4">
           <Accordion type="single" collapsible>
             <AccordionItem value="a">
-              <AccordionTrigger>Is my data shared with other companies?</AccordionTrigger>
+              <AccordionTrigger>Is my data shared with other organizations?</AccordionTrigger>
               <AccordionContent>
                 No. Each company works in its own isolated organisation. Row-level security scopes every candidate and
                 position to your organisation's members only.
@@ -133,7 +133,7 @@ function Landing() {
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="c">
-              <AccordionTrigger>Can I remix this template?</AccordionTrigger>
+              <AccordionTrigger>Can I remix this app?</AccordionTrigger>
               <AccordionContent>
                 Yes. Schema, RLS, auth, and sample seeds carry over on remix. Your candidate data does not — see the
                 Docs page for details.
