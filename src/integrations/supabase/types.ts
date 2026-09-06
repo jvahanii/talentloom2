@@ -1,670 +1,695 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       ai_usage: {
         Row: {
-          calls: number;
-          created_at: string;
-          day: string;
-          org_id: string | null;
-          updated_at: string;
-          user_id: string;
-        };
+          calls: number
+          created_at: string
+          day: string
+          org_id: string | null
+          updated_at: string
+          user_id: string
+        }
         Insert: {
-          calls?: number;
-          created_at?: string;
-          day?: string;
-          org_id?: string | null;
-          updated_at?: string;
-          user_id: string;
-        };
+          calls?: number
+          created_at?: string
+          day?: string
+          org_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
         Update: {
-          calls?: number;
-          created_at?: string;
-          day?: string;
-          org_id?: string | null;
-          updated_at?: string;
-          user_id?: string;
-        };
+          calls?: number
+          created_at?: string
+          day?: string
+          org_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "ai_usage_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "ai_usage_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       candidate_documents: {
         Row: {
-          created_at: string;
-          id: string;
-          kind: string;
-          label: string;
-          path: string;
-          updated_at: string;
-          user_id: string;
-        };
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          path: string
+          updated_at: string
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          id?: string;
-          kind: string;
-          label: string;
-          path: string;
-          updated_at?: string;
-          user_id: string;
-        };
+          created_at?: string
+          id?: string
+          kind: string
+          label: string
+          path: string
+          updated_at?: string
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          id?: string;
-          kind?: string;
-          label?: string;
-          path?: string;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       candidates: {
         Row: {
-          applicant_user_id: string | null;
-          cover_letter_path: string | null;
-          created_at: string;
-          cv_path: string | null;
-          email: string | null;
-          id: string;
-          is_sample: boolean;
-          last_activity_at: string;
-          name: string;
-          notes: string | null;
-          org_id: string;
-          phone: string | null;
-          rating: number | null;
-          requisition_id: string | null;
-          resume_link: string | null;
-          source: string | null;
-          stage: Database["public"]["Enums"]["candidate_stage"];
-          updated_at: string;
-          user_id: string;
-        };
+          applicant_user_id: string | null
+          cover_letter_path: string | null
+          created_at: string
+          cv_path: string | null
+          email: string | null
+          id: string
+          is_sample: boolean
+          last_activity_at: string
+          name: string
+          notes: string | null
+          org_id: string
+          phone: string | null
+          rating: number | null
+          requisition_id: string | null
+          resume_link: string | null
+          source: string | null
+          stage: Database["public"]["Enums"]["candidate_stage"]
+          updated_at: string
+          user_id: string
+        }
         Insert: {
-          applicant_user_id?: string | null;
-          cover_letter_path?: string | null;
-          created_at?: string;
-          cv_path?: string | null;
-          email?: string | null;
-          id?: string;
-          is_sample?: boolean;
-          last_activity_at?: string;
-          name: string;
-          notes?: string | null;
-          org_id: string;
-          phone?: string | null;
-          rating?: number | null;
-          requisition_id?: string | null;
-          resume_link?: string | null;
-          source?: string | null;
-          stage?: Database["public"]["Enums"]["candidate_stage"];
-          updated_at?: string;
-          user_id: string;
-        };
+          applicant_user_id?: string | null
+          cover_letter_path?: string | null
+          created_at?: string
+          cv_path?: string | null
+          email?: string | null
+          id?: string
+          is_sample?: boolean
+          last_activity_at?: string
+          name: string
+          notes?: string | null
+          org_id: string
+          phone?: string | null
+          rating?: number | null
+          requisition_id?: string | null
+          resume_link?: string | null
+          source?: string | null
+          stage?: Database["public"]["Enums"]["candidate_stage"]
+          updated_at?: string
+          user_id: string
+        }
         Update: {
-          applicant_user_id?: string | null;
-          cover_letter_path?: string | null;
-          created_at?: string;
-          cv_path?: string | null;
-          email?: string | null;
-          id?: string;
-          is_sample?: boolean;
-          last_activity_at?: string;
-          name?: string;
-          notes?: string | null;
-          org_id?: string;
-          phone?: string | null;
-          rating?: number | null;
-          requisition_id?: string | null;
-          resume_link?: string | null;
-          source?: string | null;
-          stage?: Database["public"]["Enums"]["candidate_stage"];
-          updated_at?: string;
-          user_id?: string;
-        };
+          applicant_user_id?: string | null
+          cover_letter_path?: string | null
+          created_at?: string
+          cv_path?: string | null
+          email?: string | null
+          id?: string
+          is_sample?: boolean
+          last_activity_at?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          phone?: string | null
+          rating?: number | null
+          requisition_id?: string | null
+          resume_link?: string | null
+          source?: string | null
+          stage?: Database["public"]["Enums"]["candidate_stage"]
+          updated_at?: string
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "candidates_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "candidates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "candidates_requisition_id_fkey";
-            columns: ["requisition_id"];
-            isOneToOne: false;
-            referencedRelation: "requisitions";
-            referencedColumns: ["id"];
+            foreignKeyName: "candidates_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "requisitions"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       organization_invites: {
         Row: {
-          accepted_at: string | null;
-          created_at: string;
-          email: string;
-          expires_at: string;
-          id: string;
-          invited_by: string;
-          org_id: string;
-          role: Database["public"]["Enums"]["org_role"];
-          title_id: string | null;
-          token: string;
-        };
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          org_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          title_id: string | null
+          token: string
+        }
         Insert: {
-          accepted_at?: string | null;
-          created_at?: string;
-          email: string;
-          expires_at?: string;
-          id?: string;
-          invited_by: string;
-          org_id: string;
-          role?: Database["public"]["Enums"]["org_role"];
-          title_id?: string | null;
-          token?: string;
-        };
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          org_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
+          token?: string
+        }
         Update: {
-          accepted_at?: string | null;
-          created_at?: string;
-          email?: string;
-          expires_at?: string;
-          id?: string;
-          invited_by?: string;
-          org_id?: string;
-          role?: Database["public"]["Enums"]["org_role"];
-          title_id?: string | null;
-          token?: string;
-        };
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
+          token?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "organization_invites_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "organization_invites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "organization_invites_title_id_fkey";
-            columns: ["title_id"];
-            isOneToOne: false;
-            referencedRelation: "organization_titles";
-            referencedColumns: ["id"];
+            foreignKeyName: "organization_invites_title_id_fkey"
+            columns: ["title_id"]
+            isOneToOne: false
+            referencedRelation: "organization_titles"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       organization_members: {
         Row: {
-          created_at: string;
-          id: string;
-          org_id: string;
-          role: Database["public"]["Enums"]["org_role"];
-          title_id: string | null;
-          user_id: string;
-        };
+          created_at: string
+          id: string
+          org_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          title_id: string | null
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          id?: string;
-          org_id: string;
-          role?: Database["public"]["Enums"]["org_role"];
-          title_id?: string | null;
-          user_id: string;
-        };
+          created_at?: string
+          id?: string
+          org_id: string
+          role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          id?: string;
-          org_id?: string;
-          role?: Database["public"]["Enums"]["org_role"];
-          title_id?: string | null;
-          user_id?: string;
-        };
+          created_at?: string
+          id?: string
+          org_id?: string
+          role?: Database["public"]["Enums"]["org_role"]
+          title_id?: string | null
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "organization_members_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "organization_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "organization_members_title_id_fkey";
-            columns: ["title_id"];
-            isOneToOne: false;
-            referencedRelation: "organization_titles";
-            referencedColumns: ["id"];
+            foreignKeyName: "organization_members_title_id_fkey"
+            columns: ["title_id"]
+            isOneToOne: false
+            referencedRelation: "organization_titles"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       organization_titles: {
         Row: {
-          can_change_titles: boolean;
-          can_delete_candidates: boolean;
-          can_delete_positions: boolean;
-          can_edit_candidates: boolean;
-          can_edit_positions: boolean;
-          can_export: boolean;
-          can_import: boolean;
-          can_invite_users: boolean;
-          can_manage_titles: boolean;
-          can_remove_users: boolean;
-          can_rename_org: boolean;
-          can_use_ai: boolean;
-          can_view_candidates: boolean;
-          can_view_positions: boolean;
-          created_at: string;
-          id: string;
-          is_system: boolean;
-          name: string;
-          org_id: string;
-          sort_order: number;
-          updated_at: string;
-        };
+          can_change_titles: boolean
+          can_delete_candidates: boolean
+          can_delete_positions: boolean
+          can_edit_candidates: boolean
+          can_edit_positions: boolean
+          can_export: boolean
+          can_import: boolean
+          can_invite_users: boolean
+          can_manage_titles: boolean
+          can_remove_users: boolean
+          can_rename_org: boolean
+          can_use_ai: boolean
+          can_view_candidates: boolean
+          can_view_positions: boolean
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          org_id: string
+          sort_order: number
+          updated_at: string
+        }
         Insert: {
-          can_change_titles?: boolean;
-          can_delete_candidates?: boolean;
-          can_delete_positions?: boolean;
-          can_edit_candidates?: boolean;
-          can_edit_positions?: boolean;
-          can_export?: boolean;
-          can_import?: boolean;
-          can_invite_users?: boolean;
-          can_manage_titles?: boolean;
-          can_remove_users?: boolean;
-          can_rename_org?: boolean;
-          can_use_ai?: boolean;
-          can_view_candidates?: boolean;
-          can_view_positions?: boolean;
-          created_at?: string;
-          id?: string;
-          is_system?: boolean;
-          name: string;
-          org_id: string;
-          sort_order?: number;
-          updated_at?: string;
-        };
+          can_change_titles?: boolean
+          can_delete_candidates?: boolean
+          can_delete_positions?: boolean
+          can_edit_candidates?: boolean
+          can_edit_positions?: boolean
+          can_export?: boolean
+          can_import?: boolean
+          can_invite_users?: boolean
+          can_manage_titles?: boolean
+          can_remove_users?: boolean
+          can_rename_org?: boolean
+          can_use_ai?: boolean
+          can_view_candidates?: boolean
+          can_view_positions?: boolean
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          org_id: string
+          sort_order?: number
+          updated_at?: string
+        }
         Update: {
-          can_change_titles?: boolean;
-          can_delete_candidates?: boolean;
-          can_delete_positions?: boolean;
-          can_edit_candidates?: boolean;
-          can_edit_positions?: boolean;
-          can_export?: boolean;
-          can_import?: boolean;
-          can_invite_users?: boolean;
-          can_manage_titles?: boolean;
-          can_remove_users?: boolean;
-          can_rename_org?: boolean;
-          can_use_ai?: boolean;
-          can_view_candidates?: boolean;
-          can_view_positions?: boolean;
-          created_at?: string;
-          id?: string;
-          is_system?: boolean;
-          name?: string;
-          org_id?: string;
-          sort_order?: number;
-          updated_at?: string;
-        };
+          can_change_titles?: boolean
+          can_delete_candidates?: boolean
+          can_delete_positions?: boolean
+          can_edit_candidates?: boolean
+          can_edit_positions?: boolean
+          can_export?: boolean
+          can_import?: boolean
+          can_invite_users?: boolean
+          can_manage_titles?: boolean
+          can_remove_users?: boolean
+          can_rename_org?: boolean
+          can_use_ai?: boolean
+          can_view_candidates?: boolean
+          can_view_positions?: boolean
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          org_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "organization_titles_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "organization_titles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       organizations: {
         Row: {
-          created_at: string;
-          created_by: string;
-          id: string;
-          name: string;
-          slug: string | null;
-          updated_at: string;
-        };
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          slug: string | null
+          updated_at: string
+        }
         Insert: {
-          created_at?: string;
-          created_by: string;
-          id?: string;
-          name: string;
-          slug?: string | null;
-          updated_at?: string;
-        };
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          slug?: string | null
+          updated_at?: string
+        }
         Update: {
-          created_at?: string;
-          created_by?: string;
-          id?: string;
-          name?: string;
-          slug?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
-          avatar_url: string | null;
-          clerk_user_id: string | null;
-          company_industry: string | null;
-          company_name: string | null;
-          company_size: string | null;
-          created_at: string;
-          email: string | null;
-          full_name: string | null;
-          id: string;
-          job_title: string | null;
-          job_title_other: string | null;
-          onboarding_completed_at: string | null;
-          onboarding_step: number;
-          updated_at: string;
-        };
+          avatar_url: string | null
+          clerk_user_id: string | null
+          company_industry: string | null
+          company_name: string | null
+          company_size: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          job_title: string | null
+          job_title_other: string | null
+          onboarding_completed_at: string | null
+          onboarding_step: number
+          updated_at: string
+        }
         Insert: {
-          avatar_url?: string | null;
-          clerk_user_id?: string | null;
-          company_industry?: string | null;
-          company_name?: string | null;
-          company_size?: string | null;
-          created_at?: string;
-          email?: string | null;
-          full_name?: string | null;
-          id: string;
-          job_title?: string | null;
-          job_title_other?: string | null;
-          onboarding_completed_at?: string | null;
-          onboarding_step?: number;
-          updated_at?: string;
-        };
+          avatar_url?: string | null
+          clerk_user_id?: string | null
+          company_industry?: string | null
+          company_name?: string | null
+          company_size?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          job_title?: string | null
+          job_title_other?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_step?: number
+          updated_at?: string
+        }
         Update: {
-          avatar_url?: string | null;
-          clerk_user_id?: string | null;
-          company_industry?: string | null;
-          company_name?: string | null;
-          company_size?: string | null;
-          created_at?: string;
-          email?: string | null;
-          full_name?: string | null;
-          id?: string;
-          job_title?: string | null;
-          job_title_other?: string | null;
-          onboarding_completed_at?: string | null;
-          onboarding_step?: number;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+          avatar_url?: string | null
+          clerk_user_id?: string | null
+          company_industry?: string | null
+          company_name?: string | null
+          company_size?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          job_title?: string | null
+          job_title_other?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_step?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       requisitions: {
         Row: {
-          created_at: string;
-          department: string | null;
-          description: string | null;
-          hiring_manager: string | null;
-          id: string;
-          is_sample: boolean;
-          notes: string | null;
-          org_id: string;
-          status: Database["public"]["Enums"]["requisition_status"];
-          target_start_date: string | null;
-          title: string;
-          updated_at: string;
-          user_id: string;
-        };
+          created_at: string
+          department: string | null
+          description: string | null
+          hiring_manager: string | null
+          id: string
+          is_sample: boolean
+          notes: string | null
+          org_id: string
+          status: Database["public"]["Enums"]["requisition_status"]
+          target_start_date: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
         Insert: {
-          created_at?: string;
-          department?: string | null;
-          description?: string | null;
-          hiring_manager?: string | null;
-          id?: string;
-          is_sample?: boolean;
-          notes?: string | null;
-          org_id: string;
-          status?: Database["public"]["Enums"]["requisition_status"];
-          target_start_date?: string | null;
-          title: string;
-          updated_at?: string;
-          user_id: string;
-        };
+          created_at?: string
+          department?: string | null
+          description?: string | null
+          hiring_manager?: string | null
+          id?: string
+          is_sample?: boolean
+          notes?: string | null
+          org_id: string
+          status?: Database["public"]["Enums"]["requisition_status"]
+          target_start_date?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
         Update: {
-          created_at?: string;
-          department?: string | null;
-          description?: string | null;
-          hiring_manager?: string | null;
-          id?: string;
-          is_sample?: boolean;
-          notes?: string | null;
-          org_id?: string;
-          status?: Database["public"]["Enums"]["requisition_status"];
-          target_start_date?: string | null;
-          title?: string;
-          updated_at?: string;
-          user_id?: string;
-        };
+          created_at?: string
+          department?: string | null
+          description?: string | null
+          hiring_manager?: string | null
+          id?: string
+          is_sample?: boolean
+          notes?: string | null
+          org_id?: string
+          status?: Database["public"]["Enums"]["requisition_status"]
+          target_start_date?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "requisitions_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "requisitions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
-        ];
-      };
+        ]
+      }
       stage_history: {
         Row: {
-          candidate_id: string;
-          changed_at: string;
-          from_stage: Database["public"]["Enums"]["candidate_stage"] | null;
-          id: string;
-          org_id: string;
-          to_stage: Database["public"]["Enums"]["candidate_stage"];
-          user_id: string;
-        };
+          candidate_id: string
+          changed_at: string
+          from_stage: Database["public"]["Enums"]["candidate_stage"] | null
+          id: string
+          org_id: string
+          to_stage: Database["public"]["Enums"]["candidate_stage"]
+          user_id: string
+        }
         Insert: {
-          candidate_id: string;
-          changed_at?: string;
-          from_stage?: Database["public"]["Enums"]["candidate_stage"] | null;
-          id?: string;
-          org_id: string;
-          to_stage: Database["public"]["Enums"]["candidate_stage"];
-          user_id: string;
-        };
+          candidate_id: string
+          changed_at?: string
+          from_stage?: Database["public"]["Enums"]["candidate_stage"] | null
+          id?: string
+          org_id: string
+          to_stage: Database["public"]["Enums"]["candidate_stage"]
+          user_id: string
+        }
         Update: {
-          candidate_id?: string;
-          changed_at?: string;
-          from_stage?: Database["public"]["Enums"]["candidate_stage"] | null;
-          id?: string;
-          org_id?: string;
-          to_stage?: Database["public"]["Enums"]["candidate_stage"];
-          user_id?: string;
-        };
+          candidate_id?: string
+          changed_at?: string
+          from_stage?: Database["public"]["Enums"]["candidate_stage"] | null
+          id?: string
+          org_id?: string
+          to_stage?: Database["public"]["Enums"]["candidate_stage"]
+          user_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "stage_history_candidate_id_fkey";
-            columns: ["candidate_id"];
-            isOneToOne: false;
-            referencedRelation: "candidates";
-            referencedColumns: ["id"];
+            foreignKeyName: "stage_history_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "stage_history_org_id_fkey";
-            columns: ["org_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
+            foreignKeyName: "stage_history_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
+        ]
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
-      accept_invite: { Args: { _token: string }; Returns: string };
-      bump_ai_usage: { Args: { p_limit: number }; Returns: boolean };
-      clear_sample_data: { Args: never; Returns: undefined };
-      create_organization: { Args: { _name: string }; Returns: string };
-      current_profile_id: { Args: never; Returns: string };
+      accept_invite: { Args: { _token: string }; Returns: string }
+      bump_ai_usage: { Args: { p_limit: number }; Returns: boolean }
+      clear_sample_data: { Args: never; Returns: undefined }
+      create_organization: { Args: { _name: string }; Returns: string }
+      current_profile_id: { Args: never; Returns: string }
       has_org_permission: {
-        Args: { _org: string; _perm: string; _user: string };
-        Returns: boolean;
-      };
+        Args: { _org: string; _perm: string; _user: string }
+        Returns: boolean
+      }
       has_org_role: {
         Args: {
-          _min: Database["public"]["Enums"]["org_role"];
-          _org: string;
-          _user: string;
-        };
-        Returns: boolean;
-      };
-      is_org_member: { Args: { _org: string; _user: string }; Returns: boolean };
-      is_org_owner: { Args: { _org: string; _user: string }; Returns: boolean };
-      seed_org_titles: { Args: { _org: string }; Returns: undefined };
-      seed_sample_data: { Args: never; Returns: undefined };
-      shares_org_with: { Args: { _a: string; _b: string }; Returns: boolean };
-    };
+          _min: Database["public"]["Enums"]["org_role"]
+          _org: string
+          _user: string
+        }
+        Returns: boolean
+      }
+      is_org_member: { Args: { _org: string; _user: string }; Returns: boolean }
+      is_org_owner: { Args: { _org: string; _user: string }; Returns: boolean }
+      seed_org_titles: { Args: { _org: string }; Returns: undefined }
+      seed_sample_data: { Args: never; Returns: undefined }
+      shares_org_with: { Args: { _a: string; _b: string }; Returns: boolean }
+    }
     Enums: {
-      candidate_stage: "applied" | "screen" | "interview" | "offer" | "hired" | "rejected";
-      org_role: "owner" | "admin" | "member" | "viewer";
-      requisition_status: "open" | "on_hold" | "filled" | "closed";
-    };
+      candidate_stage:
+        | "applied"
+        | "screen"
+        | "interview"
+        | "offer"
+        | "hired"
+        | "rejected"
+      org_role: "owner" | "admin" | "member" | "viewer"
+      requisition_status: "open" | "on_hold" | "filled" | "closed"
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
-};
+      [_ in never]: never
+    }
+  }
+}
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">];
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R;
+      Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R;
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
       }
       ? R
       : never
-    : never;
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I;
+      Insert: infer I
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I;
+        Insert: infer I
       }
       ? I
       : never
-    : never;
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U;
+      Update: infer U
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U;
+        Update: infer U
       }
       ? U
       : never
-    : never;
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never;
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals;
+    schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals;
+  schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never;
+    : never
 
 export const Constants = {
   public: {
     Enums: {
-      candidate_stage: ["applied", "screen", "interview", "offer", "hired", "rejected"],
+      candidate_stage: [
+        "applied",
+        "screen",
+        "interview",
+        "offer",
+        "hired",
+        "rejected",
+      ],
       org_role: ["owner", "admin", "member", "viewer"],
       requisition_status: ["open", "on_hold", "filled", "closed"],
     },
   },
-} as const;
+} as const
