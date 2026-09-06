@@ -8,9 +8,17 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Talentloom — Hiring that feels better for everyone" },
-      { name: "description", content: "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster." },
+      {
+        name: "description",
+        content:
+          "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster.",
+      },
       { property: "og:title", content: "Talentloom — Hiring that feels better for everyone" },
-      { property: "og:description", content: "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster." },
+      {
+        property: "og:description",
+        content:
+          "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -50,7 +58,7 @@ function Landing() {
                   Give candidates a standout experience while keeping all positions and processes flowing
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Create your organization
+                  Create organization
                 </span>
               </Link>
               <Link
@@ -60,32 +68,43 @@ function Landing() {
                 <UserRound className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">I’m looking for work</span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Find roles worth your time, apply in minutes, and keep your potential positions, applications and documents organized.
+                  Find roles worth your time, apply in minutes, and keep your potential positions, applications and
+                  documents organized.
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
                   Explore open roles
                 </span>
               </Link>
               <div className="-mt-2 text-center">
-                <Link to="/candidate/auth" className="text-xs text-white/80 underline-offset-2 hover:underline">
-                </Link>
+                <Link to="/candidate/auth" className="text-xs text-white/80 underline-offset-2 hover:underline"></Link>
               </div>
             </div>
-            <Link to="/docs" className="mt-5 inline-block text-sm font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white">
+            <Link
+              to="/docs"
+              className="mt-5 inline-block text-sm font-semibold text-white underline decoration-white/50 underline-offset-4 hover:decoration-white"
+            >
               Read the public user guide →
             </Link>
           </div>
         </div>
       </section>
 
-
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center">Less busywork. Better hiring.</h2>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {[
-            { t: "1. Make the opportunity clear", d: "Publish the role, the details, and the next step in one place. Candidates know what to expect before they apply." },
-            { t: "2. Keep every candidate moving", d: "See every application at a glance, share updates with your team, and make sure great people don’t disappear into a spreadsheet." },
-            { t: "3. Organized opportunity seeking", d: "Find opportunities across many hiring organizations and keep your potential jobs and applications organized " },
+            {
+              t: "1. Make the opportunity clear",
+              d: "Publish the role, the details, and the next step in one place. Candidates know what to expect before they apply.",
+            },
+            {
+              t: "2. Keep every candidate moving",
+              d: "See every application at a glance, share updates with your team, and make sure great people don’t disappear into a spreadsheet.",
+            },
+            {
+              t: "3. Organized opportunity seeking",
+              d: "Find opportunities across many hiring organizations and keep your potential jobs and applications organized ",
+            },
           ].map((s) => (
             <div key={s.t} className="glass rounded-2xl p-6">
               <h3 className="font-display text-lg font-semibold">{s.t}</h3>
@@ -101,15 +120,24 @@ function Landing() {
           <Accordion type="single" collapsible>
             <AccordionItem value="a">
               <AccordionTrigger>Is my data shared with other companies?</AccordionTrigger>
-              <AccordionContent>No. Each company works in its own isolated organisation. Row-level security scopes every candidate and position to your organisation's members only.</AccordionContent>
+              <AccordionContent>
+                No. Each company works in its own isolated organisation. Row-level security scopes every candidate and
+                position to your organisation's members only.
+              </AccordionContent>
             </AccordionItem>
             <AccordionItem value="b">
               <AccordionTrigger>Do you integrate with LinkedIn or job boards?</AccordionTrigger>
-              <AccordionContent>Not yet — this is a template. The Settings page has a "Connect your tools" section marked coming soon; import via CSV works today.</AccordionContent>
+              <AccordionContent>
+                Not yet — this is a template. The Settings page has a "Connect your tools" section marked coming soon;
+                import via CSV works today.
+              </AccordionContent>
             </AccordionItem>
             <AccordionItem value="c">
               <AccordionTrigger>Can I remix this template?</AccordionTrigger>
-              <AccordionContent>Yes. Schema, RLS, auth, and sample seeds carry over on remix. Your candidate data does not — see the Docs page for details.</AccordionContent>
+              <AccordionContent>
+                Yes. Schema, RLS, auth, and sample seeds carry over on remix. Your candidate data does not — see the
+                Docs page for details.
+              </AccordionContent>
             </AccordionItem>
             <AccordionItem value="d" className="border-b-0">
               <AccordionTrigger>What sign-in methods are supported?</AccordionTrigger>
