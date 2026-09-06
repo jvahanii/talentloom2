@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/app-client";
 
 export type OrgRole = "owner" | "admin" | "member" | "viewer";
@@ -98,11 +99,19 @@ type MemberRow = {
   organization_titles: (Record<string, unknown> & { name: string }) | null;
 };
 
-async function fetchMemberships(): Promise<OrgMembership[]> {
+async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
   const { data: uid, error: uidError } = (await (supabase.rpc as unknown as (
     fn: string,
   ) => Promise<{ data: string | null; error: unknown }>)("current_profile_id"));
-  if (uidError || !uid) return [];
+  if (uidError || !uid) {
+    // A signed-in user with no profile id means the request ran without a valid
+    // session token (e.g. right after OAuth sign-in). Fail the query so React
+    // Query shows loading and retries, instead of caching an empty org list
+    // that leaves every org-scoped page (pipeline, candidates, …) empty until
+    // a manual refresh.
+    if (signedIn) throw new Error("Could not load your organisation membership yet");
+    return [];
+  }
   const { data, error } = await supabase
     .from("organization_members")
     .select("org_id, role, title_id, organizations(name), organization_titles(*)")
@@ -160,7 +169,13 @@ const OrgContext = createContext<OrgContextValue>({
 
 export function OrgProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["org-memberships"], queryFn: fetchMemberships });
+  const { isLoaded, isSignedIn } = useAuth();
+  const signedIn = Boolean(isLoaded && isSignedIn);
+  const q = useQuery({
+    queryKey: ["org-memberships", signedIn],
+    queryFn: () => fetchMemberships(signedIn),
+    retry: signedIn ? 3 : false,
+  });
   const [selected, setSelected] = useState<string | null>(() => {
     try {
       return window.localStorage.getItem(STORAGE_KEY);
