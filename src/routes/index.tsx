@@ -34,6 +34,11 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <MarketingShell>
+      <div className="mx-auto max-w-6xl px-4 pt-3 sm:px-6">
+        <div className="rounded-2xl border-2 border-ink/10 bg-butter px-4 py-3 text-center text-sm font-medium text-ink shadow-[4px_4px_0px_0px_rgba(74,58,85,0.15)]">
+          Sign ins are under construction, we're switching to Clerk production instance — check back later
+        </div>
+      </div>
       <section className="mx-auto max-w-6xl px-4 pt-3 pb-12 sm:px-6 sm:pt-5 sm:pb-20">
         <div
           className="relative overflow-hidden rounded-3xl p-6 sm:p-12 text-center"
