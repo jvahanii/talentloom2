@@ -36,9 +36,10 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
+  const err = error instanceof Error ? error : new Error(String(error));
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+    reportLovableError(err, { boundary: "tanstack_root_error_component" });
+  }, [err]);
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="glass rounded-3xl p-10 max-w-md text-center">
@@ -46,8 +47,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
         <p className="mt-2 text-sm text-muted-foreground">
           An unexpected error occurred. Please try again.
         </p>
-        {error?.message ? (
-          <p className="mt-3 break-words text-xs text-muted-foreground/80">{error.message}</p>
+        {err.message ? (
+          <p className="mt-3 break-words text-xs text-muted-foreground/80">{err.message}</p>
         ) : null}
 
         <button
