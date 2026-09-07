@@ -181,6 +181,7 @@ function OrgSwitcher() {
                 placeholder="e.g. Acme product hiring"
                 autoFocus
                 disabled={creating}
+                required
               />
             </div>
             <DialogFooter>
