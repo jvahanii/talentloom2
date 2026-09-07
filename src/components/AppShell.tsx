@@ -171,7 +171,9 @@ function OrgSwitcher() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
-              <Label htmlFor="workspace-name">What should we call it?</Label>
+              <Label htmlFor="workspace-name" required>
+                What should we call it?
+              </Label>
               <Input
                 id="workspace-name"
                 value={workspaceName}
@@ -179,6 +181,7 @@ function OrgSwitcher() {
                 placeholder="e.g. Acme product hiring"
                 autoFocus
                 disabled={creating}
+                required
               />
             </div>
             <DialogFooter>

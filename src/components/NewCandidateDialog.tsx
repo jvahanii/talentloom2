@@ -11,6 +11,7 @@ import {
   validateCandidateFile,
 } from "@/lib/candidate-files";
 import { Paperclip } from "lucide-react";
+import { RequiredIndicator } from "@/components/ui/label";
 
 interface Req {
   id: string;
@@ -113,13 +114,18 @@ export function NewCandidateDialog({
           <DialogTitle>Add someone to your candidate flow</DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Candidate’s full name"
-            className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm"
-          />
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Full name <RequiredIndicator />
+            </span>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Candidate’s full name"
+              className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm"
+            />
+          </label>
           <input
             type="email"
             value={email}

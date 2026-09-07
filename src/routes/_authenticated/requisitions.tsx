@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Pencil, Download } from "lucide-react";
 import { downloadPositionAttachments } from "@/lib/download-position-files";
 import { getMyProfileId } from "@/lib/auth";
+import { RequiredIndicator } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Positions — Talentloom" }] }),
@@ -365,13 +366,18 @@ function ReqDialog({
           <DialogTitle>{editing ? "Edit position" : "New position"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <input
-            required
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Role title"
-            className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm"
-          />
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Role title <RequiredIndicator />
+            </span>
+            <input
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Role title"
+              className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm"
+            />
+          </label>
           <div className="grid grid-cols-2 gap-3">
             <input
               value={department}

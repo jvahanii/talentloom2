@@ -11,6 +11,7 @@ import {
 } from "@/lib/org";
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
+import { RequiredIndicator } from "@/components/ui/label";
 import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -227,7 +228,15 @@ export function OrgSettings() {
             <span className="mb-1 block text-xs font-medium text-muted-foreground">
               Organisation name
             </span>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Organisation name <RequiredIndicator />
+            </span>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputCls}
+            />
           </label>
           <button
             onClick={renameOrg}
@@ -292,26 +301,38 @@ export function OrgSettings() {
             They'll need an account with this email address. Links expire after 7 days.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="teammate@company.com"
-              className={inputCls + " min-w-52 flex-1"}
-            />
-            <select
-              value={inviteTitle}
-              onChange={(e) => setInviteTitle(e.target.value)}
-              className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm dark:bg-white/5"
-            >
-              {(titles.data ?? [])
-                .filter((t) => (isOwner ? t.name !== "Owner" : !isProtectedTitle(t.name)))
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-            </select>
+            <label className="min-w-52 flex-1">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Email <RequiredIndicator />
+              </span>
+              <input
+                required
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="teammate@company.com"
+                className={inputCls + " w-full"}
+              />
+            </label>
+            <label>
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Role <RequiredIndicator />
+              </span>
+              <select
+                required
+                value={inviteTitle}
+                onChange={(e) => setInviteTitle(e.target.value)}
+                className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm dark:bg-white/5"
+              >
+                {(titles.data ?? [])
+                  .filter((t) => (isOwner ? t.name !== "Owner" : !isProtectedTitle(t.name)))
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
             <button
               onClick={createInvite}
               disabled={busy || !inviteEmail.trim() || !inviteTitle}
@@ -455,12 +476,18 @@ function TitlesPanel({ orgId, titles }: { orgId: string; titles: OrgTitle[] }) {
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="New title, e.g. Talent Lead"
-          className={inputCls + " min-w-52 flex-1"}
-        />
+        <label className="min-w-52 flex-1">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Title <RequiredIndicator />
+          </span>
+          <input
+            required
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New title, e.g. Talent Lead"
+            className={inputCls + " w-full"}
+          />
+        </label>
         <button
           onClick={addTitle}
           disabled={busy || !newName.trim()}
