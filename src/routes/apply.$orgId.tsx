@@ -11,6 +11,7 @@ import { getApplyContext, submitApplication } from "@/lib/apply.functions";
 import { myDocuments } from "@/lib/candidate-portal.functions";
 import { ACCEPTED_FILE_TYPES, validateCandidateFile } from "@/lib/candidate-files";
 import { CheckCircle2, Paperclip } from "lucide-react";
+import { RequiredIndicator } from "@/components/ui/label";
 
 export const Route = createFileRoute("/apply/$orgId")({
   head: () => ({
@@ -220,7 +221,7 @@ function ApplyPage() {
       )}
 
       <form onSubmit={submit} className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Field label="Full name">
+        <Field label="Full name" required>
           <input
             required
             maxLength={120}
@@ -229,7 +230,7 @@ function ApplyPage() {
             className={inputCls}
           />
         </Field>
-        <Field label="Email">
+        <Field label="Email" required>
           <input
             required
             type="email"
@@ -320,6 +321,7 @@ function ApplyPage() {
         {!savedCvId && (
           <FilePicker
             label={`CV${savedCvs.length === 0 ? " (required)" : ""}`}
+            required={savedCvs.length === 0}
             file={cv}
             onPick={(f) => pickFile(f, setCv)}
           />
@@ -357,10 +359,21 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required = false,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-muted-foreground">
+        {label}
+        {required && <RequiredIndicator />}
+      </span>
       {children}
     </label>
   );
@@ -368,16 +381,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function FilePicker({
   label,
+  required = false,
   file,
   onPick,
 }: {
   label: string;
+  required?: boolean;
   file: File | null;
   onPick: (f: File | null) => void;
 }) {
   return (
     <div>
-      <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-muted-foreground">
+        {label}
+        {required && <RequiredIndicator />}
+      </span>
       <label className="glass flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-white/80">
         <Paperclip className="h-4 w-4 shrink-0" />
         <span className="truncate">{file ? file.name : "Choose file"}</span>
@@ -385,6 +403,7 @@ function FilePicker({
           type="file"
           accept={ACCEPTED_FILE_TYPES}
           className="hidden"
+          required={required}
           onChange={(e) => onPick(e.target.files?.[0] ?? null)}
         />
       </label>
