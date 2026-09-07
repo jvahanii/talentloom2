@@ -6,6 +6,7 @@ import { REQ_STATUS_LABEL } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
+import { RequiredIndicator } from "@/components/ui/label";
 
 type Req = {
   id: string;
@@ -114,7 +115,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         }}
         className="mt-4 grid gap-3"
       >
-        <Field label="Title">
+        <Field label="Title" required>
           <input
             required
             value={title}
@@ -203,11 +204,20 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
 const inputCls =
   "w-full rounded-xl bg-background text-foreground px-3 py-2 text-sm border border-border focus:border-primary focus:outline-none";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required = false,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="mb-1 block text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
         {label}
+        {required && <RequiredIndicator />}
       </span>
       {children}
     </label>

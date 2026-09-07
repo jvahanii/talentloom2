@@ -8,6 +8,7 @@ import { STAGES, type Stage } from "@/lib/constants";
 import { ensureOrg } from "@/lib/org";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { ArrowLeft, ArrowRight, Check, LogOut, Upload, Sparkles, Download } from "lucide-react";
+import { RequiredIndicator } from "@/components/ui/label";
 
 export const Route = createFileRoute("/onboarding")({
   ssr: false,
@@ -346,10 +347,21 @@ function Progress({ step }: { step: number }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  required = false,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-muted-foreground">
+        {label}
+        {required && <RequiredIndicator />}
+      </span>
       {children}
     </label>
   );
@@ -372,7 +384,7 @@ function Step1({
         A couple of quick details so we can personalise Talentloom.
       </p>
       <div className="mt-6 space-y-4">
-        <Field label="Full name">
+        <Field label="Full name" required>
           <input
             className={inputCls}
             value={state.full_name}
@@ -381,7 +393,7 @@ function Step1({
             autoFocus
           />
         </Field>
-        <Field label="Job title / role">
+        <Field label="Job title / role" required>
           <select
             className={inputCls}
             value={state.job_title}
@@ -396,7 +408,7 @@ function Step1({
           </select>
         </Field>
         {state.job_title === "Other" && (
-          <Field label="Your role">
+          <Field label="Your role" required>
             <input
               className={inputCls}
               value={state.job_title_other}
@@ -424,7 +436,7 @@ function Step2({
         We'll tailor examples and defaults to match.
       </p>
       <div className="mt-6 space-y-4">
-        <Field label="Company name">
+        <Field label="Company name" required>
           <input
             className={inputCls}
             value={state.company_name}
@@ -433,7 +445,7 @@ function Step2({
             autoFocus
           />
         </Field>
-        <Field label="Industry">
+        <Field label="Industry" required>
           <select
             className={inputCls}
             value={state.company_industry}
@@ -447,7 +459,7 @@ function Step2({
             ))}
           </select>
         </Field>
-        <Field label="Company size">
+        <Field label="Company size" required>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {COMPANY_SIZES.map((s) => {
               const active = state.company_size === s;
