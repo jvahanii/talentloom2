@@ -109,8 +109,8 @@ function Landing() {
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {[
             {
-              t: "1. Make the opportunity clear",
-              d: "Publish the role, the details, and the next step in one place. Candidates know what to expect before they apply.",
+              t: "1. Make the opportunities clear",
+              d: "Publish the roles and their details across one or more organizations you are managing.",
             },
             {
               t: "2. Keep every candidate moving",
