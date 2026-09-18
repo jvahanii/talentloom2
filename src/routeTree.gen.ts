@@ -15,6 +15,7 @@ import { Route as ApplyRouteRouteImport } from './routes/apply.route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
@@ -59,6 +60,11 @@ const DocsRoute = DocsRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PulseRoute = PulseRouteImport.update({
+  id: '/pulse',
+  path: '/pulse',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
+  '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
@@ -173,6 +180,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
+  '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
+  '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
@@ -223,6 +232,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/docs'
     | '/onboarding'
+    | '/pulse'
     | '/sitemap.xml'
     | '/analytics'
     | '/export'
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/docs'
     | '/onboarding'
+    | '/pulse'
     | '/sitemap.xml'
     | '/analytics'
     | '/export'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/docs'
     | '/onboarding'
+    | '/pulse'
     | '/sitemap.xml'
     | '/_authenticated/analytics'
     | '/_authenticated/export'
@@ -294,6 +306,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DocsRoute: typeof DocsRoute
   OnboardingRoute: typeof OnboardingRoute
+  PulseRoute: typeof PulseRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   CandidateApplicationsRoute: typeof CandidateApplicationsRoute
   CandidateAuthRoute: typeof CandidateAuthRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pulse': {
+      id: '/pulse'
+      path: '/pulse'
+      fullPath: '/pulse'
+      preLoaderRoute: typeof PulseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -509,6 +529,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DocsRoute: DocsRoute,
   OnboardingRoute: OnboardingRoute,
+  PulseRoute: PulseRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   CandidateApplicationsRoute: CandidateApplicationsRoute,
   CandidateAuthRoute: CandidateAuthRoute,

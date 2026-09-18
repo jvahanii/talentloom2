@@ -103,6 +103,31 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+        <Link
+          to="/pulse"
+          className="group block rounded-3xl p-1.5 transition hover:-translate-y-0.5"
+          style={{ background: "linear-gradient(120deg, #bdf5e0, #ffe9a8 45%, #ff9ec7)" }}
+        >
+          <div className="glass flex flex-col items-start gap-4 rounded-[1.4rem] p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span className="sparkle inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
+                New &amp; free
+              </span>
+              <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
+                Talentloom Pulse
+              </h2>
+              <p className="text-soft mt-1 text-sm sm:text-base">
+                A free solution for running longitudinal surveys and structured interviews.
+              </p>
+            </div>
+            <span className="btn-mint shrink-0 rounded-xl px-5 py-2.5 text-sm font-medium">
+              Explore Pulse →
+            </span>
+          </div>
+        </Link>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center">
           Less busywork. Better hiring.
         </h2>
