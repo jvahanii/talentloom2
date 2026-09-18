@@ -353,6 +353,28 @@
   }
 }
 
+@utility btn-pink {
+  background: linear-gradient(180deg, #ffe3f0 0%, #ffb4d6 100%);
+  color: #4a3a55;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 2px solid #ff9ec7;
+  box-shadow: 0 4px 0 #e86fa6;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.2s ease;
+  &:hover {
+    filter: brightness(1.04);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #e86fa6;
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 #e86fa6;
+  }
+}
+
 @utility btn-butter {
   background: linear-gradient(180deg, #fff0c2 0%, #ffe9a8 100%);
   color: #4a3a55;
