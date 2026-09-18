@@ -20,14 +20,14 @@ export const Route = createFileRoute("/candidate/auth")({
 
 const clerkAppearance = {
   variables: {
-    colorPrimary: "#2fbf9f",
+    colorPrimary: "#34ca94",
     colorText: "#4A3A55",
     borderRadius: "0.9rem",
     fontFamily: "Rubik, sans-serif",
   },
   elements: {
     card: "shadow-none bg-transparent",
-    formButtonPrimary: "btn-teal rounded-xl",
+    formButtonPrimary: "btn-mint rounded-xl",
   },
 } as const;
 

@@ -331,6 +331,28 @@
   }
 }
 
+@utility btn-mint {
+  background: linear-gradient(180deg, #d2faec 0%, #5ee1af 100%);
+  color: #174233;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 2px solid #34ca94;
+  box-shadow: 0 4px 0 #24a877;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.2s ease;
+  &:hover {
+    filter: brightness(1.04);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #24a877;
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 #24a877;
+  }
+}
+
 @utility btn-butter {
   background: linear-gradient(180deg, #fff0c2 0%, #ffe9a8 100%);
   color: #4a3a55;
