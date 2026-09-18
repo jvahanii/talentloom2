@@ -78,7 +78,7 @@ function PulseLanding() {
           <div className="glass-strong pop-in overflow-hidden">
             <div className="grid items-center gap-6 p-6 sm:p-12 lg:grid-cols-2">
               <div>
-                <span className="sparkle inline-block rounded-full border-2 border-primary bg-secondary px-4 py-1.5 text-xs font-bold uppercase tracking-wide">
+                <span className="inline-block rounded-full border-2 border-primary bg-secondary px-4 py-1.5 text-xs font-bold uppercase tracking-wide">
                   Free forever
                 </span>
                 <h1 className="font-display mt-5 text-4xl font-bold tracking-tight sm:text-5xl">

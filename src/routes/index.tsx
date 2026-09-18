@@ -110,7 +110,7 @@ function Landing() {
         >
           <div className="glass flex flex-col items-start gap-4 rounded-[1.4rem] p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <span className="sparkle inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
+              <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
                 New &amp; free
               </span>
               <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">
