@@ -74,6 +74,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
         <p>
           Talentloom — Better hiring experiences for everyone ·{" "}
+          <Link to="/pulse" className="underline hover:text-foreground">
+            Talentloom Pulse
+          </Link>{" "}
+          ·{" "}
           <Link to="/docs" className="underline hover:text-foreground">
             User guide
           </Link>
