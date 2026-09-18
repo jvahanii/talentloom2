@@ -51,6 +51,7 @@ function CandidatePortalPage() {
   const claimFn = useServerFn(claimMyApplications);
   const appsFn = useServerFn(myApplications);
   const docsFn = useServerFn(myDocuments);
+  const appFileUrlFn = useServerFn(myApplicationFileUrl);
 
   useEffect(() => {
     hasClerkSession().then((ok) => {
@@ -161,11 +162,10 @@ function CandidatePortalPage() {
                             type="button"
                             onClick={async () => {
                               try {
-                                window.open(
-                                  await candidateFileUrl(d.path!),
-                                  "_blank",
-                                  "noopener,noreferrer",
-                                );
+                                const { url } = await appFileUrlFn({
+                                  data: { path: d.path! },
+                                });
+                                window.open(url, "_blank", "noopener,noreferrer");
                               } catch {
                                 toast.error("Could not open the file");
                               }
