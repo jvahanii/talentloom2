@@ -7,6 +7,7 @@ import { useOrg } from "@/lib/org";
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { RequiredIndicator } from "@/components/ui/label";
+import { normalizeHyperlink } from "@/lib/hyperlink";
 
 type Req = {
   id: string;
@@ -17,6 +18,7 @@ type Req = {
   target_start_date: string | null;
   deadline_date: string | null;
   notes: string | null;
+  hyperlink: string | null;
 };
 
 type ReqStatus = "open" | "on_hold" | "filled" | "closed";
@@ -50,6 +52,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
   const [start, setStart] = useState(existing?.target_start_date ?? "");
   const [deadline, setDeadline] = useState(existing?.deadline_date ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [hyperlink, setHyperlink] = useState(existing?.hyperlink ?? "");
 
   useEffect(() => {
     if (existing) {
@@ -60,6 +63,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
       setStart(existing.target_start_date ?? "");
       setDeadline(existing.deadline_date ?? "");
       setNotes(existing.notes ?? "");
+      setHyperlink(existing.hyperlink ?? "");
     }
   }, [existing?.id]);
 
@@ -76,6 +80,7 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
         target_start_date: start || null,
         deadline_date: deadline || null,
         notes: notes || null,
+        hyperlink: normalizeHyperlink(hyperlink),
       };
       if (existing) {
         const { error } = await supabase
@@ -178,6 +183,16 @@ export function RequisitionPanel({ query }: { query?: string | null }) {
             />
           </Field>
         </div>
+        <Field label="Hyperlink">
+          <input
+            type="text"
+            inputMode="url"
+            value={hyperlink}
+            onChange={(e) => setHyperlink(e.target.value)}
+            placeholder="https://… (e.g. the original job ad)"
+            className={inputCls}
+          />
+        </Field>
         <Field label="Notes">
           <textarea
             rows={2}

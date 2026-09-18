@@ -6,10 +6,11 @@ import { REQ_STATUS_LABEL, STAGE_LABEL, type Stage } from "@/lib/constants";
 import { useOrg } from "@/lib/org";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Download } from "lucide-react";
+import { Plus, Pencil, Download, ExternalLink } from "lucide-react";
 import { downloadPositionAttachments } from "@/lib/download-position-files";
 import { getMyProfileId } from "@/lib/auth";
 import { RequiredIndicator } from "@/components/ui/label";
+import { hyperlinkLabel, normalizeHyperlink } from "@/lib/hyperlink";
 
 export const Route = createFileRoute("/_authenticated/requisitions")({
   head: () => ({ meta: [{ title: "Positions — Talentloom" }] }),
@@ -32,6 +33,7 @@ interface Req {
   deadline_date: string | null;
   notes: string | null;
   description: string | null;
+  hyperlink: string | null;
 }
 
 function Reqs() {
@@ -175,6 +177,19 @@ function Reqs() {
                 </span>
               )}
             </div>
+            {r.hyperlink && (
+              <a
+                href={r.hyperlink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="mt-3 inline-flex max-w-full items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{hyperlinkLabel(r.hyperlink)}</span>
+              </a>
+            )}
             {r.notes && (
               <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{r.notes}</p>
             )}
@@ -313,6 +328,7 @@ function ReqDialog({
   const [deadline_date, setDeadline] = useState(editing?.deadline_date ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
   const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [hyperlink, setHyperlink] = useState(editing?.hyperlink ?? "");
   const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -330,6 +346,7 @@ function ReqDialog({
         deadline_date: deadline_date || null,
         description: description || null,
         notes: notes || null,
+        hyperlink: normalizeHyperlink(hyperlink),
       } as Record<string, unknown>;
       if (!editing && !orgId) throw new Error("No organisation selected");
       const { error } = editing
@@ -352,6 +369,7 @@ function ReqDialog({
       setDeadline("");
       setDescription("");
       setNotes("");
+      setHyperlink("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -420,6 +438,19 @@ function ReqDialog({
               type="date"
               value={deadline_date}
               onChange={(e) => setDeadline(e.target.value)}
+              className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Hyperlink
+            </label>
+            <input
+              type="text"
+              inputMode="url"
+              value={hyperlink}
+              onChange={(e) => setHyperlink(e.target.value)}
+              placeholder="https://… (e.g. the original job ad)"
               className="w-full rounded-xl border border-input bg-white/70 px-3 py-2 text-sm"
             />
           </div>
