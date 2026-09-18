@@ -188,3 +188,28 @@ export const deleteCandidateDocument = createServerFn({ method: "POST" })
     if (doc?.path) await context.supabase.storage.from(BUCKET).remove([doc.path]);
     return { ok: true as const };
   });
+
+/** Signed link to a file the candidate submitted with one of their own applications. */
+export const myApplicationFileUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ path: z.string().min(1).max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: owned, error } = await context.supabase
+      .from("candidates")
+      .select("id")
+      .eq("applicant_user_id", context.userId)
+      .or(`cv_path.eq.${data.path},cover_letter_path.eq.${data.path}`)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!owned) throw new Error("File not found");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const { data: signed, error: signErr } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .createSignedUrl(data.path, 3600);
+    if (signErr || !signed) throw new Error("Could not create link");
+    return { url: signed.signedUrl };
+  });
