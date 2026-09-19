@@ -1,20 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  Activity,
-  ArrowLeft,
-  ClipboardList,
-  Heart,
-  MessagesSquare,
-  Sparkles,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Activity, ArrowLeft, ClipboardList, Heart, MessagesSquare, Sparkles, TrendingUp, Users } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import loomLogo from "@/assets/kawaii-loom-logo.png";
 import pulseHero from "@/assets/pulse-hero.png";
 
@@ -56,10 +42,7 @@ function PulseHeader() {
             free
           </span>
         </div>
-        <Link
-          to="/"
-          className="btn-light flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium"
-        >
+        <Link to="/" className="btn-light flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium">
           <ArrowLeft className="h-3.5 w-3.5" />
           Talentloom
         </Link>
@@ -82,18 +65,14 @@ function PulseLanding() {
                   Free forever
                 </span>
                 <h1 className="font-display mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
-                  Hear how people <span className="text-duotone">really change</span>
+                  See how things <span className="text-duotone">really change</span>
                 </h1>
                 <p className="text-soft mt-5 text-base sm:text-lg">
-                  Talentloom Pulse is a free solution for running longitudinal surveys and
-                  structured interviews. Check in with the same people again and again, ask the
-                  same questions the same way, and watch the story unfold wave by wave.
+                  Talentloom Pulse is a free solution for running longitudinal surveys and structured interviews. Check
+                  in with the people again and again, ask the questions, and watch the story unfold.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-3">
-                  <a
-                    href="#how-it-works"
-                    className="btn-mint rounded-xl px-6 py-3 text-sm font-medium"
-                  >
+                  <a href="#how-it-works" className="btn-mint rounded-xl px-6 py-3 text-sm font-medium">
                     See how it works
                   </a>
                   <Link to="/" className="btn-light rounded-xl px-6 py-3 text-sm font-medium">
@@ -120,9 +99,7 @@ function PulseLanding() {
 
         {/* What you can run */}
         <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-          <h2 className="font-display text-3xl font-bold text-center">
-            Two tools. One gentle rhythm.
-          </h2>
+          <h2 className="font-display text-3xl font-bold text-center">Two tools. One gentle rhythm.</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="glass p-6">
               <div className="grid h-11 w-11 place-items-center rounded-2xl border-2 border-primary bg-secondary">
@@ -130,8 +107,8 @@ function PulseLanding() {
               </div>
               <h3 className="font-display mt-4 text-lg font-semibold">Longitudinal surveys</h3>
               <p className="text-soft mt-2 text-sm">
-                Send the same survey in repeating waves — monthly, quarterly, or on your own
-                schedule — and compare answers side by side to see real change, not snapshots.
+                Send the same survey in repeating waves — monthly, quarterly, or on your own schedule — and compare
+                answers side by side to see real change, not snapshots.
               </p>
             </div>
             <div className="glass p-6">
@@ -140,8 +117,8 @@ function PulseLanding() {
               </div>
               <h3 className="font-display mt-4 text-lg font-semibold">Structured interviews</h3>
               <p className="text-soft mt-2 text-sm">
-                Run every conversation from a consistent question kit with the same order and
-                scoring, so answers stay comparable across people and across time.
+                Run every conversation from a consistent question kit with the same order and scoring, so answers stay
+                comparable across people and across time.
               </p>
             </div>
           </div>
@@ -149,9 +126,7 @@ function PulseLanding() {
 
         {/* How it works */}
         <section id="how-it-works" className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-          <h2 className="font-display text-3xl font-bold text-center">
-            Your pulse check in three beats
-          </h2>
+          <h2 className="font-display text-3xl font-bold text-center">Your pulse check in three beats</h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             {[
               {
@@ -185,12 +160,10 @@ function PulseLanding() {
         <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
           <div className="candy-stripes rounded-3xl p-1.5">
             <div className="rounded-[1.4rem] bg-card p-6 text-center sm:p-10">
-              <h2 className="font-display text-2xl font-bold sm:text-3xl">
-                Free. Yes, actually free.
-              </h2>
+              <h2 className="font-display text-2xl font-bold sm:text-3xl">Free. Yes, actually free.</h2>
               <p className="text-soft mx-auto mt-3 max-w-xl text-sm sm:text-base">
-                Pulse is part of Talentloom, and it costs nothing to run longitudinal surveys and
-                structured interviews for your team, class, or study.
+                Pulse is part of Talentloom, and it costs nothing to run longitudinal surveys and structured interviews
+                for your team, class, or study.
               </p>
               <Link to="/" className="btn-pink mt-6 inline-block rounded-xl px-6 py-3 text-sm font-medium">
                 Explore Talentloom
@@ -207,30 +180,26 @@ function PulseLanding() {
               <AccordionItem value="a">
                 <AccordionTrigger>What is a longitudinal survey?</AccordionTrigger>
                 <AccordionContent>
-                  Instead of asking once, you ask the same group the same questions over time —
-                  every wave adds a new data point, so you can track how opinions, wellbeing, or
-                  skills actually change.
+                  Instead of asking once, you ask the same group the same questions over time — every wave adds a new
+                  data point, so you can track how opinions, wellbeing, or skills actually change.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="b">
                 <AccordionTrigger>Why structured interviews?</AccordionTrigger>
                 <AccordionContent>
-                  When every interview follows the same questions and scoring, the differences you
-                  see are about the people — not about who asked the questions or in what order.
+                  When every interview follows the same questions and scoring, the differences you see are about the
+                  people — not about who asked the questions or in what order.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="c">
                 <AccordionTrigger>Is Talentloom Pulse really free?</AccordionTrigger>
                 <AccordionContent>
-                  Yes. Pulse is included free with every Talentloom account — no survey limits, no
-                  per-response fees.
+                  Yes. Pulse is included free with every Talentloom account — no survey limits, no per-response fees.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="d" className="border-b-0">
                 <AccordionTrigger>Do I need a separate sign-in?</AccordionTrigger>
-                <AccordionContent>
-                  No. Pulse lives inside Talentloom — one account works for both.
-                </AccordionContent>
+                <AccordionContent>No. Pulse lives inside Talentloom — one account works for both.</AccordionContent>
               </AccordionItem>
             </Accordion>
           </div>
