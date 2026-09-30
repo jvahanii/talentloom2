@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 
 export interface AppUser {
-  /** TalentLoom profile id (uuid). */
+  /** Talentloom profile id (uuid). */
   id: string | null;
   email: string | null;
   user_metadata: { full_name?: string; avatar_url?: string };
@@ -43,7 +43,7 @@ export function useSession() {
   return { session: user ? { user } : null, user, loading, signedIn: Boolean(isSignedIn) };
 }
 
-/** Resolves the current user's TalentLoom profile id via RLS helper. */
+/** Resolves the current user's Talentloom profile id via RLS helper. */
 export async function getMyProfileId(): Promise<string | null> {
   try {
     const client = supabase as unknown as {

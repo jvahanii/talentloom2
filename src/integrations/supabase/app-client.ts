@@ -1,4 +1,4 @@
-// Browser Supabase client for the TalentLoom backend project.
+// Browser Supabase client for the Talentloom backend project.
 // Requests carry the Clerk session token (Supabase JWT template); the database
 // verifies it via the third-party auth integration and applies RLS.
 // Import like: import { supabase } from "@/integrations/supabase/app-client";

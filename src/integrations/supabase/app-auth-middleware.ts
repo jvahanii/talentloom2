@@ -1,5 +1,5 @@
 // Server middleware validating the Clerk session token and resolving the
-// caller's TalentLoom profile (uuid) for RLS-scoped database access.
+// caller's Talentloom profile (uuid) for RLS-scoped database access.
 import { createMiddleware } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";

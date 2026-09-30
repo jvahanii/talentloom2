@@ -1,4 +1,4 @@
-// Service-role client for the TalentLoom backend project. Server-only.
+// Service-role client for the Talentloom backend project. Server-only.
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 import { createSupabaseFetch, serverSupabaseConfig } from "./app-config";

@@ -1,4 +1,4 @@
-// Central configuration for the TalentLoom backend project.
+// Central configuration for the Talentloom backend project.
 // Publishable keys are safe to ship to the browser.
 export const APP_SUPABASE_URL = "https://dfnotwbswxtrpricbjek.supabase.co";
 export const APP_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_VbMrb3Yw0mzsaQU6wctppg_Wqc7aoKL";

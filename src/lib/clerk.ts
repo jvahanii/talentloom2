@@ -1,4 +1,4 @@
-// Clerk client helpers for TalentLoom.
+// Clerk client helpers for Talentloom.
 // The publishable key is public by design (safe to ship to the browser).
 export const CLERK_PUBLISHABLE_KEY: string =
   (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined) ??
