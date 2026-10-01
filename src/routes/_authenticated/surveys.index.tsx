@@ -1,9 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, ClipboardList, MessagesSquare } from "lucide-react";
+import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
-import { listPulseSurveys, createPulseSurvey } from "@/lib/pulse.functions";
+import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
