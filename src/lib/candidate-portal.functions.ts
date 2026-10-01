@@ -192,9 +192,7 @@ export const deleteCandidateDocument = createServerFn({ method: "POST" })
 /** Signed link to a file the candidate submitted with one of their own applications. */
 export const myApplicationFileUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ path: z.string().min(1).max(500) }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ path: z.string().min(1).max(500) }).parse(input))
   .handler(async ({ data, context }) => {
     const { data: owned, error } = await context.supabase
       .from("candidates")
