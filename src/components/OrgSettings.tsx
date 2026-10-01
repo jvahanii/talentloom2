@@ -144,7 +144,7 @@ export function OrgSettings() {
   };
 
   const createInvite = async () => {
-    if (!orgId || !inviteEmail.trim() || !inviteTitle) return;
+    if (!orgId || !inviteTitle) return;
     setBusy(true);
     try {
       const uid = await getMyProfileId();
@@ -153,7 +153,7 @@ export function OrgSettings() {
         .from("organization_invites")
         .insert({
           org_id: orgId,
-          email: inviteEmail.trim(),
+          email: (inviteEmail.trim() || null) as string,
           title_id: inviteTitle,
           invited_by: uid,
         })
@@ -298,15 +298,15 @@ export function OrgSettings() {
         <div className="mt-6">
           <h4 className="text-sm font-semibold">Invite a teammate</h4>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            They'll need an account with this email address. Links expire after 7 days.
+            Leave email empty to get a shareable link anyone can use to join. With an email, only
+            that person can use it, once. Links expire after 7 days.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="min-w-52 flex-1">
               <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Email <RequiredIndicator />
+                Email (optional)
               </span>
               <input
-                required
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
