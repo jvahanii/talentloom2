@@ -347,16 +347,38 @@ export const addPulseRespondents = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const rows = data.people
-      .filter((p) => p.name || p.email)
-      .map((p) => ({ survey_id: data.surveyId, name: p.name || null, email: p.email || null }));
-    if (!rows.length) throw new Error("Add a name or an email");
-    const { data: ins, error } = await (context.supabase as Loose)
+    const sb = context.supabase as Loose;
+    const wanted = data.people.filter((p) => p.name || p.email);
+    if (!wanted.length) throw new Error("Add a name or an email");
+
+    // Skip emails already on this survey (or repeated in the input): a second
+    // row would give the person a second personal link and a duplicate card.
+    const { data: existing, error: existingError } = await sb
       .from("pulse_respondents")
-      .insert(rows)
-      .select("id");
+      .select("email")
+      .eq("survey_id", data.surveyId);
+    fail(existingError);
+    const seen = new Set(
+      ((existing ?? []) as { email: string | null }[])
+        .map((x) => x.email?.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const rows = [];
+    let skipped = 0;
+    for (const p of wanted) {
+      const key = p.email?.trim().toLowerCase();
+      if (key && seen.has(key)) {
+        skipped++;
+        continue;
+      }
+      if (key) seen.add(key);
+      rows.push({ survey_id: data.surveyId, name: p.name || null, email: p.email || null });
+    }
+    if (!rows.length) return { ids: [] as string[], skipped };
+
+    const { data: ins, error } = await sb.from("pulse_respondents").insert(rows).select("id");
     fail(error);
-    return { ids: (ins ?? []).map((x: Loose) => x.id as string) };
+    return { ids: (ins ?? []).map((x: Loose) => x.id as string), skipped };
   });
 
 export const removePulseRespondent = createServerFn({ method: "POST" })

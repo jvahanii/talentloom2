@@ -281,7 +281,11 @@ function People({ data, onChange }: { data: SurveyData; onChange: () => void }) 
                 return { name, email };
               });
             try {
-              await addPulseRespondents({ data: { surveyId: data.survey.id, people } });
+              const { ids, skipped } = await addPulseRespondents({ data: { surveyId: data.survey.id, people } });
+              if (skipped)
+                toast.info(
+                  `Added ${ids.length}. Skipped ${skipped} already on the list.`,
+                );
               setText("");
               onChange();
             } catch (e) {
