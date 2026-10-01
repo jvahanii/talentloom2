@@ -29,8 +29,10 @@ import { Route as ApplyOrgIdRouteImport } from './routes/apply.$orgId'
 import { Route as CandidateApplicationsRouteImport } from './routes/candidate.applications'
 import { Route as CandidateAuthRouteImport } from './routes/candidate.auth'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as PTokenRouteImport } from './routes/p.$token'
 import { Route as AuthenticatedCandidatesIndexRouteImport } from './routes/_authenticated/candidates.index'
 import { Route as AuthenticatedCandidatesIdRouteImport } from './routes/_authenticated/candidates.$id'
+import { Route as AuthenticatedPulseIndexRouteImport } from './routes/_authenticated/pulse.index'
 import { Route as ApplyPositionIdRouteImport } from './routes/apply.position.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -133,6 +135,11 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PTokenRoute = PTokenRouteImport.update({
+  id: '/p/$token',
+  path: '/p/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCandidatesIndexRoute =
   AuthenticatedCandidatesIndexRouteImport.update({
     id: '/candidates/',
@@ -145,6 +152,11 @@ const AuthenticatedCandidatesIdRoute =
     path: '/candidates/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPulseIndexRoute = AuthenticatedPulseIndexRouteImport.update({
+  id: '/pulse/',
+  path: '/pulse/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ApplyPositionIdRoute = ApplyPositionIdRouteImport.update({
   id: '/position/$id',
   path: '/position/$id',
@@ -170,17 +182,19 @@ export interface FileRoutesByFullPath {
   '/candidate/applications': typeof CandidateApplicationsRoute
   '/candidate/auth': typeof CandidateAuthRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/p/$token': typeof PTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates/': typeof AuthenticatedCandidatesIndexRoute
+  '/pulse/': typeof AuthenticatedPulseIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
-  '/pulse': typeof PulseRoute
+  '/pulse': typeof AuthenticatedPulseIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
@@ -193,6 +207,7 @@ export interface FileRoutesByTo {
   '/candidate/applications': typeof CandidateApplicationsRoute
   '/candidate/auth': typeof CandidateAuthRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/p/$token': typeof PTokenRoute
   '/apply': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
@@ -219,10 +234,12 @@ export interface FileRoutesById {
   '/candidate/applications': typeof CandidateApplicationsRoute
   '/candidate/auth': typeof CandidateAuthRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/p/$token': typeof PTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/_authenticated/candidates/': typeof AuthenticatedCandidatesIndexRoute
+  '/_authenticated/pulse/': typeof AuthenticatedPulseIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -245,10 +262,12 @@ export interface FileRouteTypes {
     | '/candidate/applications'
     | '/candidate/auth'
     | '/invite/$token'
+    | '/p/$token'
     | '/apply/'
     | '/candidates/$id'
     | '/apply/position/$id'
     | '/candidates/'
+    | '/pulse/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -268,6 +287,7 @@ export interface FileRouteTypes {
     | '/candidate/applications'
     | '/candidate/auth'
     | '/invite/$token'
+    | '/p/$token'
     | '/apply'
     | '/candidates/$id'
     | '/apply/position/$id'
@@ -293,10 +313,12 @@ export interface FileRouteTypes {
     | '/candidate/applications'
     | '/candidate/auth'
     | '/invite/$token'
+    | '/p/$token'
     | '/apply/'
     | '/_authenticated/candidates/$id'
     | '/apply/position/$id'
     | '/_authenticated/candidates/'
+    | '/_authenticated/pulse/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -311,6 +333,7 @@ export interface RootRouteChildren {
   CandidateApplicationsRoute: typeof CandidateApplicationsRoute
   CandidateAuthRoute: typeof CandidateAuthRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  PTokenRoute: typeof PTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -455,6 +478,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/p/$token': {
+      id: '/p/$token'
+      path: '/p/$token'
+      fullPath: '/p/$token'
+      preLoaderRoute: typeof PTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/candidates/': {
       id: '/_authenticated/candidates/'
       path: '/candidates'
@@ -467,6 +497,13 @@ declare module '@tanstack/react-router' {
       path: '/candidates/$id'
       fullPath: '/candidates/$id'
       preLoaderRoute: typeof AuthenticatedCandidatesIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pulse/': {
+      id: '/_authenticated/pulse/'
+      path: '/pulse'
+      fullPath: '/pulse/'
+      preLoaderRoute: typeof AuthenticatedPulseIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/apply/position/$id': {
@@ -489,6 +526,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
   AuthenticatedCandidatesIdRoute: typeof AuthenticatedCandidatesIdRoute
   AuthenticatedCandidatesIndexRoute: typeof AuthenticatedCandidatesIndexRoute
+  AuthenticatedPulseIndexRoute: typeof AuthenticatedPulseIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -501,6 +539,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
   AuthenticatedCandidatesIdRoute: AuthenticatedCandidatesIdRoute,
   AuthenticatedCandidatesIndexRoute: AuthenticatedCandidatesIndexRoute,
+  AuthenticatedPulseIndexRoute: AuthenticatedPulseIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -534,6 +573,7 @@ const rootRouteChildren: RootRouteChildren = {
   CandidateApplicationsRoute: CandidateApplicationsRoute,
   CandidateAuthRoute: CandidateAuthRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PTokenRoute: PTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

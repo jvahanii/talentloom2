@@ -11,6 +11,7 @@ import {
   LogOut,
   Building2,
   Plus,
+  Activity,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -42,6 +43,7 @@ const NAV = [
   { to: "/candidates", label: "Candidates", icon: Users },
   { to: "/requisitions", label: "Positions", icon: Briefcase },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/pulse", label: "Pulse surveys", icon: Activity },
   { to: "/import", label: "Import", icon: Upload },
   { to: "/export", label: "Export", icon: Download },
   { to: "/settings", label: "Settings", icon: Settings },
