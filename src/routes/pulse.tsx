@@ -72,6 +72,9 @@ function PulseLanding() {
                   in with the people again and again, ask the questions, and watch the story unfold.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-3">
+                  <Link to="/surveys" className="btn-pink rounded-xl px-6 py-3 text-sm font-medium">
+                    Start a survey
+                  </Link>
                   <a href="#how-it-works" className="btn-mint rounded-xl px-6 py-3 text-sm font-medium">
                     See how it works
                   </a>
