@@ -100,6 +100,10 @@ function PulseLanding() {
         {/* What you can run */}
         <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
           <h2 className="font-display text-3xl font-bold text-center">Two tools. One gentle rhythm.</h2>
+          <p className="text-soft mx-auto mt-3 max-w-2xl text-center text-sm sm:text-base">
+            One snapshot tells you where people are. Pulse tells you where they are <em>going</em> — every new round is
+            automatically laid next to the one before it, so movement, stability and decline show up on their own.
+          </p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="glass p-6">
               <div className="grid h-11 w-11 place-items-center rounded-2xl border-2 border-primary bg-secondary">
@@ -107,8 +111,9 @@ function PulseLanding() {
               </div>
               <h3 className="font-display mt-4 text-lg font-semibold">Longitudinal surveys</h3>
               <p className="text-soft mt-2 text-sm">
-                Send the same survey in repeating waves — monthly, quarterly, or on your own schedule — and compare
-                answers side by side to see real change, not snapshots.
+                Send the same survey wave after wave — monthly, quarterly, or on your own schedule. Each wave is scored
+                against the previous round, so you see who moved, by how much, and in which direction — without
+                stitching spreadsheets together.
               </p>
             </div>
             <div className="glass p-6">
@@ -117,8 +122,9 @@ function PulseLanding() {
               </div>
               <h3 className="font-display mt-4 text-lg font-semibold">Structured interviews</h3>
               <p className="text-soft mt-2 text-sm">
-                Run every conversation from a consistent question kit with the same order and scoring, so answers stay
-                comparable across people and across time.
+                Run every conversation from the same question kit, in the same order, with the same scoring. Because
+                nothing changes between rounds, this month's answers can be compared straight against last round's —
+                the differences you spot are about the people, never about the setup.
               </p>
             </div>
           </div>
