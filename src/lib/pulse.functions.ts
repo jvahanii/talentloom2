@@ -99,7 +99,7 @@ export const listPulseAwaiting = createServerFn({ method: "GET" })
       sb.from("pulse_responses").select("round_id, respondent_id").in("respondent_id", people.map((p: Loose) => p.id)),
     ]);
     const answered = new Set((responses ?? []).map((r: Loose) => `${r.respondent_id}:${r.round_id}`));
-    const surveyById = new Map((surveys ?? []).map((s: Loose) => [s.id, s]));
+    const surveyById = new Map<string, Loose>((surveys ?? []).map((s: Loose) => [s.id, s]));
     const out: { token: string; title: string; roundNumber: number; closesOn: string | null }[] = [];
     for (const p of people as Loose[]) {
       const survey = surveyById.get(p.survey_id);
