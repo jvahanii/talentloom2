@@ -40,6 +40,29 @@ function PulseList() {
         </div>
         <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" /> New survey</Button>
       </div>
+      {!!awaiting?.length && (
+        <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4 shadow-[0_3px_0_var(--brand-butter)]">
+          <div className="flex items-center gap-2 font-semibold">
+            <Inbox className="h-4 w-4" /> Waiting for your answer
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {awaiting.map((a) => (
+              <Link
+                key={a.token}
+                to="/p/$token"
+                params={{ token: a.token }}
+                className="rounded-2xl border-2 border-border bg-secondary/40 p-3 transition hover:-translate-y-0.5"
+              >
+                <p className="font-semibold">{a.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Round {a.roundNumber}
+                  {a.closesOn ? ` · closes ${formatDate(a.closesOn)}` : ""} · tap to answer
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       {isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : !data?.length ? (
