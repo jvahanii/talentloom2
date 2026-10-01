@@ -33,6 +33,7 @@ import { Route as PTokenRouteImport } from './routes/p.$token'
 import { Route as AuthenticatedCandidatesIndexRouteImport } from './routes/_authenticated/candidates.index'
 import { Route as AuthenticatedCandidatesIdRouteImport } from './routes/_authenticated/candidates.$id'
 import { Route as AuthenticatedPulseIndexRouteImport } from './routes/_authenticated/pulse.index'
+import { Route as AuthenticatedPulseIdRouteImport } from './routes/_authenticated/pulse.$id'
 import { Route as ApplyPositionIdRouteImport } from './routes/apply.position.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -157,6 +158,11 @@ const AuthenticatedPulseIndexRoute = AuthenticatedPulseIndexRouteImport.update({
   path: '/pulse/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPulseIdRoute = AuthenticatedPulseIdRouteImport.update({
+  id: '/pulse/$id',
+  path: '/pulse/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ApplyPositionIdRoute = ApplyPositionIdRouteImport.update({
   id: '/position/$id',
   path: '/position/$id',
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/p/$token': typeof PTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/pulse/$id': typeof AuthenticatedPulseIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates/': typeof AuthenticatedCandidatesIndexRoute
   '/pulse/': typeof AuthenticatedPulseIndexRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/p/$token': typeof PTokenRoute
   '/apply': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/pulse/$id': typeof AuthenticatedPulseIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates': typeof AuthenticatedCandidatesIndexRoute
 }
@@ -237,6 +245,7 @@ export interface FileRoutesById {
   '/p/$token': typeof PTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
+  '/_authenticated/pulse/$id': typeof AuthenticatedPulseIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/_authenticated/candidates/': typeof AuthenticatedCandidatesIndexRoute
   '/_authenticated/pulse/': typeof AuthenticatedPulseIndexRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/p/$token'
     | '/apply/'
     | '/candidates/$id'
+    | '/pulse/$id'
     | '/apply/position/$id'
     | '/candidates/'
     | '/pulse/'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/p/$token'
     | '/apply'
     | '/candidates/$id'
+    | '/pulse/$id'
     | '/apply/position/$id'
     | '/candidates'
   id:
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/p/$token'
     | '/apply/'
     | '/_authenticated/candidates/$id'
+    | '/_authenticated/pulse/$id'
     | '/apply/position/$id'
     | '/_authenticated/candidates/'
     | '/_authenticated/pulse/'
@@ -506,6 +518,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPulseIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pulse/$id': {
+      id: '/_authenticated/pulse/$id'
+      path: '/pulse/$id'
+      fullPath: '/pulse/$id'
+      preLoaderRoute: typeof AuthenticatedPulseIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/apply/position/$id': {
       id: '/apply/position/$id'
       path: '/position/$id'
@@ -525,6 +544,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
   AuthenticatedCandidatesIdRoute: typeof AuthenticatedCandidatesIdRoute
+  AuthenticatedPulseIdRoute: typeof AuthenticatedPulseIdRoute
   AuthenticatedCandidatesIndexRoute: typeof AuthenticatedCandidatesIndexRoute
   AuthenticatedPulseIndexRoute: typeof AuthenticatedPulseIndexRoute
 }
@@ -538,6 +558,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
   AuthenticatedCandidatesIdRoute: AuthenticatedCandidatesIdRoute,
+  AuthenticatedPulseIdRoute: AuthenticatedPulseIdRoute,
   AuthenticatedCandidatesIndexRoute: AuthenticatedCandidatesIndexRoute,
   AuthenticatedPulseIndexRoute: AuthenticatedPulseIndexRoute,
 }
