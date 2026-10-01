@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, useCanGoBack, useRouter } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { getPublicPulseForm, submitPublicPulse } from "@/lib/pulse.functions";
 import { AnswerForm } from "@/components/pulse/AnswerForm";
@@ -35,6 +35,9 @@ function PublicSurvey() {
   const { token } = Route.useParams();
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["public-pulse", token],
     queryFn: () => getPublicPulseForm({ data: { token } }),
@@ -45,7 +48,25 @@ function PublicSurvey() {
   if (!data || !data.found)
     return <Shell><Card title="Survey not found">This link doesn't lead to a survey. Check the link you received.</Card></Shell>;
   if (done || data.alreadyAnswered)
-    return <Shell><Card title="Thank you!">Your answers have been saved. You can close this page.</Card></Shell>;
+    return (
+      <Shell>
+        <Card
+          title="Thank you!"
+          footer={
+            canGoBack && (
+              <button
+                onClick={() => router.history.back()}
+                className="btn-mint mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
+              >
+                ← Back to where you were
+              </button>
+            )
+          }
+        >
+          Your answers have been saved.{canGoBack ? "" : " You can close this page."}
+        </Card>
+      </Shell>
+    );
   if (!data.open)
     return <Shell><Card title={data.title}>This survey isn't taking answers right now.</Card></Shell>;
 
@@ -65,6 +86,7 @@ function PublicSurvey() {
           try {
             await submitPublicPulse({ data: { token, answers } });
             setDone(true);
+            void qc.invalidateQueries({ queryKey: ["pulse-awaiting"] });
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "Could not send answers");
           } finally {
@@ -76,11 +98,20 @@ function PublicSurvey() {
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  children,
+  footer,
+}: {
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl border-2 border-border bg-card p-8 text-center shadow-[0_4px_0_var(--brand-mint)]">
       <h1 className="mb-2 text-2xl font-bold">{title}</h1>
       <p className="text-muted-foreground">{children}</p>
+      {footer}
     </div>
   );
 }
