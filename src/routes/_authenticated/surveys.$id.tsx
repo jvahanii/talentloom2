@@ -28,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_authenticated/pulse/$id")({
+export const Route = createFileRoute("/_authenticated/surveys/$id")({
   head: () => ({
     meta: [
       { title: "Survey — Talentloom Pulse" },
@@ -66,7 +66,7 @@ function SurveyPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <Link to="/pulse" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link to="/surveys" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> All surveys
       </Link>
       <div>
@@ -579,7 +579,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           onClick={async () => {
             if (!window.confirm("Delete this survey and all its answers?")) return;
             await deletePulseSurvey({ data: { id: survey.id } });
-            navigate({ to: "/pulse" });
+            navigate({ to: "/surveys" });
           }}
         >
           Delete survey

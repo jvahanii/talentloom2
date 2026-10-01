@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_authenticated/pulse/")({
+export const Route = createFileRoute("/_authenticated/surveys/")({
   head: () => ({
     meta: [
       { title: "Pulse surveys — Talentloom" },
@@ -51,7 +51,7 @@ function PulseList() {
           {data.map((s) => (
             <Link
               key={s.id}
-              to="/pulse/$id"
+              to="/surveys/$id"
               params={{ id: s.id }}
               className="rounded-2xl border-2 border-border bg-card p-4 shadow-[0_3px_0_var(--brand-mint)] transition hover:-translate-y-0.5"
             >
@@ -99,7 +99,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
               });
               onCreated();
               onOpenChange(false);
-              navigate({ to: "/pulse/$id", params: { id } });
+              navigate({ to: "/surveys/$id", params: { id } });
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Could not create survey");
             } finally {
