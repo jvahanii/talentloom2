@@ -413,14 +413,16 @@ export const getPulseResults = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }): Promise<PulseResults> => {
     const sb = context.supabase as Loose;
-    const [q, r, resp, people] = await Promise.all([
+    const [q, r, resp, people, me] = await Promise.all([
       sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
       sb.from("pulse_rounds").select("id, number, opens_on").eq("survey_id", data.id).order("number"),
       sb.from("pulse_responses").select("id, round_id, respondent_id, pulse_answers(question_id, value)").eq("survey_id", data.id),
       sb.from("pulse_respondents").select("id, name, email").eq("survey_id", data.id),
+      sb.from("profiles").select("email").eq("id", context.userId).maybeSingle(),
     ]);
     fail(q.error);
     fail(resp.error);
+    const myEmail = ((me.data?.email as string | null) ?? "").trim().toLowerCase();
     const questions = (q.data ?? []) as PulseQuestion[];
     const rounds = (r.data ?? []) as { id: string; number: number; opens_on: string }[];
     const responses = (resp.data ?? []) as {
@@ -474,19 +476,30 @@ export const getPulseResults = createServerFn({ method: "GET" })
     };
     const lastRound = rounds[rounds.length - 1]?.id;
     const prevRound = rounds[rounds.length - 2]?.id;
-    const peopleOut = ((people.data ?? []) as Loose[])
+    // Only the viewer's own row is identified. Everyone else is anonymised: no
+    // name, email or respondent id, and sorted by score so the order can't be
+    // matched against the invited-people list.
+    const scored = ((people.data ?? []) as Loose[])
       .map((p) => {
         const latest = scoreIn(p.id, lastRound);
         const previous = scoreIn(p.id, prevRound);
+        const isMe = !!myEmail && ((p.email as string | null) ?? "").trim().toLowerCase() === myEmail;
         return {
-          id: p.id as string,
-          label: (p.name || p.email || "Someone") as string,
+          isMe,
           latest,
           previous,
           delta: latest != null && previous != null ? latest - previous : null,
         };
       })
       .filter((p) => p.latest != null || p.previous != null);
+    const mine = scored.filter((p) => p.isMe);
+    const others = scored
+      .filter((p) => !p.isMe)
+      .sort((a, b) => (b.latest ?? -1) - (a.latest ?? -1) || (b.previous ?? -1) - (a.previous ?? -1));
+    const peopleOut = [
+      ...mine.map(({ isMe: _isMe, ...p }, i) => ({ id: `me-${i}`, label: "You", ...p })),
+      ...others.map(({ isMe: _isMe, ...p }, i) => ({ id: `person-${i + 1}`, label: `Person ${i + 1}`, ...p })),
+    ];
 
     return {
       rounds: rounds.map((rd) => ({
