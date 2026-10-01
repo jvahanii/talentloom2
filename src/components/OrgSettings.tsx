@@ -29,7 +29,7 @@ interface MemberRow {
 
 interface InviteRow {
   id: string;
-  email: string;
+  email: string | null;
   title_id: string | null;
   token: string;
   expires_at: string;
