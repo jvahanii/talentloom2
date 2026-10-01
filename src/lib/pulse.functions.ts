@@ -41,6 +41,7 @@ export type PulseSurvey = {
   description: string | null;
   response_mode: "link" | "invite" | "both";
   status: "draft" | "open" | "closed";
+  show_previous_answers: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -199,6 +200,7 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
         responseMode: z.enum(["link", "invite", "both"]),
         visibility: z.enum(["private", "org"]),
         orgId: Uuid.nullable(),
+        showPreviousAnswers: z.boolean(),
       })
       .parse(d),
   )
@@ -207,6 +209,7 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
     const { error } = await sb
       .from("pulse_surveys")
       .update({
+        show_previous_answers: data.showPreviousAnswers,
         title: data.title,
         description: data.description,
         response_mode: data.responseMode,
@@ -545,7 +548,7 @@ async function resolveToken(token: string) {
   const surveyId = respondent?.survey_id ?? round?.survey_id;
   const { data: survey } = await sb
     .from("pulse_surveys")
-    .select("id, title, description, kind, response_mode")
+    .select("id, title, description, kind, response_mode, show_previous_answers")
     .eq("id", surveyId)
     .maybeSingle();
   if (!survey || survey.kind !== "survey") return null;
@@ -555,6 +558,9 @@ async function resolveToken(token: string) {
   const open = !!round && round.status === "open" && (!round.closes_on || round.closes_on >= today);
   return { sb, survey, round, respondent, open };
 }
+
+export type PreviousAnswerValue = number | string | boolean | string[] | null;
+export type PreviousAnswers = { roundNumber: number; answers: Record<string, PreviousAnswerValue> };
 
 export const getPublicPulseForm = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ token: Uuid }).parse(d))
@@ -577,7 +583,33 @@ export const getPublicPulseForm = createServerFn({ method: "GET" })
       .select("id, position, type, prompt, options, required")
       .eq("survey_id", survey.id)
       .order("position");
+
+    // This person's own answers from their most recent earlier round (personal links only).
+    let previousAnswers: PreviousAnswers | null = null;
+    if (respondent && round && survey.show_previous_answers) {
+      const { data: earlier } = await sb
+        .from("pulse_responses")
+        .select("id, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .eq("respondent_id", respondent.id)
+        .lt("pulse_rounds.number", round.number);
+      const latest = ((earlier ?? []) as Loose[]).sort(
+        (a, b) => b.pulse_rounds.number - a.pulse_rounds.number,
+      )[0];
+      if (latest) {
+        previousAnswers = {
+          roundNumber: latest.pulse_rounds.number as number,
+          answers: Object.fromEntries(
+            ((latest.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
+              a.question_id,
+              a.value,
+            ]),
+          ),
+        };
+      }
+    }
+
     return {
+      previousAnswers,
       found: true as const,
       open,
       alreadyAnswered,

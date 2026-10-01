@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type { PulseQuestion } from "@/lib/pulse.functions";
+import type { PreviousAnswers, PulseQuestion } from "@/lib/pulse.functions";
 
 export type AnswerMap = Record<string, number | string | boolean | string[] | null>;
 
@@ -19,15 +19,26 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
+function formatPrevious(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  if (Array.isArray(value)) return value.length ? value.join(", ") : null;
+  return String(value);
+}
+
 export function AnswerForm({
   questions,
   submitting,
   submitLabel = "Send answers",
+  previous,
   onSubmit,
 }: {
   questions: PulseQuestion[];
   submitting?: boolean;
   submitLabel?: string;
+  /** The answering person's own answers from their last earlier round, shown for reference. */
+  previous?: PreviousAnswers | null;
   onSubmit: (answers: AnswerMap) => void;
 }) {
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -60,6 +71,14 @@ export function AnswerForm({
               {i + 1}. {q.prompt}
               {q.required && <span className="ml-1 text-destructive">*</span>}
             </p>
+            {previous && (
+              <p className="-mt-2 mb-3 whitespace-pre-line text-xs text-muted-foreground">
+                Last time (round {previous.roundNumber}):{" "}
+                <span className="font-medium text-foreground">
+                  {formatPrevious(previous.answers[q.id]) ?? "no answer"}
+                </span>
+              </p>
+            )}
             {q.type === "rating" && (
               <div className="flex flex-wrap gap-2">
                 {[1, 2, 3, 4, 5].map((n) => (

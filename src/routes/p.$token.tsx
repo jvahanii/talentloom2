@@ -80,6 +80,7 @@ function PublicSurvey() {
       </div>
       <AnswerForm
         questions={data.questions}
+        previous={data.previousAnswers}
         submitting={sending}
         onSubmit={async (answers) => {
           setSending(true);

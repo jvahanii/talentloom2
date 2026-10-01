@@ -512,6 +512,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
   const [mode, setMode] = useState(survey.response_mode);
   const [visibility, setVisibility] = useState(survey.visibility);
   const [org, setOrg] = useState(survey.org_id ?? orgs[0]?.org_id ?? null);
+  const [showPrevious, setShowPrevious] = useState(survey.show_previous_answers ?? true);
   return (
     <div className="max-w-xl space-y-4">
       <div className="space-y-2">
@@ -558,13 +559,29 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           </div>
         )}
       </div>
+      {survey.kind === "survey" && (
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-teal-600"
+            checked={showPrevious}
+            onChange={(e) => setShowPrevious(e.target.checked)}
+          />
+          <span>
+            Show people their previous answers
+            <span className="block text-xs text-muted-foreground">
+              From round 2 on, people answering through their personal link see what they answered last time.
+            </span>
+          </span>
+        </label>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button
           disabled={!title.trim()}
           onClick={async () => {
             try {
               await updatePulseSurvey({
-                data: { id: survey.id, title, description: description || null, responseMode: mode, visibility, orgId: visibility === "org" ? org : null },
+                data: { id: survey.id, title, description: description || null, responseMode: mode, visibility, orgId: visibility === "org" ? org : null, showPreviousAnswers: showPrevious },
               });
               toast.success("Saved");
               onChange();
