@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { SignIn, SignUp, useAuth } from "@clerk/clerk-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { getClerkToken } from "@/lib/clerk";
+import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 
 async function waitForBackendToken(maxMs = 5000): Promise<void> {
   const start = Date.now();
@@ -35,6 +36,15 @@ function AuthPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [invited, setInvited] = useState(false);
+
+  useEffect(() => {
+    try {
+      setInvited(Boolean(window.sessionStorage.getItem(PENDING_INVITE_KEY)));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (!(isLoaded && isSignedIn)) return;
@@ -56,18 +66,25 @@ function AuthPage() {
       <div className="mx-auto max-w-md px-4 pt-8 pb-16 sm:pt-16">
         <div className="glass-strong rounded-3xl p-6 sm:p-8">
           <h1 className="font-display text-2xl font-bold">
-            {mode === "signin" ? "Welcome back, recruiter" : "Build a better hiring experience"}
+            {invited
+              ? "You've been invited"
+              : mode === "signin"
+                ? "Welcome back, recruiter"
+                : "Build a better hiring experience"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === "signin"
-              ? "Pick up where your team left off and keep great candidates moving."
-              : "Create a calm, organised hiring experience that makes your company look as good as it is."}
+            {invited
+              ? "Enter your email to sign in, or to create your account if you're new to Talentloom."
+              : mode === "signin"
+                ? "Pick up where your team left off and keep great candidates moving."
+                : "Create a calm, organised hiring experience that makes your company look as good as it is."}
           </p>
 
           <div className="mt-6">
             {mode === "signin" ? (
               <SignIn
                 routing="virtual"
+                withSignUp
                 appearance={clerkAppearance}
                 fallbackRedirectUrl="/pipeline"
               />
