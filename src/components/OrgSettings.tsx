@@ -12,8 +12,9 @@ import {
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { RequiredIndicator } from "@/components/ui/label";
-import { Copy, Plus, Trash2, UserPlus } from "lucide-react";
+import { Copy, Mail, Plus, Trash2, UserPlus } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { sendInviteEmail } from "@/lib/invite.functions";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
@@ -157,14 +158,25 @@ export function OrgSettings() {
           title_id: inviteTitle,
           invited_by: uid,
         })
-        .select("token")
+        .select("id, email, token")
         .single();
       if (error) throw error;
       const link = `${window.location.origin}/invite/${data.token}`;
       setLastInviteLink(link);
       setInviteEmail("");
       qc.invalidateQueries({ queryKey: ["org-invites", orgId] });
-      toast.success("Invite created — share the link below");
+      if (data.email) {
+        try {
+          await sendInviteEmail({ data: { inviteId: data.id } });
+          toast.success(`Invite emailed to ${data.email}`);
+        } catch (e) {
+          toast.error(
+            `Invite created, but the email couldn't be sent — share the link below. (${e instanceof Error ? e.message : String(e)})`,
+          );
+        }
+      } else {
+        toast.success("Invite created — share the link below");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create invite");
     } finally {
@@ -194,6 +206,15 @@ export function OrgSettings() {
       toast.success(m.isSelf ? "You left the organisation" : "User removed");
       if (m.isSelf) refresh();
       qc.invalidateQueries({ queryKey: ["org-members", orgId] });
+    }
+  };
+
+  const resendInvite = async (id: string, email: string) => {
+    try {
+      await sendInviteEmail({ data: { inviteId: id } });
+      toast.success(`Invite emailed to ${email}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send the invite email");
     }
   };
 
@@ -364,6 +385,16 @@ export function OrgSettings() {
                     {inv.title_id ? (titleById.get(inv.title_id)?.name ?? "Title") : "No title"} ·
                     expires {formatDate(inv.expires_at)}
                   </span>
+                  {inv.email && (
+                    <button
+                      onClick={() => resendInvite(inv.id, inv.email!)}
+                      className="rounded-md p-1 hover:bg-muted"
+                      aria-label="Email invite again"
+                      title="Email invite again"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <button
                     onClick={() => copy(`${window.location.origin}/invite/${inv.token}`)}
                     className="rounded-md p-1 hover:bg-muted"
