@@ -63,6 +63,7 @@ function SurveyPage() {
   const refresh = () => q.refetch();
   const isInterview = survey.kind === "interview";
   const usesInvites = !isInterview && survey.response_mode !== "link";
+  const canManagePeople = q.data.canManagePeople;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -81,8 +82,8 @@ function SurveyPage() {
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="rounds">Rounds{!isInterview && " & sharing"}</TabsTrigger>
-          {(usesInvites || isInterview) && <TabsTrigger value="people">{isInterview ? "Interviewees" : "Invited people"}</TabsTrigger>}
-          {isInterview && <TabsTrigger value="interview">Run interview</TabsTrigger>}
+          {canManagePeople && (usesInvites || isInterview) && <TabsTrigger value="people">{isInterview ? "Interviewees" : "Invited people"}</TabsTrigger>}
+          {canManagePeople && isInterview && <TabsTrigger value="interview">Run interview</TabsTrigger>}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="results"><Results id={id} /></TabsContent>

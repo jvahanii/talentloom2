@@ -153,12 +153,14 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
-    const [s, q, r, p, resp] = await Promise.all([
+    const [s, q, r, p, resp, manage] = await Promise.all([
       sb.from("pulse_surveys").select("*").eq("id", data.id).maybeSingle(),
       sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
       sb.from("pulse_rounds").select("*").eq("survey_id", data.id).order("number"),
       sb.from("pulse_respondents").select("*").eq("survey_id", data.id).order("created_at"),
       sb.from("pulse_responses").select("id, round_id, respondent_id").eq("survey_id", data.id),
+      // Survey owner, or an org owner/admin. Others only get their own respondent row (RLS).
+      sb.rpc("can_manage_pulse_survey", { _survey: data.id }),
     ]);
     fail(s.error);
     if (!s.data) throw new Error("Survey not found");
@@ -167,6 +169,7 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
     const roundNo = new Map(rounds.map((x) => [x.id, x.number as number]));
     return {
       survey: s.data as PulseSurvey,
+      canManagePeople: manage.data === true,
       questions: (q.data ?? []) as PulseQuestion[],
       rounds: rounds.map((x) => ({
         ...x,
