@@ -67,9 +67,15 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
+      // Browser already hung up (reload/navigation): nothing to render.
+      if (request.signal?.aborted && response.status >= 500) {
+        return new Response(null, { status: 499 });
+      }
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
-      if (isClientAbort(error)) return new Response(null, { status: 499 });
+      if (isClientAbort(error) || request.signal?.aborted) {
+        return new Response(null, { status: 499 });
+      }
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,
