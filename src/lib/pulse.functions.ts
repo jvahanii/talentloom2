@@ -78,6 +78,42 @@ export const listPulseSurveys = createServerFn({ method: "GET" })
     }) as (PulseSurvey & { roundCount: number; latestResponses: number; mine: boolean })[];
   });
 
+/** Surveys where the signed-in user's email is an invited respondent with an unanswered open round. */
+export const listPulseAwaiting = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const sb = supabaseAdmin as Loose;
+    const { data: profile } = await sb.from("profiles").select("email").eq("id", context.userId).maybeSingle();
+    const email = (profile?.email as string | null)?.trim();
+    if (!email) return [];
+    const { data: people } = await sb
+      .from("pulse_respondents")
+      .select("id, token, survey_id")
+      .ilike("email", email);
+    if (!people?.length) return [];
+    const surveyIds = [...new Set(people.map((p: Loose) => p.survey_id as string))];
+    const [{ data: surveys }, { data: rounds }, { data: responses }] = await Promise.all([
+      sb.from("pulse_surveys").select("id, title, kind, status").in("id", surveyIds),
+      sb.from("pulse_rounds").select("id, survey_id, number, closes_on").in("survey_id", surveyIds).eq("status", "open"),
+      sb.from("pulse_responses").select("round_id, respondent_id").in("respondent_id", people.map((p: Loose) => p.id)),
+    ]);
+    const answered = new Set((responses ?? []).map((r: Loose) => `${r.respondent_id}:${r.round_id}`));
+    const surveyById = new Map<string, Loose>((surveys ?? []).map((s: Loose) => [s.id, s]));
+    const out: { token: string; title: string; roundNumber: number; closesOn: string | null }[] = [];
+    for (const p of people as Loose[]) {
+      const survey = surveyById.get(p.survey_id);
+      if (!survey || survey.kind !== "survey" || survey.status !== "open") continue;
+      const open = (rounds ?? [])
+        .filter((r: Loose) => r.survey_id === p.survey_id)
+        .sort((a: Loose, b: Loose) => b.number - a.number);
+      const round = open.find((r: Loose) => !answered.has(`${p.id}:${r.id}`));
+      if (!round) continue;
+      out.push({ token: p.token, title: survey.title, roundNumber: round.number, closesOn: round.closes_on });
+    }
+    return out;
+  });
+
 export const createPulseSurvey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
