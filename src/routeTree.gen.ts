@@ -32,8 +32,8 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as PTokenRouteImport } from './routes/p.$token'
 import { Route as AuthenticatedCandidatesIndexRouteImport } from './routes/_authenticated/candidates.index'
 import { Route as AuthenticatedCandidatesIdRouteImport } from './routes/_authenticated/candidates.$id'
-import { Route as AuthenticatedPulseIndexRouteImport } from './routes/_authenticated/pulse.index'
-import { Route as AuthenticatedPulseIdRouteImport } from './routes/_authenticated/pulse.$id'
+import { Route as AuthenticatedSurveysIndexRouteImport } from './routes/_authenticated/surveys.index'
+import { Route as AuthenticatedSurveysIdRouteImport } from './routes/_authenticated/surveys.$id'
 import { Route as ApplyPositionIdRouteImport } from './routes/apply.position.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -153,14 +153,15 @@ const AuthenticatedCandidatesIdRoute =
     path: '/candidates/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedPulseIndexRoute = AuthenticatedPulseIndexRouteImport.update({
-  id: '/pulse/',
-  path: '/pulse/',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPulseIdRoute = AuthenticatedPulseIdRouteImport.update({
-  id: '/pulse/$id',
-  path: '/pulse/$id',
+const AuthenticatedSurveysIndexRoute =
+  AuthenticatedSurveysIndexRouteImport.update({
+    id: '/surveys/',
+    path: '/surveys/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSurveysIdRoute = AuthenticatedSurveysIdRouteImport.update({
+  id: '/surveys/$id',
+  path: '/surveys/$id',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApplyPositionIdRoute = ApplyPositionIdRouteImport.update({
@@ -191,17 +192,17 @@ export interface FileRoutesByFullPath {
   '/p/$token': typeof PTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
-  '/pulse/$id': typeof AuthenticatedPulseIdRoute
+  '/surveys/$id': typeof AuthenticatedSurveysIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates/': typeof AuthenticatedCandidatesIndexRoute
-  '/pulse/': typeof AuthenticatedPulseIndexRoute
+  '/surveys/': typeof AuthenticatedSurveysIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/docs': typeof DocsRoute
   '/onboarding': typeof OnboardingRoute
-  '/pulse': typeof AuthenticatedPulseIndexRoute
+  '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
@@ -217,9 +218,10 @@ export interface FileRoutesByTo {
   '/p/$token': typeof PTokenRoute
   '/apply': typeof ApplyIndexRoute
   '/candidates/$id': typeof AuthenticatedCandidatesIdRoute
-  '/pulse/$id': typeof AuthenticatedPulseIdRoute
+  '/surveys/$id': typeof AuthenticatedSurveysIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/candidates': typeof AuthenticatedCandidatesIndexRoute
+  '/surveys': typeof AuthenticatedSurveysIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -245,10 +247,10 @@ export interface FileRoutesById {
   '/p/$token': typeof PTokenRoute
   '/apply/': typeof ApplyIndexRoute
   '/_authenticated/candidates/$id': typeof AuthenticatedCandidatesIdRoute
-  '/_authenticated/pulse/$id': typeof AuthenticatedPulseIdRoute
+  '/_authenticated/surveys/$id': typeof AuthenticatedSurveysIdRoute
   '/apply/position/$id': typeof ApplyPositionIdRoute
   '/_authenticated/candidates/': typeof AuthenticatedCandidatesIndexRoute
-  '/_authenticated/pulse/': typeof AuthenticatedPulseIndexRoute
+  '/_authenticated/surveys/': typeof AuthenticatedSurveysIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -274,10 +276,10 @@ export interface FileRouteTypes {
     | '/p/$token'
     | '/apply/'
     | '/candidates/$id'
-    | '/pulse/$id'
+    | '/surveys/$id'
     | '/apply/position/$id'
     | '/candidates/'
-    | '/pulse/'
+    | '/surveys/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -300,9 +302,10 @@ export interface FileRouteTypes {
     | '/p/$token'
     | '/apply'
     | '/candidates/$id'
-    | '/pulse/$id'
+    | '/surveys/$id'
     | '/apply/position/$id'
     | '/candidates'
+    | '/surveys'
   id:
     | '__root__'
     | '/'
@@ -327,10 +330,10 @@ export interface FileRouteTypes {
     | '/p/$token'
     | '/apply/'
     | '/_authenticated/candidates/$id'
-    | '/_authenticated/pulse/$id'
+    | '/_authenticated/surveys/$id'
     | '/apply/position/$id'
     | '/_authenticated/candidates/'
-    | '/_authenticated/pulse/'
+    | '/_authenticated/surveys/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -511,18 +514,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCandidatesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/pulse/': {
-      id: '/_authenticated/pulse/'
-      path: '/pulse'
-      fullPath: '/pulse/'
-      preLoaderRoute: typeof AuthenticatedPulseIndexRouteImport
+    '/_authenticated/surveys/': {
+      id: '/_authenticated/surveys/'
+      path: '/surveys'
+      fullPath: '/surveys/'
+      preLoaderRoute: typeof AuthenticatedSurveysIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/pulse/$id': {
-      id: '/_authenticated/pulse/$id'
-      path: '/pulse/$id'
-      fullPath: '/pulse/$id'
-      preLoaderRoute: typeof AuthenticatedPulseIdRouteImport
+    '/_authenticated/surveys/$id': {
+      id: '/_authenticated/surveys/$id'
+      path: '/surveys/$id'
+      fullPath: '/surveys/$id'
+      preLoaderRoute: typeof AuthenticatedSurveysIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/apply/position/$id': {
@@ -544,9 +547,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
   AuthenticatedCandidatesIdRoute: typeof AuthenticatedCandidatesIdRoute
-  AuthenticatedPulseIdRoute: typeof AuthenticatedPulseIdRoute
+  AuthenticatedSurveysIdRoute: typeof AuthenticatedSurveysIdRoute
   AuthenticatedCandidatesIndexRoute: typeof AuthenticatedCandidatesIndexRoute
-  AuthenticatedPulseIndexRoute: typeof AuthenticatedPulseIndexRoute
+  AuthenticatedSurveysIndexRoute: typeof AuthenticatedSurveysIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -558,9 +561,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
   AuthenticatedCandidatesIdRoute: AuthenticatedCandidatesIdRoute,
-  AuthenticatedPulseIdRoute: AuthenticatedPulseIdRoute,
+  AuthenticatedSurveysIdRoute: AuthenticatedSurveysIdRoute,
   AuthenticatedCandidatesIndexRoute: AuthenticatedCandidatesIndexRoute,
-  AuthenticatedPulseIndexRoute: AuthenticatedPulseIndexRoute,
+  AuthenticatedSurveysIndexRoute: AuthenticatedSurveysIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
