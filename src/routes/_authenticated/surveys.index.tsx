@@ -29,6 +29,7 @@ const STATUS: Record<string, string> = { draft: "Draft", open: "Open", closed: "
 
 function PulseList() {
   const { data, isLoading, refetch } = useQuery({ queryKey: ["pulse-list"], queryFn: () => listPulseSurveys() });
+  const { data: awaiting } = useQuery({ queryKey: ["pulse-awaiting"], queryFn: () => listPulseAwaiting() });
   const [open, setOpen] = useState(false);
   return (
     <div className="mx-auto max-w-5xl space-y-6">
