@@ -65,14 +65,14 @@ function AuthPage() {
     <MarketingShell>
       <div className="mx-auto max-w-md px-4 pt-8 pb-16 sm:pt-16">
         <div className="glass-strong rounded-3xl p-4 sm:p-8">
-          <h1 className="font-display text-2xl font-bold">
+          <h1 className="text-center font-display text-2xl font-bold">
             {invited
               ? "You've been invited"
               : mode === "signin"
                 ? "Welcome back, recruiter"
                 : "Build a better hiring experience"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-center text-sm text-muted-foreground">
             {invited
               ? "Enter your email to sign in, or to create your account if you're new to Talentloom."
               : mode === "signin"
