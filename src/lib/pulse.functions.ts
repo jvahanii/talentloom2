@@ -149,11 +149,13 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         kind: z.enum(["survey", "interview"]),
         ...Sharing,
         responseMode: z.enum(["link", "invite", "both"]),
+        inviteOrgId: Uuid.nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
+    const shareWithOrg = Boolean(data.inviteOrgId);
     const { data: row, error } = await sb
       .from("pulse_surveys")
       .insert({
@@ -164,13 +166,54 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         kind: data.kind,
         title: data.title,
         description: data.description || null,
-        response_mode: data.responseMode,
+        // A link-only survey can't be answered through a personal invite link,
+        // so switch it to "both" whenever it's being shared with the whole org.
+        response_mode: shareWithOrg && data.responseMode === "link" ? "both" : data.responseMode,
       })
       .select("id")
       .single();
     fail(error);
-    await saveSharing(sb, row.id, data);
-    return { id: row.id as string };
+    const surveyId = row.id as string;
+    await saveSharing(sb, surveyId, data);
+
+    let invited = 0;
+    let skipped = 0;
+    if (shareWithOrg) {
+      // Cap matches addPulseRespondents' own bulk-insert limit, so one very
+      // large organisation can't blow past the database/API payload limits.
+      const MAX_ORG_INVITE = 500;
+      const { data: members, error: membersError } = await sb
+        .from("organization_members")
+        .select("user_id")
+        .eq("org_id", data.inviteOrgId)
+        .neq("user_id", context.userId)
+        .limit(MAX_ORG_INVITE);
+      fail(membersError);
+      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))];
+      if (userIds.length) {
+        const { data: people, error: peopleError } = await sb
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+        fail(peopleError);
+        const found = (people ?? []) as Loose[];
+        const rows = found
+          .filter((p) => p.email)
+          .map((p) => ({ survey_id: surveyId, name: p.full_name || null, email: p.email }));
+        // Members without a profile row, or a profile with no email on file,
+        // can't get a personal invite link; let the caller know they were skipped.
+        skipped = userIds.length - rows.length;
+        if (rows.length) {
+          const { data: ins, error: insError } = await sb
+            .from("pulse_respondents")
+            .insert(rows)
+            .select("id");
+          fail(insError);
+          invited = (ins ?? []).length;
+        }
+      }
+    }
+    return { id: surveyId, invited, skipped };
   });
 
 export const getPulseSurvey = createServerFn({ method: "GET" })
@@ -615,7 +658,7 @@ async function resolveToken(token: string) {
 }
 
 export type PreviousAnswerValue = number | string | boolean | string[] | null;
-export type PreviousAnswers = { roundNumber: number; answers: Record<string, PreviousAnswerValue> };
+export type PreviousAnswers = { roundNumber: number; submittedAt: string; answers: Record<string, PreviousAnswerValue> }[];
 
 export const getPublicPulseForm = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ token: Uuid }).parse(d))
@@ -639,28 +682,28 @@ export const getPublicPulseForm = createServerFn({ method: "GET" })
       .eq("survey_id", survey.id)
       .order("position");
 
-    // This person's own answers from their most recent earlier round (personal links only).
+    // Only a personal token may reveal this respondent's own earlier answers.
     let previousAnswers: PreviousAnswers | null = null;
     if (respondent && round && survey.show_previous_answers) {
-      const { data: earlier } = await sb
+      const { data: earlier, error: historyError } = await sb
         .from("pulse_responses")
-        .select("id, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .select("id, submitted_at, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .eq("survey_id", survey.id)
         .eq("respondent_id", respondent.id)
         .lt("pulse_rounds.number", round.number);
-      const latest = ((earlier ?? []) as Loose[]).sort(
-        (a, b) => b.pulse_rounds.number - a.pulse_rounds.number,
-      )[0];
-      if (latest) {
-        previousAnswers = {
-          roundNumber: latest.pulse_rounds.number as number,
+      fail(historyError);
+      previousAnswers = ((earlier ?? []) as Loose[])
+        .sort((a, b) => b.pulse_rounds.number - a.pulse_rounds.number || b.submitted_at.localeCompare(a.submitted_at))
+        .map((response) => ({
+          roundNumber: response.pulse_rounds.number as number,
+          submittedAt: response.submitted_at as string,
           answers: Object.fromEntries(
-            ((latest.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
+            ((response.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
               a.question_id,
               a.value,
             ]),
           ),
-        };
-      }
+        }));
     }
 
     return {
