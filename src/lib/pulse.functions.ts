@@ -154,12 +154,16 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
 
     let invited = 0;
     if (shareWithOrg) {
+      // Organisations are small enough today for a single bulk insert; revisit
+      // with batching if org sizes grow large enough to risk one failing request.
       const { data: members, error: membersError } = await sb
         .from("organization_members")
         .select("user_id")
         .eq("org_id", data.orgId);
       fail(membersError);
-      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))];
+      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))].filter(
+        (id) => id !== context.userId,
+      );
       if (userIds.length) {
         const { data: people, error: peopleError } = await sb
           .from("profiles")
