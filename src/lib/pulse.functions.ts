@@ -658,7 +658,7 @@ async function resolveToken(token: string) {
 }
 
 export type PreviousAnswerValue = number | string | boolean | string[] | null;
-export type PreviousAnswers = { roundNumber: number; answers: Record<string, PreviousAnswerValue> };
+export type PreviousAnswers = { roundNumber: number; submittedAt: string; answers: Record<string, PreviousAnswerValue> }[];
 
 export const getPublicPulseForm = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ token: Uuid }).parse(d))
@@ -682,28 +682,28 @@ export const getPublicPulseForm = createServerFn({ method: "GET" })
       .eq("survey_id", survey.id)
       .order("position");
 
-    // This person's own answers from their most recent earlier round (personal links only).
+    // Only a personal token may reveal this respondent's own earlier answers.
     let previousAnswers: PreviousAnswers | null = null;
     if (respondent && round && survey.show_previous_answers) {
-      const { data: earlier } = await sb
+      const { data: earlier, error: historyError } = await sb
         .from("pulse_responses")
-        .select("id, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .select("id, submitted_at, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .eq("survey_id", survey.id)
         .eq("respondent_id", respondent.id)
         .lt("pulse_rounds.number", round.number);
-      const latest = ((earlier ?? []) as Loose[]).sort(
-        (a, b) => b.pulse_rounds.number - a.pulse_rounds.number,
-      )[0];
-      if (latest) {
-        previousAnswers = {
-          roundNumber: latest.pulse_rounds.number as number,
+      fail(historyError);
+      previousAnswers = ((earlier ?? []) as Loose[])
+        .sort((a, b) => b.pulse_rounds.number - a.pulse_rounds.number || b.submitted_at.localeCompare(a.submitted_at))
+        .map((response) => ({
+          roundNumber: response.pulse_rounds.number as number,
+          submittedAt: response.submitted_at as string,
           answers: Object.fromEntries(
-            ((latest.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
+            ((response.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
               a.question_id,
               a.value,
             ]),
           ),
-        };
-      }
+        }));
     }
 
     return {

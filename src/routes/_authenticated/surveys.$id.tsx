@@ -561,7 +561,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           <span>
             Show people their previous answers
             <span className="block text-xs text-muted-foreground">
-              From round 2 on, people answering through their personal link see what they answered last time.
+              From round 2 on, people answering through their personal link see their own earlier answers, newest first.
             </span>
           </span>
         </label>

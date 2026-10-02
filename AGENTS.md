@@ -10,3 +10,5 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+
+- Personal survey answer history is retrieved only after validating a respondent's personal token and the survey's visibility setting; this keeps anonymous and other respondents' answers private.
