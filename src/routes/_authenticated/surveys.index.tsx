@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
+import { OwnershipPicker, emptyOwnership, ownershipPayload, ownershipLabel } from "@/components/pulse/OwnershipPicker";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ function PulseList() {
             >
               <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                 {s.kind === "interview" ? <MessagesSquare className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
-                {s.kind === "interview" ? "Interview" : "Survey"} · {s.visibility === "org" ? "Organisation" : "Just me"}
+                {s.kind === "interview" ? "Interview" : "Survey"} · {ownershipLabel(s)}
                 <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 font-medium">{STATUS[s.status]}</span>
               </div>
               <p className="font-semibold">{s.title}</p>
@@ -99,21 +100,19 @@ function PulseList() {
 }
 
 function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
-  const { orgs, orgId } = useOrg();
+  const { orgId } = useOrg();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<"survey" | "interview">("survey");
-  const [visibility, setVisibility] = useState<"private" | "org">("private");
-  const [org, setOrg] = useState<string | null>(null);
+  const [own, setOwn] = useState(emptyOwnership());
+  const [emails, setEmails] = useState("");
   const [mode, setMode] = useState<"link" | "invite" | "both">("both");
   const [shareWithOrg, setShareWithOrg] = useState(false);
   const [busy, setBusy] = useState(false);
-  const chosenOrg = org ?? orgId ?? null;
-  // Sharing with the whole org always needs org-visibility and a response mode
-  // that accepts personal invite links; derive the effective values instead of
-  // mutating the raw selections, so turning the switch off restores them.
-  const effectiveVisibility = shareWithOrg ? "org" : visibility;
+  // Sharing with the whole org always needs a response mode that accepts
+  // personal invite links; derive the effective value instead of mutating
+  // the raw selection, so turning the switch off restores it.
   const effectiveMode = shareWithOrg && mode === "link" ? "both" : mode;
 
   return (
@@ -130,10 +129,9 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                   title,
                   description,
                   kind,
-                  visibility: effectiveVisibility,
-                  orgId: effectiveVisibility === "org" ? chosenOrg : null,
+                  ...ownershipPayload(own, emails),
                   responseMode: effectiveMode,
-                  inviteOrg: shareWithOrg,
+                  inviteOrgId: shareWithOrg ? orgId : null,
                 },
               });
               if (shareWithOrg && invited) {
@@ -161,6 +159,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             <Label htmlFor="pd">Description</Label>
             <Textarea id="pd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
           </div>
+          <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Type</Label>
@@ -172,31 +171,6 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Who owns it</Label>
-              <Select
-                value={effectiveVisibility}
-                disabled={shareWithOrg}
-                onValueChange={(v) => setVisibility(v as typeof visibility)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">Just me</SelectItem>
-                  <SelectItem value="org" disabled={!orgs.length}>My organisation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {effectiveVisibility === "org" && (
-              <div className="space-y-2">
-                <Label>Organisation</Label>
-                <Select value={chosenOrg ?? undefined} onValueChange={setOrg}>
-                  <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-                  <SelectContent>
-                    {orgs.map((o) => <SelectItem key={o.org_id} value={o.org_id}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             {kind === "survey" && (
               <div className="space-y-2">
                 <Label>How people answer</Label>
@@ -219,7 +193,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             <div className="mr-auto">
               <Label htmlFor="pulse-share-org">Share with my organisation</Label>
               <p className="text-xs text-muted-foreground">
-                {orgs.length
+                {orgId
                   ? "Sends an invite link to everyone in your organisation as soon as you create it."
                   : "Join or create an organisation to share surveys with its members."}
               </p>
@@ -227,7 +201,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             <Switch
               id="pulse-share-org"
               checked={shareWithOrg}
-              disabled={!orgs.length}
+              disabled={!orgId}
               onCheckedChange={setShareWithOrg}
             />
           </div>
