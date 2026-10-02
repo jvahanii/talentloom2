@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
+import { OwnershipPicker, emptyOwnership, ownershipPayload, ownershipLabel } from "@/components/pulse/OwnershipPicker";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/surveys/")({
   head: () => ({
@@ -81,7 +83,7 @@ function PulseList() {
             >
               <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                 {s.kind === "interview" ? <MessagesSquare className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
-                {s.kind === "interview" ? "Interview" : "Survey"} · {s.visibility === "org" ? "Organisation" : "Just me"}
+                {s.kind === "interview" ? "Interview" : "Survey"} · {ownershipLabel(s)}
                 <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 font-medium">{STATUS[s.status]}</span>
               </div>
               <p className="font-semibold">{s.title}</p>
@@ -98,16 +100,20 @@ function PulseList() {
 }
 
 function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
-  const { orgs, orgId } = useOrg();
+  const { orgId } = useOrg();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<"survey" | "interview">("survey");
-  const [visibility, setVisibility] = useState<"private" | "org">("private");
-  const [org, setOrg] = useState<string | null>(null);
+  const [own, setOwn] = useState(emptyOwnership());
+  const [emails, setEmails] = useState("");
   const [mode, setMode] = useState<"link" | "invite" | "both">("both");
+  const [shareWithOrg, setShareWithOrg] = useState(false);
   const [busy, setBusy] = useState(false);
-  const chosenOrg = org ?? orgId ?? null;
+  // Sharing with the whole org always needs a response mode that accepts
+  // personal invite links; derive the effective value instead of mutating
+  // the raw selection, so turning the switch off restores it.
+  const effectiveMode = shareWithOrg && mode === "link" ? "both" : mode;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -118,9 +124,22 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             e.preventDefault();
             setBusy(true);
             try {
-              const { id } = await createPulseSurvey({
-                data: { title, description, kind, visibility, orgId: visibility === "org" ? chosenOrg : null, responseMode: mode },
+              const { id, invited, skipped } = await createPulseSurvey({
+                data: {
+                  title,
+                  description,
+                  kind,
+                  ...ownershipPayload(own, emails),
+                  responseMode: effectiveMode,
+                  inviteOrgId: shareWithOrg ? orgId : null,
+                },
               });
+              if (shareWithOrg && invited) {
+                toast.success(
+                  `Invite link sent to ${invited} ${invited === 1 ? "person" : "people"} in your organisation` +
+                    (skipped ? ` (${skipped} skipped — no email on file)` : ""),
+                );
+              }
               onCreated();
               onOpenChange(false);
               navigate({ to: "/surveys/$id", params: { id } });
@@ -140,6 +159,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             <Label htmlFor="pd">Description</Label>
             <Textarea id="pd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
           </div>
+          <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Type</Label>
@@ -151,31 +171,14 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Who owns it</Label>
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">Just me</SelectItem>
-                  <SelectItem value="org" disabled={!orgs.length}>My organisation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {visibility === "org" && (
-              <div className="space-y-2">
-                <Label>Organisation</Label>
-                <Select value={chosenOrg ?? undefined} onValueChange={setOrg}>
-                  <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-                  <SelectContent>
-                    {orgs.map((o) => <SelectItem key={o.org_id} value={o.org_id}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             {kind === "survey" && (
               <div className="space-y-2">
                 <Label>How people answer</Label>
-                <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+                <Select
+                  value={effectiveMode}
+                  disabled={shareWithOrg && mode === "link"}
+                  onValueChange={(v) => setMode(v as typeof mode)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="link">Anyone with the link</SelectItem>
@@ -185,6 +188,22 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 </Select>
               </div>
             )}
+          </div>
+          <div className="flex items-center justify-end gap-3 rounded-xl border-2 border-border bg-secondary/30 p-3">
+            <div className="mr-auto">
+              <Label htmlFor="pulse-share-org">Share with my organisation</Label>
+              <p className="text-xs text-muted-foreground">
+                {orgId
+                  ? "Sends an invite link to everyone in your organisation as soon as you create it."
+                  : "Join or create an organisation to share surveys with its members."}
+              </p>
+            </div>
+            <Switch
+              id="pulse-share-org"
+              checked={shareWithOrg}
+              disabled={!orgId}
+              onCheckedChange={setShareWithOrg}
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

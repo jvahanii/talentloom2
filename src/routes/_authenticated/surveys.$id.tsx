@@ -17,6 +17,7 @@ import {
   type PulseQuestion,
   type QuestionType,
 } from "@/lib/pulse.functions";
+import { OwnershipPicker, ownershipPayload, ownershipLabel, type Ownership } from "@/components/pulse/OwnershipPicker";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { AnswerForm } from "@/components/pulse/AnswerForm";
@@ -73,7 +74,7 @@ function SurveyPage() {
       <div>
         <h1 className="text-2xl font-bold">{survey.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {isInterview ? "Structured interview" : "Survey"} · {survey.visibility === "org" ? "Organisation" : "Just me"} ·{" "}
+          {isInterview ? "Structured interview" : "Survey"} · {ownershipLabel(survey)} ·{" "}
           {rounds.length} round{rounds.length === 1 ? "" : "s"}
         </p>
       </div>
@@ -514,8 +515,14 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
   const [title, setTitle] = useState(survey.title);
   const [description, setDescription] = useState(survey.description ?? "");
   const [mode, setMode] = useState(survey.response_mode);
-  const [visibility, setVisibility] = useState(survey.visibility);
-  const [org, setOrg] = useState(survey.org_id ?? orgs[0]?.org_id ?? null);
+  const [own, setOwn] = useState<Ownership>({
+    allOrgs: !!survey.all_orgs,
+    orgIds: survey.orgIds ?? [],
+    ownerEmails: survey.ownerEmails ?? [],
+    selected: !!survey.orgIds?.length,
+    invite: !!survey.ownerEmails?.length,
+  });
+  const [emails, setEmails] = useState((survey.ownerEmails ?? []).join(", "));
   const [showPrevious, setShowPrevious] = useState(survey.show_previous_answers ?? true);
   return (
     <div className="max-w-xl space-y-4">
@@ -527,28 +534,8 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
         <Label htmlFor="sd">Description</Label>
         <Textarea id="sd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
       </div>
+      <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Who owns it</Label>
-          <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="private">Just me</SelectItem>
-              <SelectItem value="org" disabled={!orgs.length}>My organisation</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {visibility === "org" && (
-          <div className="space-y-2">
-            <Label>Organisation</Label>
-            <Select value={org ?? undefined} onValueChange={setOrg}>
-              <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-              <SelectContent>
-                {orgs.map((o) => <SelectItem key={o.org_id} value={o.org_id}>{o.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
         {survey.kind === "survey" && (
           <div className="space-y-2">
             <Label>How people answer</Label>
@@ -574,7 +561,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           <span>
             Show people their previous answers
             <span className="block text-xs text-muted-foreground">
-              From round 2 on, people answering through their personal link see what they answered last time.
+              From round 2 on, people answering through their personal link see their own earlier answers, newest first.
             </span>
           </span>
         </label>
@@ -585,7 +572,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           onClick={async () => {
             try {
               await updatePulseSurvey({
-                data: { id: survey.id, title, description: description || null, responseMode: mode, visibility, orgId: visibility === "org" ? org : null, showPreviousAnswers: showPrevious },
+                data: { id: survey.id, title, description: description || null, responseMode: mode, ...ownershipPayload(own, emails), showPreviousAnswers: showPrevious },
               });
               toast.success("Saved");
               onChange();

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/app-client";
 
-export type OrgRole = "owner" | "admin" | "member" | "viewer";
+export type OrgRole = "owner" | "admin" | "member";
 
 export const PERMISSIONS = [
   "view_candidates",

@@ -42,6 +42,11 @@ export type PulseSurvey = {
   response_mode: "link" | "invite" | "both";
   status: "draft" | "open" | "closed";
   show_previous_answers: boolean;
+  all_orgs: boolean;
+  orgIds?: string[];
+  ownerEmails?: string[];
+  orgCount?: number;
+  ownerCount?: number;
   created_at: string;
   updated_at: string;
 };
@@ -49,6 +54,40 @@ export type PulseSurvey = {
 const Uuid = z.string().uuid();
 const AnswerValue = z.union([z.number(), z.string().max(5000), z.boolean(), z.array(z.string().max(500)).max(50), z.null()]);
 const Answers = z.record(Uuid, AnswerValue);
+
+const Sharing = {
+  allOrgs: z.boolean(),
+  orgIds: z.array(Uuid).max(50),
+  ownerEmails: z.array(z.string().trim().toLowerCase().email().max(255)).max(100),
+};
+
+async function saveSharing(
+  sb: Loose,
+  surveyId: string,
+  d: { allOrgs: boolean; orgIds: string[]; ownerEmails: string[] },
+  userId: string,
+) {
+  if (d.allOrgs) {
+    // "All my organisations": store the editor's current orgs as real links so the
+    // survey stays with those orgs even if its creator later leaves them.
+    const { data: mem, error: me } = await sb.from("organization_members").select("org_id").eq("user_id", userId);
+    fail(me);
+    const { data: existing, error: ee } = await sb.from("pulse_survey_orgs").select("org_id").eq("survey_id", surveyId);
+    fail(ee);
+    const have = new Set(((existing ?? []) as Loose[]).map((x) => x.org_id as string));
+    const want = new Set([...d.orgIds, ...((mem ?? []) as Loose[]).map((x) => x.org_id as string)]);
+    const add = [...want].filter((id) => !have.has(id));
+    if (add.length)
+      fail((await sb.from("pulse_survey_orgs").insert(add.map((org_id) => ({ survey_id: surveyId, org_id })))).error);
+  } else {
+    fail((await sb.from("pulse_survey_orgs").delete().eq("survey_id", surveyId)).error);
+    if (d.orgIds.length)
+      fail((await sb.from("pulse_survey_orgs").insert(d.orgIds.map((org_id) => ({ survey_id: surveyId, org_id })))).error);
+  }
+  fail((await sb.from("pulse_survey_owners").delete().eq("survey_id", surveyId)).error);
+  if (d.ownerEmails.length)
+    fail((await sb.from("pulse_survey_owners").insert(d.ownerEmails.map((email) => ({ survey_id: surveyId, email })))).error);
+}
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -60,7 +99,7 @@ export const listPulseSurveys = createServerFn({ method: "GET" })
     const sb = context.supabase as Loose;
     const { data, error } = await sb
       .from("pulse_surveys")
-      .select("*, pulse_rounds(id, number, status), pulse_responses(id, round_id)")
+      .select("*, pulse_rounds(id, number, status), pulse_responses(id, round_id), pulse_survey_orgs(org_id), pulse_survey_owners(email)")
       .order("updated_at", { ascending: false });
     fail(error);
     return (data ?? []).map((s: Loose) => {
@@ -70,6 +109,10 @@ export const listPulseSurveys = createServerFn({ method: "GET" })
         ...(s as PulseSurvey),
         pulse_rounds: undefined,
         pulse_responses: undefined,
+        pulse_survey_orgs: undefined,
+        pulse_survey_owners: undefined,
+        orgCount: (s.pulse_survey_orgs ?? []).length,
+        ownerCount: (s.pulse_survey_owners ?? []).length,
         roundCount: rounds.length,
         latestResponses: latest
           ? (s.pulse_responses ?? []).filter((r: Loose) => r.round_id === latest.id).length
@@ -123,30 +166,73 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         title: z.string().trim().min(1).max(200),
         description: z.string().trim().max(2000).optional(),
         kind: z.enum(["survey", "interview"]),
-        visibility: z.enum(["private", "org"]),
-        orgId: Uuid.nullable(),
+        ...Sharing,
         responseMode: z.enum(["link", "invite", "both"]),
+        inviteOrgId: Uuid.nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
-    if (data.visibility === "org" && !data.orgId) throw new Error("Choose an organisation first");
+    const shareWithOrg = Boolean(data.inviteOrgId);
     const { data: row, error } = await sb
       .from("pulse_surveys")
       .insert({
         owner_id: context.userId,
-        org_id: data.orgId,
-        visibility: data.visibility,
+        org_id: null,
+        visibility: data.allOrgs || data.orgIds.length ? "org" : "private",
+        all_orgs: data.allOrgs,
         kind: data.kind,
         title: data.title,
         description: data.description || null,
-        response_mode: data.responseMode,
+        // A link-only survey can't be answered through a personal invite link,
+        // so switch it to "both" whenever it's being shared with the whole org.
+        response_mode: shareWithOrg && data.responseMode === "link" ? "both" : data.responseMode,
       })
       .select("id")
       .single();
     fail(error);
-    return { id: row.id as string };
+    const surveyId = row.id as string;
+    await saveSharing(sb, surveyId, data, context.userId);
+
+    let invited = 0;
+    let skipped = 0;
+    if (shareWithOrg) {
+      // Cap matches addPulseRespondents' own bulk-insert limit, so one very
+      // large organisation can't blow past the database/API payload limits.
+      const MAX_ORG_INVITE = 500;
+      const { data: members, error: membersError } = await sb
+        .from("organization_members")
+        .select("user_id")
+        .eq("org_id", data.inviteOrgId)
+        .neq("user_id", context.userId)
+        .limit(MAX_ORG_INVITE);
+      fail(membersError);
+      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))];
+      if (userIds.length) {
+        const { data: people, error: peopleError } = await sb
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+        fail(peopleError);
+        const found = (people ?? []) as Loose[];
+        const rows = found
+          .filter((p) => p.email)
+          .map((p) => ({ survey_id: surveyId, name: p.full_name || null, email: p.email }));
+        // Members without a profile row, or a profile with no email on file,
+        // can't get a personal invite link; let the caller know they were skipped.
+        skipped = userIds.length - rows.length;
+        if (rows.length) {
+          const { data: ins, error: insError } = await sb
+            .from("pulse_respondents")
+            .insert(rows)
+            .select("id");
+          fail(insError);
+          invited = (ins ?? []).length;
+        }
+      }
+    }
+    return { id: surveyId, invited, skipped };
   });
 
 export const getPulseSurvey = createServerFn({ method: "GET" })
@@ -154,7 +240,7 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
-    const [s, q, r, p, resp, manage] = await Promise.all([
+    const [s, q, r, p, resp, manage, so, sw] = await Promise.all([
       sb.from("pulse_surveys").select("*").eq("id", data.id).maybeSingle(),
       sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
       sb.from("pulse_rounds").select("*").eq("survey_id", data.id).order("number"),
@@ -162,6 +248,8 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
       sb.from("pulse_responses").select("id, round_id, respondent_id").eq("survey_id", data.id),
       // Survey owner, or an org owner/admin. Others only get their own respondent row (RLS).
       sb.rpc("can_manage_pulse_survey", { _survey: data.id }),
+      sb.from("pulse_survey_orgs").select("org_id").eq("survey_id", data.id),
+      sb.from("pulse_survey_owners").select("email").eq("survey_id", data.id),
     ]);
     fail(s.error);
     if (!s.data) throw new Error("Survey not found");
@@ -169,7 +257,14 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
     const rounds = (r.data ?? []) as Loose[];
     const roundNo = new Map(rounds.map((x) => [x.id, x.number as number]));
     return {
-      survey: s.data as PulseSurvey,
+      survey: {
+        ...(s.data as PulseSurvey),
+        // With "All my organisations" on, the links are automatic — don't show them as hand-picked.
+        orgIds: s.data.all_orgs ? [] : ((so.data ?? []) as Loose[]).map((x) => x.org_id as string),
+        ownerEmails: ((sw.data ?? []) as Loose[]).map((x) => x.email as string),
+        orgCount: (so.data ?? []).length,
+        ownerCount: (sw.data ?? []).length,
+      } as PulseSurvey,
       canManagePeople: manage.data === true,
       questions: (q.data ?? []) as PulseQuestion[],
       rounds: rounds.map((x) => ({
@@ -198,8 +293,7 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
         title: z.string().trim().min(1).max(200),
         description: z.string().trim().max(2000).nullable(),
         responseMode: z.enum(["link", "invite", "both"]),
-        visibility: z.enum(["private", "org"]),
-        orgId: Uuid.nullable(),
+        ...Sharing,
         showPreviousAnswers: z.boolean(),
       })
       .parse(d),
@@ -213,11 +307,13 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
         title: data.title,
         description: data.description,
         response_mode: data.responseMode,
-        visibility: data.visibility,
-        org_id: data.visibility === "org" ? data.orgId : null,
+        visibility: data.allOrgs || data.orgIds.length ? "org" : "private",
+        all_orgs: data.allOrgs,
+        org_id: null,
       })
       .eq("id", data.id);
     fail(error);
+    await saveSharing(sb, data.id, data, context.userId);
     return { ok: true };
   });
 
@@ -225,7 +321,36 @@ export const deletePulseSurvey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await (context.supabase as Loose).from("pulse_surveys").delete().eq("id", data.id);
+    const sb = context.supabase as Loose;
+    // A survey shared with organisations belongs to them too: once its creator has
+    // left every linked org, only an org member who can manage titles may delete it.
+    const { data: survey, error: se } = await sb.from("pulse_surveys").select("owner_id").eq("id", data.id).single();
+    fail(se);
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const admin = supabaseAdmin as Loose;
+    const { data: links, error: le } = await admin.from("pulse_survey_orgs").select("org_id").eq("survey_id", data.id);
+    fail(le);
+    const orgIds = ((links ?? []) as Loose[]).map((x) => x.org_id as string);
+    if (orgIds.length) {
+      const { data: mem, error: me } = await admin
+        .from("organization_members")
+        .select("org_id, title_id, organization_titles(can_manage_titles)")
+        .eq("user_id", context.userId)
+        .in("org_id", orgIds);
+      fail(me);
+      const memberships = (mem ?? []) as Loose[];
+      const isCreator = survey.owner_id === context.userId;
+      const canManage = memberships.some((m) => m.organization_titles?.can_manage_titles);
+      if (isCreator && memberships.length === 0) {
+        throw new Error(
+          "This survey is shared with an organisation you have left. Ask someone in that organisation who can manage titles to delete it.",
+        );
+      }
+      if (!isCreator && !canManage) {
+        throw new Error("Only someone who can manage titles in a linked organisation can delete this survey.");
+      }
+    }
+    const { error } = await sb.from("pulse_surveys").delete().eq("id", data.id);
     fail(error);
     return { ok: true };
   });
@@ -582,7 +707,7 @@ async function resolveToken(token: string) {
 }
 
 export type PreviousAnswerValue = number | string | boolean | string[] | null;
-export type PreviousAnswers = { roundNumber: number; answers: Record<string, PreviousAnswerValue> };
+export type PreviousAnswers = { roundNumber: number; submittedAt: string; answers: Record<string, PreviousAnswerValue> }[];
 
 export const getPublicPulseForm = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ token: Uuid }).parse(d))
@@ -606,28 +731,28 @@ export const getPublicPulseForm = createServerFn({ method: "GET" })
       .eq("survey_id", survey.id)
       .order("position");
 
-    // This person's own answers from their most recent earlier round (personal links only).
+    // Only a personal token may reveal this respondent's own earlier answers.
     let previousAnswers: PreviousAnswers | null = null;
     if (respondent && round && survey.show_previous_answers) {
-      const { data: earlier } = await sb
+      const { data: earlier, error: historyError } = await sb
         .from("pulse_responses")
-        .select("id, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .select("id, submitted_at, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .eq("survey_id", survey.id)
         .eq("respondent_id", respondent.id)
         .lt("pulse_rounds.number", round.number);
-      const latest = ((earlier ?? []) as Loose[]).sort(
-        (a, b) => b.pulse_rounds.number - a.pulse_rounds.number,
-      )[0];
-      if (latest) {
-        previousAnswers = {
-          roundNumber: latest.pulse_rounds.number as number,
+      fail(historyError);
+      previousAnswers = ((earlier ?? []) as Loose[])
+        .sort((a, b) => b.pulse_rounds.number - a.pulse_rounds.number || b.submitted_at.localeCompare(a.submitted_at))
+        .map((response) => ({
+          roundNumber: response.pulse_rounds.number as number,
+          submittedAt: response.submitted_at as string,
           answers: Object.fromEntries(
-            ((latest.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
+            ((response.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
               a.question_id,
               a.value,
             ]),
           ),
-        };
-      }
+        }));
     }
 
     return {
