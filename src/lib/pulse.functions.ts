@@ -321,7 +321,36 @@ export const deletePulseSurvey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await (context.supabase as Loose).from("pulse_surveys").delete().eq("id", data.id);
+    const sb = context.supabase as Loose;
+    // A survey shared with organisations belongs to them too: once its creator has
+    // left every linked org, only an org member who can manage titles may delete it.
+    const { data: survey, error: se } = await sb.from("pulse_surveys").select("owner_id").eq("id", data.id).single();
+    fail(se);
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const admin = supabaseAdmin as Loose;
+    const { data: links, error: le } = await admin.from("pulse_survey_orgs").select("org_id").eq("survey_id", data.id);
+    fail(le);
+    const orgIds = ((links ?? []) as Loose[]).map((x) => x.org_id as string);
+    if (orgIds.length) {
+      const { data: mem, error: me } = await admin
+        .from("organization_members")
+        .select("org_id, title_id, organization_titles(can_manage_titles)")
+        .eq("user_id", context.userId)
+        .in("org_id", orgIds);
+      fail(me);
+      const memberships = (mem ?? []) as Loose[];
+      const isCreator = survey.owner_id === context.userId;
+      const canManage = memberships.some((m) => m.organization_titles?.can_manage_titles);
+      if (isCreator && memberships.length === 0) {
+        throw new Error(
+          "This survey is shared with an organisation you have left. Ask someone in that organisation who can manage titles to delete it.",
+        );
+      }
+      if (!isCreator && !canManage) {
+        throw new Error("Only someone who can manage titles in a linked organisation can delete this survey.");
+      }
+    }
+    const { error } = await sb.from("pulse_surveys").delete().eq("id", data.id);
     fail(error);
     return { ok: true };
   });
