@@ -153,11 +153,10 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
     const surveyId = row.id as string;
 
     let invited = 0;
+    let skipped = 0;
     if (shareWithOrg) {
       // Cap matches addPulseRespondents' own bulk-insert limit, so one very
       // large organisation can't blow past the database/API payload limits.
-      // Fetch one extra row beyond the cap so excluding the creator below
-      // still leaves a full page when they happen to be in it.
       const MAX_ORG_INVITE = 500;
       const { data: members, error: membersError } = await sb
         .from("organization_members")
@@ -173,9 +172,13 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
           .select("id, email, full_name")
           .in("id", userIds);
         fail(peopleError);
-        const rows = ((people ?? []) as Loose[])
+        const found = (people ?? []) as Loose[];
+        const rows = found
           .filter((p) => p.email)
           .map((p) => ({ survey_id: surveyId, name: p.full_name || null, email: p.email }));
+        // Members without a profile row, or a profile with no email on file,
+        // can't get a personal invite link; let the caller know they were skipped.
+        skipped = userIds.length - rows.length;
         if (rows.length) {
           const { data: ins, error: insError } = await sb
             .from("pulse_respondents")
@@ -186,7 +189,7 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         }
       }
     }
-    return { id: surveyId, invited };
+    return { id: surveyId, invited, skipped };
   });
 
 export const getPulseSurvey = createServerFn({ method: "GET" })

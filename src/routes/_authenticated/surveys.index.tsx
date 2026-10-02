@@ -125,7 +125,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             e.preventDefault();
             setBusy(true);
             try {
-              const { id, invited } = await createPulseSurvey({
+              const { id, invited, skipped } = await createPulseSurvey({
                 data: {
                   title,
                   description,
@@ -137,7 +137,10 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 },
               });
               if (shareWithOrg && invited) {
-                toast.success(`Invite link sent to ${invited} ${invited === 1 ? "person" : "people"} in your organisation`);
+                toast.success(
+                  `Invite link sent to ${invited} ${invited === 1 ? "person" : "people"} in your organisation` +
+                    (skipped ? ` (${skipped} skipped — no email on file)` : ""),
+                );
               }
               onCreated();
               onOpenChange(false);
