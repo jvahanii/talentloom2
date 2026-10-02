@@ -222,6 +222,9 @@ function PulseLanding() {
             Talentloom
           </Link>
         </p>
+        <Link to="/docs" className="mt-2 inline-block underline hover:text-foreground">
+          User guide
+        </Link>
       </footer>
     </div>
   );
