@@ -4,7 +4,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils";
 import type { PreviousAnswers, PulseQuestion } from "@/lib/pulse.functions";
 
-export type AnswerMap = Record<string, number | string | boolean | string[] | null>;
+export type RatingReason = { rating: number | null; reason: string };
+export type AnswerMap = Record<string, RatingReason | number | string | boolean | string[] | null>;
 
 function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -26,6 +27,11 @@ function formatPrevious(value: unknown): string | null {
   if (value === true) return "Yes";
   if (value === false) return "No";
   if (Array.isArray(value)) return value.length ? value.join(", ") : null;
+  if (typeof value === "object") {
+    const { rating, reason } = value as Partial<RatingReason>;
+    const parts = [rating != null ? `${rating} / 5` : null, reason?.trim() || null].filter(Boolean);
+    return parts.length ? parts.join(" — ") : null;
+  }
   return String(value);
 }
 
@@ -62,8 +68,10 @@ function AnswerHistory({ question, previous }: { question: PulseQuestion; previo
     .map((round) => ({ roundNumber: round.roundNumber, submittedAt: round.submittedAt, value: round.answers[question.id] }))
     .filter((entry) => formatPrevious(entry.value) !== null);
   if (!entries.length) return null;
-  const ratings = question.type === "rating"
-    ? entries.filter((entry): entry is typeof entry & { value: number } => typeof entry.value === "number" && entry.value >= 1 && entry.value <= 5)
+  const ratings = question.type === "rating" || question.type === "rating_text"
+    ? entries
+        .map((entry) => ({ roundNumber: entry.roundNumber, value: typeof entry.value === "number" ? entry.value : (entry.value as Partial<RatingReason> | null)?.rating ?? null }))
+        .filter((entry): entry is { roundNumber: number; value: number } => typeof entry.value === "number" && entry.value >= 1 && entry.value <= 5)
     : [];
 
   return (
@@ -118,7 +126,7 @@ export function AnswerForm({
         const miss = questions
           .filter((q) => {
             const v = answers[q.id];
-            return q.required && (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length));
+            return q.required && (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length) || (q.type === "rating_text" && (v as RatingReason).rating == null));
           })
           .map((q) => q.id);
         setMissing(miss);
@@ -146,6 +154,23 @@ export function AnswerForm({
                 <span className="self-center text-xs text-muted-foreground">1 = low, 5 = high</span>
               </div>
             )}
+            {q.type === "rating_text" && (() => {
+              const rv: RatingReason = v && typeof v === "object" && !Array.isArray(v) ? (v as RatingReason) : { rating: null, reason: "" };
+              return (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Pill key={n} active={rv.rating === n} onClick={() => set(q.id, { ...rv, rating: n })}>{n}</Pill>
+                    ))}
+                    <span className="self-center text-xs text-muted-foreground">1 = low, 5 = high</span>
+                  </div>
+                  <label className="block text-sm text-muted-foreground">
+                    Why this rating? (optional)
+                    <Textarea className="mt-1" value={rv.reason} onChange={(e) => set(q.id, { ...rv, reason: e.target.value })} maxLength={5000} rows={3} />
+                  </label>
+                </div>
+              );
+            })()}
             {q.type === "yesno" && (
               <div className="flex gap-2">
                 <Pill active={v === true} onClick={() => set(q.id, true)}>Yes</Pill>

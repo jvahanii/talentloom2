@@ -6,7 +6,7 @@ import { z } from "zod";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
 
-export type QuestionType = "rating" | "single" | "multi" | "text" | "yesno";
+export type QuestionType = "rating" | "rating_text" | "single" | "multi" | "text" | "yesno";
 export type PulseQuestion = {
   id: string;
   position: number;
@@ -52,7 +52,12 @@ export type PulseSurvey = {
 };
 
 const Uuid = z.string().uuid();
-const AnswerValue = z.union([z.number(), z.string().max(5000), z.boolean(), z.array(z.string().max(500)).max(50), z.null()]);
+const RatingReason = z.object({ rating: z.number().int().min(1).max(5).nullable(), reason: z.string().max(5000) });
+const AnswerValue = z.union([RatingReason, z.number(), z.string().max(5000), z.boolean(), z.array(z.string().max(500)).max(50), z.null()]);
+function ratingOf(v: unknown): number | null {
+  if (v && typeof v === "object" && !Array.isArray(v)) { const r = (v as { rating?: unknown }).rating; return typeof r === "number" ? r : null; }
+  const n = Number(v); return Number.isNaN(n) ? null : n;
+}
 const Answers = z.record(Uuid, AnswerValue);
 
 const Sharing = {
@@ -365,7 +370,7 @@ export const savePulseQuestions = createServerFn({ method: "POST" })
           .array(
             z.object({
               id: Uuid.optional(),
-              type: z.enum(["rating", "single", "multi", "text", "yesno"]),
+              type: z.enum(["rating", "rating_text", "single", "multi", "text", "yesno"]),
               prompt: z.string().trim().min(1).max(1000),
               options: z.array(z.string().trim().min(1).max(300)).max(30),
               required: z.boolean(),
@@ -594,7 +599,12 @@ export const getPulseResults = createServerFn({ method: "GET" })
       const bump = (k: string) => (distribution[k] = (distribution[k] ?? 0) + 1);
       let mean: number | null = null;
       const texts: string[] = [];
-      if (qq.type === "rating") {
+      if (qq.type === "rating_text") {
+        const nums = vals.map(ratingOf).filter((n): n is number => n != null);
+        nums.forEach((n) => bump(String(n)));
+        mean = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+        vals.forEach((v) => { const t = (v as { reason?: string })?.reason?.trim(); if (t) texts.push(t); });
+      } else if (qq.type === "rating") {
         const nums = vals.map(Number).filter((n) => !Number.isNaN(n));
         nums.forEach((n) => bump(String(n)));
         mean = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
@@ -618,13 +628,13 @@ export const getPulseResults = createServerFn({ method: "GET" })
     });
 
     // Per-person: average rating score in the latest two rounds they're compared on.
-    const ratingIds = new Set(questions.filter((x) => x.type === "rating").map((x) => x.id));
+    const ratingIds = new Set(questions.filter((x) => x.type === "rating" || x.type === "rating_text").map((x) => x.id));
     const scoreIn = (pid: string, roundId: string | undefined) => {
       if (!roundId) return null;
       const nums = responses
         .filter((x) => x.respondent_id === pid && x.round_id === roundId)
-        .flatMap((x) => x.pulse_answers.filter((a) => ratingIds.has(a.question_id)).map((a) => Number(a.value)))
-        .filter((n) => !Number.isNaN(n));
+        .flatMap((x) => x.pulse_answers.filter((a) => ratingIds.has(a.question_id)).map((a) => ratingOf(a.value)))
+        .filter((n): n is number => n != null && !Number.isNaN(n));
       return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
     };
     const lastRound = rounds[rounds.length - 1]?.id;
@@ -706,7 +716,7 @@ async function resolveToken(token: string) {
   return { sb, survey, round, respondent, open };
 }
 
-export type PreviousAnswerValue = number | string | boolean | string[] | null;
+export type PreviousAnswerValue = { rating: number | null; reason: string } | number | string | boolean | string[] | null;
 export type PreviousAnswers = { roundNumber: number; submittedAt: string; answers: Record<string, PreviousAnswerValue> }[];
 
 export const getPublicPulseForm = createServerFn({ method: "GET" })
@@ -778,7 +788,7 @@ export const submitPublicPulse = createServerFn({ method: "POST" })
     const valid = new Map(((qs ?? []) as Loose[]).map((x) => [x.id, x]));
     for (const qq of valid.values()) {
       const v = data.answers[qq.id];
-      if (qq.required && (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)))
+      if (qq.required && (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length) || (qq.type === "rating_text" && ratingOf(v) == null)))
         throw new Error("Please answer all required questions");
     }
     if (respondent) {
