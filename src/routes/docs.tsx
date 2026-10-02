@@ -318,6 +318,10 @@ function Docs() {
                 text: <>In <strong>Who owns it</strong>, you always keep access as creator. You can also share access with all your organisations, selected organisations, and invited users by email. Combine organisation sharing with invited users; they can see and edit after signing in. Sharing access does not itself invite someone to answer.</>,
               },
               {
+                icon: Send,
+                text: <>To add your current organisation’s members as respondents when creating a survey, turn on <strong>Share with my organisation</strong>. This adds personal links for members with an email on file; use <strong>Invited people</strong> to copy and send those links yourself.</>,
+              },
+              {
                 icon: Star,
                 text: <>In <strong>Questions</strong>, add and reorder 1–5 ratings, rating with optional reason, single or multiple choice, free text, and yes/no questions. Mark questions required as needed, then save. Keep the wording stable between rounds for meaningful comparisons.</>,
               },
@@ -336,6 +340,10 @@ function Docs() {
               {
                 icon: MessagesSquare,
                 text: <>Invited signed-in respondents with an unanswered open survey see it under <strong>Waiting for your answer</strong> in Pulse surveys. If enabled in survey <strong>Settings</strong>, their personal link shows their own earlier answers beneath each question, newest first; ratings also show a trend when enough answers exist. Public-link answers do not show personal history.</>,
+              },
+              {
+                icon: ShieldCheck,
+                text: <>Manage the survey’s title, sharing, answer mode, and answer-history setting in <strong>Settings</strong>. Deleting a survey removes its answers. If a creator has left every organisation linked to it, only a member of a linked organisation with title-management permission can delete it.</>,
               },
             ]} />
           </Section>
