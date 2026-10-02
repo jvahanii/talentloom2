@@ -496,3 +496,20 @@
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ---------- Clerk sign-in box centring ---------- */
+/* The Clerk widget is wider than the glass card on narrow screens and hugs the
+   right edge — keep it centred and capped to the card width. */
+.cl-signIn-root,
+.cl-signUp-root {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.cl-rootBox {
+  margin-inline: auto !important;
+  max-width: 100% !important;
+}
+.cl-rootBox .cl-card {
+  max-width: 100% !important;
+}

@@ -64,7 +64,7 @@ function AuthPage() {
   return (
     <MarketingShell>
       <div className="mx-auto max-w-md px-4 pt-8 pb-16 sm:pt-16">
-        <div className="glass-strong rounded-3xl p-6 sm:p-8">
+        <div className="glass-strong rounded-3xl p-4 sm:p-8">
           <h1 className="font-display text-2xl font-bold">
             {invited
               ? "You've been invited"
