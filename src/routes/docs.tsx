@@ -16,18 +16,28 @@ import {
   ShieldCheck,
   Smartphone,
   Clock3,
+  Activity,
+  Users,
+  Star,
+  TrendingUp,
+  MessagesSquare,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/docs")({
   head: () => ({
     meta: [
-      { title: "Talentloom user guide" },
+      { title: "Talentloom & Pulse user guide" },
       {
         name: "description",
         content:
-          "Learn how to find roles, manage applications, and run your hiring workspace with Talentloom.",
+          "Learn how to apply for roles, manage hiring, and run recurring surveys and structured interviews with Talentloom Pulse.",
       },
+      { property: "og:title", content: "Talentloom & Pulse user guide" },
+      { property: "og:description", content: "A practical guide to candidate applications, organisation hiring and Talentloom Pulse surveys." },
+      { property: "og:type", content: "article" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Docs,
@@ -113,8 +123,7 @@ function Docs() {
             Talentloom <span className="text-duotone">user guide</span>
           </h1>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            Everything you need to find a role or run a clear, organised hiring process — explained
-            step by step.
+            Find a role, run your organisation’s hiring, or follow responses over time with Pulse.
           </p>
         </header>
 
@@ -126,8 +135,8 @@ function Docs() {
                   icon: Search,
                   text: (
                     <>
-                      Open <strong>Find a role</strong> to browse public opportunities. Search by
-                      title, department, or company, then filter and sort the results.
+                      Open <strong>Find a role</strong> to browse public positions. Search by keyword,
+                      filter by company, and sort by newest, rating, deadline, or company.
                     </>
                   ),
                 },
@@ -135,7 +144,7 @@ function Docs() {
                   icon: FileText,
                   text: (
                     <>
-                      Open a position to read its description, dates, and hiring manager, then
+                      Open a position to read its description and dates, then
                       select <strong>Apply for this position</strong>.
                     </>
                   ),
@@ -144,8 +153,8 @@ function Docs() {
                   icon: Send,
                   text: (
                     <>
-                      Submit an application with your contact details and optional CV or cover
-                      letter. You can apply without an account.
+                      Submit your contact details and optional CV or cover letter. You can apply
+                      without an account; signed-in candidates go straight to <strong>My applications</strong>.
                     </>
                   ),
                 },
@@ -153,8 +162,9 @@ function Docs() {
                   icon: UserRound,
                   text: (
                     <>
-                      Create a candidate account with email, Google, or a magic link to connect past
-                      applications, track their stages, and save a shortlist.
+                      Sign in as a candidate to see your applications and their stages. Rate
+                      positions from 1–5 stars, sort by rating, or discard and restore positions;
+                      use the Active, Rated, and Discarded views to organise your search.
                     </>
                   ),
                 },
@@ -162,8 +172,9 @@ function Docs() {
                   icon: FolderHeart,
                   text: (
                     <>
-                      Use <strong>My applications</strong> to upload, label, rename, download, or
-                      delete reusable CVs and cover letters.
+                      Open <strong>My applications</strong> to view submitted documents and stages.
+                      In <strong>My documents</strong>, save, label, rename, open, or delete CVs and
+                      cover letters for reuse when applying.
                     </>
                   ),
                 },
@@ -174,7 +185,7 @@ function Docs() {
           <Section
             icon={Building2}
             title="For recruiting teams"
-            blurb="One shared funnel for your whole team."
+            blurb="One shared candidate flow for your team."
           >
             <StepList
               steps={[
@@ -182,8 +193,8 @@ function Docs() {
                   icon: UserRound,
                   text: (
                     <>
-                      Sign up with email or Google and complete onboarding with your personal and
-                      company details. Start with sample data or import candidates from CSV.
+                      Create an account, create an organisation or join one with an invite, and
+                      choose it from the organisation switcher. Import candidates from CSV if needed.
                     </>
                   ),
                 },
@@ -191,8 +202,9 @@ function Docs() {
                   icon: Building2,
                   text: (
                     <>
-                      Create positions with a department, hiring manager, status, start date,
-                      application deadline, public description, internal notes, and attachments.
+                      In <strong>Positions</strong>, create a position with details, a start date,
+                      application deadline, description, notes, and attachments. Download all
+                      applicants’ attachments for a position as a ZIP file.
                     </>
                   ),
                 },
@@ -200,7 +212,7 @@ function Docs() {
                   icon: KanbanSquare,
                   text: (
                     <>
-                      Use the <strong>Funnel</strong> board to filter candidates by position or
+                      Use <strong>Candidate flow</strong> to filter candidates by position or
                       source, add candidates, and move them through Applied, Screen, Interview,
                       Offer, Hired, and Rejected.
                     </>
@@ -211,7 +223,7 @@ function Docs() {
                   text: (
                     <>
                       Open a candidate to edit their contact details, position, source, stage,
-                      rating, notes, and resume link. Upload or replace a CV and cover letter,
+                      rating, and notes. Upload or replace a CV and cover letter,
                       review stage history, or delete the record when permitted.
                     </>
                   ),
@@ -244,18 +256,22 @@ function Docs() {
                     </>
                   ),
                 },
+                {
+                  icon: Sparkles,
+                  text: <><strong>Ask</strong> lets authorised team members ask questions about their hiring data in plain language.</>,
+                },
               ]}
             />
           </Section>
 
-          <Section icon={Settings2} title="Workspace settings" blurb="Make the workspace yours.">
+          <Section icon={Settings2} title="Organisation settings" blurb="Manage your account and team.">
             <StepList
               steps={[
                 {
                   icon: Settings2,
                   text: (
                     <>
-                      Update your name, role, company details, and appearance in{" "}
+                      Update your profile, organisation details, and appearance in{" "}
                       <strong>Settings</strong>.
                     </>
                   ),
@@ -264,10 +280,15 @@ function Docs() {
                   icon: Building2,
                   text: (
                     <>
-                      Organisation settings provide workspace branding, members, invitations, and
-                      role-based permissions where enabled.
+                      Manage members and titles in Organisation settings. Owner, Admin, and Member
+                      are the built-in titles; the Owner stays protected. Permission checkboxes
+                      control which team members can use each hiring tool.
                     </>
                   ),
+                },
+                {
+                  icon: Link2,
+                  text: <>Invite a teammate by email from Organisation settings, or copy an invite link. Email-specific links can only be used by that person; invitations expire after seven days.</>,
                 },
                 {
                   icon: Sparkles,
@@ -286,6 +307,39 @@ function Docs() {
             />
           </Section>
 
+          <Section icon={Activity} title="Talentloom Pulse" blurb="Surveys and structured interviews over time.">
+            <StepList steps={[
+              {
+                icon: Activity,
+                text: <>Open <strong>Pulse surveys</strong> and select <strong>New survey</strong>. Enter a title and choose a self-completed survey or a structured interview. You can use Pulse without joining an organisation.</>,
+              },
+              {
+                icon: Users,
+                text: <>In <strong>Who owns it</strong>, you always keep access as creator. You can also share access with all your organisations, selected organisations, and invited users by email. Combine organisation sharing with invited users; they can see and edit after signing in. Sharing access does not itself invite someone to answer.</>,
+              },
+              {
+                icon: Star,
+                text: <>In <strong>Questions</strong>, add and reorder 1–5 ratings, rating with optional reason, single or multiple choice, free text, and yes/no questions. Mark questions required as needed, then save. Keep the wording stable between rounds for meaningful comparisons.</>,
+              },
+              {
+                icon: Link2,
+                text: <>For surveys, choose <strong>Anyone with the link</strong>, <strong>Invited people only</strong>, or <strong>Both</strong>. Add respondents in <strong>Invited people</strong> (name and email, or email only), then copy and send each personal link yourself. The same personal link works across rounds. A public link is available from an open round when link answering is enabled.</>,
+              },
+              {
+                icon: Clock3,
+                text: <>In <strong>Rounds & sharing</strong>, start a round after saving questions and optionally set a closing date. Starting another round closes the current one; you can also close or reopen a round. For interviews, add interviewees and record their answers in <strong>Run interview</strong> during an open round.</>,
+              },
+              {
+                icon: TrendingUp,
+                text: <>Use <strong>Results</strong> to compare rounds: rating averages and changes, yes/no percentages, choice distributions, latest written answers, and per-person rating movement where available. Shared organisations see the same combined results, not separate results per organisation.</>,
+              },
+              {
+                icon: MessagesSquare,
+                text: <>Invited signed-in respondents with an unanswered open survey see it under <strong>Waiting for your answer</strong> in Pulse surveys. If enabled in survey <strong>Settings</strong>, their personal link shows their own earlier answers beneath each question, newest first; ratings also show a trend when enough answers exist. Public-link answers do not show personal history.</>,
+              },
+            ]} />
+          </Section>
+
           <Section icon={Sparkles} title="Good to know" blurb="Handy facts before you dive in.">
             <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
               <Fact
@@ -301,7 +355,7 @@ function Docs() {
                 icon={Smartphone}
                 text={
                   <>
-                    Funnel drag-and-drop is designed for desktop. On touch devices, use the stage
+                    Candidate flow drag-and-drop is designed for desktop. On touch devices, use the stage
                     selector on the candidate record.
                   </>
                 }
