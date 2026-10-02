@@ -5,6 +5,7 @@ import { MarketingShell } from "@/components/MarketingShell";
 import { getClerkToken } from "@/lib/clerk";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { ACCOUNT_TYPE_KEY, CREATE_ORG_INTENT_KEY } from "@/routes/onboarding";
+import { getSignInDestination } from "@/lib/profile.functions";
 
 async function waitForBackendToken(maxMs = 5000): Promise<void> {
   const start = Date.now();
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/auth")({
     if (search.mode === "signup") out.mode = "signup";
     return out;
   },
-  head: () => ({ meta: [{ title: "Recruiter organisation — Talentloom" }] }),
+  head: () => ({ meta: [{ title: "Sign in — Talentloom" }] }),
   component: AuthPage,
 });
 
@@ -74,7 +75,26 @@ function AuthPage() {
       if (cancelled) return;
       await router.invalidate();
       if (cancelled) return;
-      navigate({ to: "/pipeline", replace: true });
+      // One sign-in for everyone: invites and new organisations go to the recruiter
+      // app; candidates go to their applications.
+      let to: "/pipeline" | "/candidate/applications" = "/pipeline";
+      let joiningOrCreating = false;
+      try {
+        joiningOrCreating =
+          Boolean(window.sessionStorage.getItem(PENDING_INVITE_KEY)) ||
+          window.localStorage.getItem(CREATE_ORG_INTENT_KEY) === "1";
+      } catch {
+        /* ignore */
+      }
+      if (!joiningOrCreating) {
+        try {
+          to = (await getSignInDestination()).to;
+        } catch {
+          /* fall back to the recruiter app, which handles onboarding */
+        }
+      }
+      if (cancelled) return;
+      navigate({ to, replace: true });
     })();
     return () => {
       cancelled = true;
@@ -89,14 +109,14 @@ function AuthPage() {
             {invited
               ? "You've been invited"
               : mode === "signin"
-                ? "Welcome back, recruiter"
+                ? "Sign in to Talentloom"
                 : "Build a better hiring experience"}
           </h1>
           <p className="mt-1 text-center text-sm text-muted-foreground">
             {invited
               ? "Enter your email to sign in, or to create your account if you're new to Talentloom."
               : mode === "signin"
-                ? "Pick up where your team left off and keep great candidates moving."
+                ? "For recruiters and candidates alike. New here? Enter your email and we'll create your account."
                 : "Create a calm, organised hiring experience that makes your company look as good as it is."}
           </p>
 
@@ -118,9 +138,7 @@ function AuthPage() {
           </div>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin"
-              ? "Ready to improve your hiring flow?"
-              : "Already have an organisation?"}{" "}
+            {mode === "signin" ? "Hiring?" : "Already have an account?"}{" "}
             <button
               className="font-medium text-teal-700 hover:underline"
               onClick={() => {
@@ -140,7 +158,7 @@ function AuthPage() {
                 setMode(next);
               }}
             >
-              {mode === "signin" ? "Create organisation" : "Open my candidate flow"}
+              {mode === "signin" ? "Create an organisation" : "Sign in"}
             </button>
           </p>
           <p className="mt-6 text-center text-xs text-muted-foreground">

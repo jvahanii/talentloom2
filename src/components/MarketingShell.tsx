@@ -10,14 +10,9 @@ function HeaderActions() {
   const navigate = useNavigate();
   if (loading || !user) {
     return (
-      <div className="flex items-center gap-2">
-        <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">
-          Recruiter sign in
-        </Link>
-        <Link to="/candidate/auth" className="btn-pink rounded-xl px-4 py-2 text-sm font-medium">
-          Candidate sign in
-        </Link>
-      </div>
+      <Link to="/auth" className="btn-teal rounded-xl px-4 py-2 text-sm font-medium">
+        Sign in
+      </Link>
     );
   }
   const name = (user.user_metadata?.full_name as string | undefined) || user.email || "Account";

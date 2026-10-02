@@ -55,6 +55,7 @@ function CandidateAuthPage() {
             {mode === "signin" ? (
               <SignIn
                 routing="virtual"
+                withSignUp
                 appearance={clerkAppearance}
                 fallbackRedirectUrl="/candidate/applications"
               />
