@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
@@ -110,6 +110,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
   const [shareWithOrg, setShareWithOrg] = useState(false);
   const [busy, setBusy] = useState(false);
   const chosenOrg = org ?? orgId ?? null;
+  const beforeShareRef = useRef<{ visibility: typeof visibility; mode: typeof mode } | null>(null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -215,8 +216,13 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
               onCheckedChange={(checked) => {
                 setShareWithOrg(checked);
                 if (checked) {
+                  beforeShareRef.current = { visibility, mode };
                   setVisibility("org");
                   if (mode === "link") setMode("both");
+                } else if (beforeShareRef.current) {
+                  setVisibility(beforeShareRef.current.visibility);
+                  setMode(beforeShareRef.current.mode);
+                  beforeShareRef.current = null;
                 }
               }}
             />
