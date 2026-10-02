@@ -120,7 +120,7 @@ function Docs() {
             />
           </div>
           <h1 className="mt-4 font-display text-3xl font-bold sm:text-4xl">
-            Talentloom <span className="text-duotone">user guide</span>
+            Talentloom &amp; Pulse <span className="text-duotone">user guide</span>
           </h1>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
             Find a role, run your organisation’s hiring, or follow responses over time with Pulse.
@@ -135,8 +135,9 @@ function Docs() {
                   icon: Search,
                   text: (
                     <>
-                      Open <strong>Find a role</strong> to browse public positions. Search by keyword,
-                      filter by company, and sort by newest, rating, deadline, or company.
+                      Select <strong>Explore open roles</strong> on the home page to browse public positions.
+                      Search by keyword, filter by company, and sort by newest, highest or lowest rating,
+                      nearest deadline, or company name.
                     </>
                   ),
                 },
@@ -271,8 +272,8 @@ function Docs() {
                   icon: Settings2,
                   text: (
                     <>
-                      Update your profile, organisation details, and appearance in{" "}
-                      <strong>Settings</strong>.
+                      Update your profile and choose a light or dark app theme in <strong>Settings</strong>.
+                      Manage your organisation’s members and titles from Organisation settings.
                     </>
                   ),
                 },
@@ -280,7 +281,7 @@ function Docs() {
                   icon: Building2,
                   text: (
                     <>
-                      Manage members and titles in Organisation settings. Owner, Admin, and Member
+                      Owner, Admin, and Member
                       are the built-in titles; the Owner stays protected. Permission checkboxes
                       control which team members can use each hiring tool.
                     </>
@@ -288,7 +289,7 @@ function Docs() {
                 },
                 {
                   icon: Link2,
-                  text: <>Invite a teammate by email from Organisation settings, or copy an invite link. Email-specific links can only be used by that person; invitations expire after seven days.</>,
+                  text: <>Invite a teammate by email from Organisation settings, or leave the email blank to make a reusable shareable link. Email-specific links can only be used by that person, once; links expire after seven days. If an email cannot be delivered, copy and send its link yourself.</>,
                 },
                 {
                   icon: Sparkles,
@@ -315,11 +316,11 @@ function Docs() {
               },
               {
                 icon: Users,
-                text: <>In <strong>Who owns it</strong>, you always keep access as creator. You can also share access with all your organisations, selected organisations, and invited users by email. Combine organisation sharing with invited users; they can see and edit after signing in. Sharing access does not itself invite someone to answer.</>,
+                text: <>In <strong>Who owns it</strong>, you always keep access as creator. You can also share access with all your organisations, selected organisations, and invited users by email. Combine organisation sharing with invited users; they can see and edit after signing in. Choosing all your organisations saves permanent links for your current memberships, including when you later leave. Sharing access does not itself invite someone to answer.</>,
               },
               {
                 icon: Send,
-                text: <>To add your current organisation’s members as respondents when creating a survey, turn on <strong>Share with my organisation</strong>. This adds personal links for members with an email on file; use <strong>Invited people</strong> to copy and send those links yourself.</>,
+                text: <>To add your current organisation’s members as respondents when creating a survey, turn on <strong>Share with my organisation</strong>. This adds personal links for members with an email on file (up to 500, excluding you); no invitation email is sent. Use <strong>Invited people</strong> to copy and send those links yourself.</>,
               },
               {
                 icon: Star,
@@ -381,7 +382,7 @@ function Docs() {
                 icon={ShieldCheck}
                 text={
                   <>
-                    Workspace data is isolated by organisation and protected by row-level security.
+                    Hiring data is isolated by organisation. Pulse surveys can be shared across organisations and invited users.
                   </>
                 }
               />
