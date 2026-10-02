@@ -30,8 +30,10 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
     // Remember where the person was going, so sign-in can bring them back.
     const back = { redirect: location.href };
-    // Pulse surveys can be personal, so they don't need onboarding or an organisation.
-    const isPulse = location.pathname === "/surveys" || location.pathname.startsWith("/surveys/");
+    // Pulse surveys can be personal, and Settings holds the personal profile, so
+    // neither needs onboarding or an organisation.
+    const under = (p: string) => location.pathname === p || location.pathname.startsWith(p + "/");
+    const skipsOnboarding = under("/surveys") || under("/settings");
 
     const clerk = await waitForClerk();
     if (!clerk?.session) throw redirect({ to: "/auth", search: back });
@@ -82,7 +84,7 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     // Enforce onboarding completion before entering the app.
-    if (!profile.onboardingCompleted && !isPulse) {
+    if (!profile.onboardingCompleted && !skipsOnboarding) {
       throw redirect({ to: "/onboarding" });
     }
 

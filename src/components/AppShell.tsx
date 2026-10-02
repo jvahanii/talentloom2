@@ -39,22 +39,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// `org: true` items only make sense inside an organisation.
 const NAV = [
-  { to: "/pipeline", label: "Candidate flow", icon: KanbanSquare },
-  { to: "/candidates", label: "Candidates", icon: Users },
-  { to: "/requisitions", label: "Positions", icon: Briefcase },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/surveys", label: "Pulse surveys", icon: Activity },
-  { to: "/import", label: "Import", icon: Upload },
-  { to: "/export", label: "Export", icon: Download },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/pipeline", label: "Candidate flow", icon: KanbanSquare, org: true },
+  { to: "/candidates", label: "Candidates", icon: Users, org: true },
+  { to: "/requisitions", label: "Positions", icon: Briefcase, org: true },
+  { to: "/analytics", label: "Analytics", icon: BarChart3, org: true },
+  { to: "/surveys", label: "Pulse surveys", icon: Activity, org: false },
+  { to: "/import", label: "Import", icon: Upload, org: true },
+  { to: "/export", label: "Export", icon: Download, org: true },
+  { to: "/settings", label: "Settings", icon: Settings, org: false },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { orgs, loaded } = useOrg();
+  const noOrganisation = loaded && orgs.length === 0;
+  const items = noOrganisation ? NAV.filter((item) => !item.org) : NAV;
   return (
     <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
+      {noOrganisation && (
+        // /pipeline shows onboarding or the create-organisation screen, as fits.
+        <Link
+          to="/pipeline"
+          onClick={onNavigate}
+          className="mb-1 flex items-center gap-2.5 rounded-lg border border-dashed border-primary/50 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+        >
+          <Plus className="h-4 w-4" />
+          Create organisation
+        </Link>
+      )}
+      {items.map((item) => {
         const active = pathname === item.to || pathname.startsWith(item.to + "/");
         return (
           <Link
