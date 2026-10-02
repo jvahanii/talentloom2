@@ -47,7 +47,13 @@ export type PulseSurvey = {
 };
 
 const Uuid = z.string().uuid();
-const AnswerValue = z.union([z.number(), z.string().max(5000), z.boolean(), z.array(z.string().max(500)).max(50), z.null()]);
+const AnswerValue = z.union([
+  z.number(),
+  z.string().max(5000),
+  z.boolean(),
+  z.array(z.string().max(500)).max(50),
+  z.null(),
+]);
 const Answers = z.record(Uuid, AnswerValue);
 
 function fail(error: { message: string } | null) {
@@ -85,7 +91,11 @@ export const listPulseAwaiting = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const sb = supabaseAdmin as Loose;
-    const { data: profile } = await sb.from("profiles").select("email").eq("id", context.userId).maybeSingle();
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("email")
+      .eq("id", context.userId)
+      .maybeSingle();
     const email = (profile?.email as string | null)?.trim();
     if (!email) return [];
     const { data: people } = await sb
@@ -96,12 +106,25 @@ export const listPulseAwaiting = createServerFn({ method: "GET" })
     const surveyIds = [...new Set(people.map((p: Loose) => p.survey_id as string))];
     const [{ data: surveys }, { data: rounds }, { data: responses }] = await Promise.all([
       sb.from("pulse_surveys").select("id, title, kind, status").in("id", surveyIds),
-      sb.from("pulse_rounds").select("id, survey_id, number, closes_on").in("survey_id", surveyIds).eq("status", "open"),
-      sb.from("pulse_responses").select("round_id, respondent_id").in("respondent_id", people.map((p: Loose) => p.id)),
+      sb
+        .from("pulse_rounds")
+        .select("id, survey_id, number, closes_on")
+        .in("survey_id", surveyIds)
+        .eq("status", "open"),
+      sb
+        .from("pulse_responses")
+        .select("round_id, respondent_id")
+        .in(
+          "respondent_id",
+          people.map((p: Loose) => p.id),
+        ),
     ]);
-    const answered = new Set((responses ?? []).map((r: Loose) => `${r.respondent_id}:${r.round_id}`));
+    const answered = new Set(
+      (responses ?? []).map((r: Loose) => `${r.respondent_id}:${r.round_id}`),
+    );
     const surveyById = new Map<string, Loose>((surveys ?? []).map((s: Loose) => [s.id, s]));
-    const out: { token: string; title: string; roundNumber: number; closesOn: string | null }[] = [];
+    const out: { token: string; title: string; roundNumber: number; closesOn: string | null }[] =
+      [];
     for (const p of people as Loose[]) {
       const survey = surveyById.get(p.survey_id);
       if (!survey || survey.kind !== "survey" || survey.status !== "open") continue;
@@ -110,7 +133,12 @@ export const listPulseAwaiting = createServerFn({ method: "GET" })
         .sort((a: Loose, b: Loose) => b.number - a.number);
       const round = open.find((r: Loose) => !answered.has(`${p.id}:${r.id}`));
       if (!round) continue;
-      out.push({ token: p.token, title: survey.title, roundNumber: round.number, closesOn: round.closes_on });
+      out.push({
+        token: p.token,
+        title: survey.title,
+        roundNumber: round.number,
+        closesOn: round.closes_on,
+      });
     }
     return out;
   });
@@ -225,7 +253,10 @@ export const deletePulseSurvey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await (context.supabase as Loose).from("pulse_surveys").delete().eq("id", data.id);
+    const { error } = await (context.supabase as Loose)
+      .from("pulse_surveys")
+      .delete()
+      .eq("id", data.id);
     fail(error);
     return { ok: true };
   });
@@ -274,7 +305,10 @@ export const savePulseQuestions = createServerFn({ method: "POST" })
         : await sb.from("pulse_questions").insert(row);
       fail(res.error);
     }
-    await sb.from("pulse_surveys").update({ updated_at: new Date().toISOString() }).eq("id", data.surveyId);
+    await sb
+      .from("pulse_surveys")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", data.surveyId);
     return { ok: true };
   });
 
@@ -284,7 +318,10 @@ export const startPulseRound = createServerFn({ method: "POST" })
     z
       .object({
         surveyId: Uuid,
-        closesOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+        closesOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable(),
       })
       .parse(d),
   )
@@ -298,8 +335,22 @@ export const startPulseRound = createServerFn({ method: "POST" })
       .limit(1);
     fail(error);
     const next = ((rounds?.[0]?.number as number) ?? 0) + 1;
-    fail((await sb.from("pulse_rounds").update({ status: "closed" }).eq("survey_id", data.surveyId).eq("status", "open")).error);
-    fail((await sb.from("pulse_rounds").insert({ survey_id: data.surveyId, number: next, closes_on: data.closesOn })).error);
+    fail(
+      (
+        await sb
+          .from("pulse_rounds")
+          .update({ status: "closed" })
+          .eq("survey_id", data.surveyId)
+          .eq("status", "open")
+      ).error,
+    );
+    fail(
+      (
+        await sb
+          .from("pulse_rounds")
+          .insert({ survey_id: data.surveyId, number: next, closes_on: data.closesOn })
+      ).error,
+    );
     fail((await sb.from("pulse_surveys").update({ status: "open" }).eq("id", data.surveyId)).error);
     return { number: next };
   });
@@ -385,7 +436,10 @@ export const removePulseRespondent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
-    fail((await (context.supabase as Loose).from("pulse_respondents").delete().eq("id", data.id)).error);
+    fail(
+      (await (context.supabase as Loose).from("pulse_respondents").delete().eq("id", data.id))
+        .error,
+    );
     return { ok: true };
   });
 
@@ -393,7 +447,9 @@ export const removePulseRespondent = createServerFn({ method: "POST" })
 export const submitPulseInterview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
-    z.object({ surveyId: Uuid, roundId: Uuid, respondentId: Uuid.nullable(), answers: Answers }).parse(d),
+    z
+      .object({ surveyId: Uuid, roundId: Uuid, respondentId: Uuid.nullable(), answers: Answers })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
@@ -443,8 +499,15 @@ export const getPulseResults = createServerFn({ method: "GET" })
     const sb = context.supabase as Loose;
     const [q, r, resp, people, me] = await Promise.all([
       sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
-      sb.from("pulse_rounds").select("id, number, opens_on").eq("survey_id", data.id).order("number"),
-      sb.from("pulse_responses").select("id, round_id, respondent_id, pulse_answers(question_id, value)").eq("survey_id", data.id),
+      sb
+        .from("pulse_rounds")
+        .select("id, number, opens_on")
+        .eq("survey_id", data.id)
+        .order("number"),
+      sb
+        .from("pulse_responses")
+        .select("id, round_id, respondent_id, pulse_answers(question_id, value)")
+        .eq("survey_id", data.id),
       sb.from("pulse_respondents").select("id, name, email").eq("survey_id", data.id),
       sb.from("profiles").select("email").eq("id", context.userId).maybeSingle(),
     ]);
@@ -460,7 +523,11 @@ export const getPulseResults = createServerFn({ method: "GET" })
       pulse_answers: { question_id: string; value: unknown }[];
     }[];
 
-    const statFor = (qq: PulseQuestion, roundId: string, roundNumber: number): QuestionRoundStat => {
+    const statFor = (
+      qq: PulseQuestion,
+      roundId: string,
+      roundNumber: number,
+    ): QuestionRoundStat => {
       const vals = responses
         .filter((x) => x.round_id === roundId)
         .flatMap((x) => x.pulse_answers.filter((a) => a.question_id === qq.id).map((a) => a.value))
@@ -498,7 +565,9 @@ export const getPulseResults = createServerFn({ method: "GET" })
       if (!roundId) return null;
       const nums = responses
         .filter((x) => x.respondent_id === pid && x.round_id === roundId)
-        .flatMap((x) => x.pulse_answers.filter((a) => ratingIds.has(a.question_id)).map((a) => Number(a.value)))
+        .flatMap((x) =>
+          x.pulse_answers.filter((a) => ratingIds.has(a.question_id)).map((a) => Number(a.value)),
+        )
         .filter((n) => !Number.isNaN(n));
       return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
     };
@@ -511,7 +580,8 @@ export const getPulseResults = createServerFn({ method: "GET" })
       .map((p) => {
         const latest = scoreIn(p.id, lastRound);
         const previous = scoreIn(p.id, prevRound);
-        const isMe = !!myEmail && ((p.email as string | null) ?? "").trim().toLowerCase() === myEmail;
+        const isMe =
+          !!myEmail && ((p.email as string | null) ?? "").trim().toLowerCase() === myEmail;
         return {
           isMe,
           latest,
@@ -523,10 +593,16 @@ export const getPulseResults = createServerFn({ method: "GET" })
     const mine = scored.filter((p) => p.isMe);
     const others = scored
       .filter((p) => !p.isMe)
-      .sort((a, b) => (b.latest ?? -1) - (a.latest ?? -1) || (b.previous ?? -1) - (a.previous ?? -1));
+      .sort(
+        (a, b) => (b.latest ?? -1) - (a.latest ?? -1) || (b.previous ?? -1) - (a.previous ?? -1),
+      );
     const peopleOut = [
       ...mine.map(({ isMe: _isMe, ...p }, i) => ({ id: `me-${i}`, label: "You", ...p })),
-      ...others.map(({ isMe: _isMe, ...p }, i) => ({ id: `person-${i + 1}`, label: `Person ${i + 1}`, ...p })),
+      ...others.map(({ isMe: _isMe, ...p }, i) => ({
+        id: `person-${i + 1}`,
+        label: `Person ${i + 1}`,
+        ...p,
+      })),
     ];
 
     return {
@@ -582,7 +658,43 @@ async function resolveToken(token: string) {
 }
 
 export type PreviousAnswerValue = number | string | boolean | string[] | null;
+export type PreviousRoundEntry = {
+  roundId: string;
+  roundNumber: number;
+  submittedAt: string | null;
+  opensOn: string | null;
+  answers: Record<string, PreviousAnswerValue>;
+};
 export type PreviousAnswers = { roundNumber: number; answers: Record<string, PreviousAnswerValue> };
+
+export const getIntervieweePulseHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ surveyId: Uuid, respondentId: Uuid }).parse(d))
+  .handler(async ({ data, context }): Promise<PreviousRoundEntry[]> => {
+    const sb = context.supabase as Loose;
+    const { data: earlier, error } = await sb
+      .from("pulse_responses")
+      .select(
+        "id, created_at, pulse_rounds!inner(id, number, opens_on), pulse_answers(question_id, value)",
+      )
+      .eq("survey_id", data.surveyId)
+      .eq("respondent_id", data.respondentId);
+    fail(error);
+    const sorted = ((earlier ?? []) as Loose[]).sort(
+      (a, b) => b.pulse_rounds.number - a.pulse_rounds.number,
+    );
+    return sorted.map((resp) => ({
+      roundId: resp.pulse_rounds.id as string,
+      roundNumber: resp.pulse_rounds.number as number,
+      submittedAt: (resp.created_at as string) || null,
+      opensOn: (resp.pulse_rounds.opens_on as string) || null,
+      answers: Object.fromEntries(
+        ((resp.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map(
+          (a) => [a.question_id, a.value],
+        ),
+      ),
+    }));
+  });
 
 export const getPublicPulseForm = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ token: Uuid }).parse(d))
@@ -606,32 +718,42 @@ export const getPublicPulseForm = createServerFn({ method: "GET" })
       .eq("survey_id", survey.id)
       .order("position");
 
-    // This person's own answers from their most recent earlier round (personal links only).
+    // This person's own answers from their earlier rounds (personal links only).
+    let previousRounds: PreviousRoundEntry[] = [];
     let previousAnswers: PreviousAnswers | null = null;
     if (respondent && round && survey.show_previous_answers) {
       const { data: earlier } = await sb
         .from("pulse_responses")
-        .select("id, pulse_rounds!inner(number), pulse_answers(question_id, value)")
+        .select(
+          "id, created_at, pulse_rounds!inner(id, number, opens_on), pulse_answers(question_id, value)",
+        )
         .eq("respondent_id", respondent.id)
         .lt("pulse_rounds.number", round.number);
-      const latest = ((earlier ?? []) as Loose[]).sort(
+      const sorted = ((earlier ?? []) as Loose[]).sort(
         (a, b) => b.pulse_rounds.number - a.pulse_rounds.number,
-      )[0];
-      if (latest) {
-        previousAnswers = {
-          roundNumber: latest.pulse_rounds.number as number,
-          answers: Object.fromEntries(
-            ((latest.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map((a) => [
-              a.question_id,
-              a.value,
-            ]),
+      );
+      previousRounds = sorted.map((resp) => ({
+        roundId: resp.pulse_rounds.id as string,
+        roundNumber: resp.pulse_rounds.number as number,
+        submittedAt: (resp.created_at as string) || null,
+        opensOn: (resp.pulse_rounds.opens_on as string) || null,
+        answers: Object.fromEntries(
+          ((resp.pulse_answers ?? []) as { question_id: string; value: PreviousAnswerValue }[]).map(
+            (a) => [a.question_id, a.value],
           ),
+        ),
+      }));
+      if (previousRounds.length) {
+        previousAnswers = {
+          roundNumber: previousRounds[0].roundNumber,
+          answers: previousRounds[0].answers,
         };
       }
     }
 
     return {
       previousAnswers,
+      previousRounds,
       found: true as const,
       open,
       alreadyAnswered,
@@ -649,11 +771,17 @@ export const submitPublicPulse = createServerFn({ method: "POST" })
     const ctx = await resolveToken(data.token);
     if (!ctx || !ctx.open || !ctx.round) throw new Error("This survey is not open right now");
     const { sb, survey, round, respondent } = ctx;
-    const { data: qs } = await sb.from("pulse_questions").select("id, type, required").eq("survey_id", survey.id);
+    const { data: qs } = await sb
+      .from("pulse_questions")
+      .select("id, type, required")
+      .eq("survey_id", survey.id);
     const valid = new Map(((qs ?? []) as Loose[]).map((x) => [x.id, x]));
     for (const qq of valid.values()) {
       const v = data.answers[qq.id];
-      if (qq.required && (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length)))
+      if (
+        qq.required &&
+        (v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length))
+      )
         throw new Error("Please answer all required questions");
     }
     if (respondent) {
