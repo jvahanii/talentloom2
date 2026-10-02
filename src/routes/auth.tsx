@@ -85,7 +85,7 @@ function AuthPage() {
       if (cancelled) return;
       // One sign-in for everyone: invites and new organisations go to the recruiter
       // app; candidates go to their applications.
-      let to: "/pipeline" | "/candidate/applications" = "/pipeline";
+      let to: "/pipeline" | "/candidate/applications" | "/surveys" = "/pipeline";
       let joiningOrCreating = false;
       try {
         joiningOrCreating =

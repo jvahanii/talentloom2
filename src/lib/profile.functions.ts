@@ -24,10 +24,11 @@ export const ensureMyProfile = createServerFn({ method: "POST" }).handler(async 
 });
 
 /**
- * Where the shared "Sign in" page sends someone afterwards: candidates (people
- * with their own applications or documents and no organisation) go to their
- * applications; everyone else goes to the recruiter app, which handles
- * onboarding and organisations.
+ * Where the shared "Sign in" page sends someone afterwards. People in an
+ * organisation (or who finished onboarding) go to the recruiter app. Otherwise
+ * candidates (own applications or documents) go to their applications, Pulse
+ * users (own surveys, or invited to answer one) go to Pulse surveys, and anyone
+ * else goes to the recruiter app, which starts onboarding.
  */
 export const getSignInDestination = createServerFn({ method: "POST" }).handler(async () => {
   const request = getRequest();
@@ -42,7 +43,8 @@ export const getSignInDestination = createServerFn({ method: "POST" }).handler(a
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = supabaseAdmin as any;
-  const [members, applications, documents] = await Promise.all([
+  const email = (profile.email ?? "").trim();
+  const [members, applications, documents, ownSurveys, invitedSurveys] = await Promise.all([
     admin
       .from("organization_members")
       .select("id", { count: "exact", head: true })
@@ -55,10 +57,23 @@ export const getSignInDestination = createServerFn({ method: "POST" }).handler(a
       .from("candidate_documents")
       .select("id", { count: "exact", head: true })
       .eq("user_id", profile.id),
+    admin
+      .from("pulse_surveys")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", profile.id),
+    email
+      ? admin
+          .from("pulse_respondents")
+          .select("id", { count: "exact", head: true })
+          .ilike("email", email)
+      : Promise.resolve({ count: 0 }),
   ]);
   const isRecruiter = (members.count ?? 0) > 0 || Boolean(profile.onboarding_completed_at);
   const isCandidate = (applications.count ?? 0) > 0 || (documents.count ?? 0) > 0;
-  return {
-    to: !isRecruiter && isCandidate ? ("/candidate/applications" as const) : ("/pipeline" as const),
-  };
+  const isPulseUser = (ownSurveys.count ?? 0) > 0 || (invitedSurveys.count ?? 0) > 0;
+  // Recruiter app first; then candidates; then people who only use Pulse surveys.
+  if (isRecruiter) return { to: "/pipeline" as const };
+  if (isCandidate) return { to: "/candidate/applications" as const };
+  if (isPulseUser) return { to: "/surveys" as const };
+  return { to: "/pipeline" as const };
 });
