@@ -319,9 +319,79 @@ function OrgSwitcher() {
   );
 }
 
+/** Shown to signed-in recruiters who belong to no organisation (e.g. theirs was deleted). */
+function NoOrganisation() {
+  const { setOrgId, refresh } = useOrg();
+  const [name, setName] = useState("");
+  const [creating, setCreating] = useState(false);
+  return (
+    <div className="mx-auto max-w-lg rounded-2xl border-2 border-border bg-card p-6 shadow-[0_4px_0_var(--brand-mint)]">
+      <Building2 className="h-6 w-6 text-primary" />
+      <h1 className="mt-2 text-xl font-bold">You're not in an organisation</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Candidates, positions and the candidate flow live inside an organisation. Create your own,
+        or join a team through an invite link from one of its owners or admins.
+      </p>
+      <form
+        className="mt-5 space-y-2"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const trimmed = name.trim();
+          if (!trimmed) return;
+          setCreating(true);
+          try {
+            const { data: newId, error } = await supabase.rpc("create_organization", {
+              _name: trimmed,
+            });
+            if (error) throw error;
+            refresh();
+            setOrgId(newId as string);
+            toast.success(`"${trimmed}" created`);
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Failed to create the organisation");
+          } finally {
+            setCreating(false);
+          }
+        }}
+      >
+        <Label htmlFor="new-org-name" required>
+          Organisation name
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            id="new-org-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Acme Inc."
+            className="min-w-52 flex-1"
+            disabled={creating}
+            required
+          />
+          <Button type="submit" disabled={creating || !name.trim()}>
+            <Plus className="mr-1 h-4 w-4" />
+            {creating ? "Creating…" : "Create organisation"}
+          </Button>
+        </div>
+      </form>
+      <p className="mt-5 text-xs text-muted-foreground">
+        Joining a team? Ask an owner or admin to invite you, then open the link from the invite.
+        Pulse surveys work without an organisation. Looking for jobs instead?{" "}
+        <Link to="/candidate/applications" className="font-medium text-primary hover:underline">
+          Go to my applications
+        </Link>
+        .
+      </p>
+    </div>
+  );
+}
+
 function ShellInner({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { orgs, loaded } = useOrg();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Pulse surveys can be personal, so they stay usable without an organisation.
+  const noOrganisation = loaded && orgs.length === 0 && !pathname.startsWith("/surveys");
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
     enabled: !!user?.id,
@@ -391,7 +461,7 @@ function ShellInner({ children }: { children: ReactNode }) {
             <OrgSwitcher />
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{noOrganisation ? <NoOrganisation /> : children}</main>
       </div>
     </div>
   );

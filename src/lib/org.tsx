@@ -183,6 +183,8 @@ interface OrgContextValue {
   permissions: TitlePermissions;
   can: (p: Permission) => boolean;
   loading: boolean;
+  /** Memberships loaded successfully (false while loading or after an error). */
+  loaded: boolean;
   setOrgId: (id: string) => void;
   refresh: () => void;
 }
@@ -195,6 +197,7 @@ const OrgContext = createContext<OrgContextValue>({
   permissions: EMPTY_PERMS,
   can: () => false,
   loading: true,
+  loaded: false,
   setOrgId: () => {},
   refresh: () => {},
 });
@@ -244,6 +247,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         permissions,
         can: (p: Permission) => permissions[p],
         loading: q.isLoading,
+        loaded: q.isSuccess,
         setOrgId,
         refresh,
       }}
