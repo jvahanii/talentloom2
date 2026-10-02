@@ -61,10 +61,29 @@ const Sharing = {
   ownerEmails: z.array(z.string().trim().toLowerCase().email().max(255)).max(100),
 };
 
-async function saveSharing(sb: Loose, surveyId: string, d: { orgIds: string[]; ownerEmails: string[] }) {
-  fail((await sb.from("pulse_survey_orgs").delete().eq("survey_id", surveyId)).error);
-  if (d.orgIds.length)
-    fail((await sb.from("pulse_survey_orgs").insert(d.orgIds.map((org_id) => ({ survey_id: surveyId, org_id })))).error);
+async function saveSharing(
+  sb: Loose,
+  surveyId: string,
+  d: { allOrgs: boolean; orgIds: string[]; ownerEmails: string[] },
+  userId: string,
+) {
+  if (d.allOrgs) {
+    // "All my organisations": store the editor's current orgs as real links so the
+    // survey stays with those orgs even if its creator later leaves them.
+    const { data: mem, error: me } = await sb.from("organization_members").select("org_id").eq("user_id", userId);
+    fail(me);
+    const { data: existing, error: ee } = await sb.from("pulse_survey_orgs").select("org_id").eq("survey_id", surveyId);
+    fail(ee);
+    const have = new Set(((existing ?? []) as Loose[]).map((x) => x.org_id as string));
+    const want = new Set([...d.orgIds, ...((mem ?? []) as Loose[]).map((x) => x.org_id as string)]);
+    const add = [...want].filter((id) => !have.has(id));
+    if (add.length)
+      fail((await sb.from("pulse_survey_orgs").insert(add.map((org_id) => ({ survey_id: surveyId, org_id })))).error);
+  } else {
+    fail((await sb.from("pulse_survey_orgs").delete().eq("survey_id", surveyId)).error);
+    if (d.orgIds.length)
+      fail((await sb.from("pulse_survey_orgs").insert(d.orgIds.map((org_id) => ({ survey_id: surveyId, org_id })))).error);
+  }
   fail((await sb.from("pulse_survey_owners").delete().eq("survey_id", surveyId)).error);
   if (d.ownerEmails.length)
     fail((await sb.from("pulse_survey_owners").insert(d.ownerEmails.map((email) => ({ survey_id: surveyId, email })))).error);
@@ -174,7 +193,7 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
       .single();
     fail(error);
     const surveyId = row.id as string;
-    await saveSharing(sb, surveyId, data);
+    await saveSharing(sb, surveyId, data, context.userId);
 
     let invited = 0;
     let skipped = 0;
@@ -240,7 +259,8 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
     return {
       survey: {
         ...(s.data as PulseSurvey),
-        orgIds: ((so.data ?? []) as Loose[]).map((x) => x.org_id as string),
+        // With "All my organisations" on, the links are automatic — don't show them as hand-picked.
+        orgIds: s.data.all_orgs ? [] : ((so.data ?? []) as Loose[]).map((x) => x.org_id as string),
         ownerEmails: ((sw.data ?? []) as Loose[]).map((x) => x.email as string),
         orgCount: (so.data ?? []).length,
         ownerCount: (sw.data ?? []).length,
@@ -293,7 +313,7 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     fail(error);
-    await saveSharing(sb, data.id, data);
+    await saveSharing(sb, data.id, data, context.userId);
     return { ok: true };
   });
 
