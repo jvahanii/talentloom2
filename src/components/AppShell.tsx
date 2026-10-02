@@ -77,7 +77,6 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function NavUser({ user, fullName }: { user: AppUser | null; fullName?: string | null }) {
-  const navigate = useNavigate();
   if (!user) return null;
   return (
     <div className="mt-auto flex items-center gap-2 border-t border-border px-2 pt-3">
@@ -87,18 +86,26 @@ function NavUser({ user, fullName }: { user: AppUser | null; fullName?: string |
         </p>
         <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>
       </div>
-      <button
-        onClick={async () => {
-          await clerkSignOut();
-          navigate({ to: "/auth" });
-        }}
-        className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-        title="Sign out"
-        aria-label="Sign out"
-      >
-        <LogOut className="h-4 w-4" />
-      </button>
     </div>
+  );
+}
+
+/** Always in the top-right corner of the header. */
+function SignOutButton() {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={async () => {
+        await clerkSignOut();
+        navigate({ to: "/auth" });
+      }}
+      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+      title="Sign out"
+      aria-label="Sign out"
+    >
+      <LogOut className="h-4 w-4" />
+      <span className="hidden sm:inline">Sign out</span>
+    </button>
   );
 }
 
@@ -459,6 +466,7 @@ function ShellInner({ children }: { children: ReactNode }) {
               </div>
             )}
             <OrgSwitcher />
+            {user && <SignOutButton />}
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6">{noOrganisation ? <NoOrganisation /> : children}</main>
