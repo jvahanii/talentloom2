@@ -126,12 +126,14 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         visibility: z.enum(["private", "org"]),
         orgId: Uuid.nullable(),
         responseMode: z.enum(["link", "invite", "both"]),
+        inviteOrg: z.boolean().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
     if (data.visibility === "org" && !data.orgId) throw new Error("Choose an organisation first");
+    const shareWithOrg = Boolean(data.inviteOrg) && data.visibility === "org" && !!data.orgId;
     const { data: row, error } = await sb
       .from("pulse_surveys")
       .insert({
@@ -141,12 +143,43 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         kind: data.kind,
         title: data.title,
         description: data.description || null,
-        response_mode: data.responseMode,
+        // A link-only survey can't be answered through a personal invite link,
+        // so switch it to "both" whenever it's being shared with the whole org.
+        response_mode: shareWithOrg && data.responseMode === "link" ? "both" : data.responseMode,
       })
       .select("id")
       .single();
     fail(error);
-    return { id: row.id as string };
+    const surveyId = row.id as string;
+
+    let invited = 0;
+    if (shareWithOrg) {
+      const { data: members, error: membersError } = await sb
+        .from("organization_members")
+        .select("user_id")
+        .eq("org_id", data.orgId);
+      fail(membersError);
+      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))];
+      if (userIds.length) {
+        const { data: people, error: peopleError } = await sb
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+        fail(peopleError);
+        const rows = ((people ?? []) as Loose[])
+          .filter((p) => p.email)
+          .map((p) => ({ survey_id: surveyId, name: p.full_name || null, email: p.email }));
+        if (rows.length) {
+          const { data: ins, error: insError } = await sb
+            .from("pulse_respondents")
+            .insert(rows)
+            .select("id");
+          fail(insError);
+          invited = (ins ?? []).length;
+        }
+      }
+    }
+    return { id: surveyId, invited };
   });
 
 export const getPulseSurvey = createServerFn({ method: "GET" })
