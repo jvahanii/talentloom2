@@ -5,7 +5,7 @@ import { clerkSignOut, hasClerkSession } from "@/lib/clerk";
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
-import { ensureOrg, ACCOUNT_ROLES, applyAccountRole, type AccountRole } from "@/lib/org";
+import { ensureOrg } from "@/lib/org";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { ArrowLeft, ArrowRight, Check, LogOut, Upload, Sparkles, Download } from "lucide-react";
 import { RequiredIndicator } from "@/components/ui/label";
@@ -32,21 +32,6 @@ type AccountType = "recruiter" | "candidate";
 
 const ACCOUNT_TYPE_KEY = "talently:onboarding-account-type";
 const ACCOUNT_ROLE_KEY = "talently:onboarding-account-role";
-
-const INDUSTRIES = [
-  "Software/SaaS",
-  "Financial Services",
-  "Retail/E-commerce",
-  "Healthcare",
-  "Manufacturing",
-  "Marketing/Advertising",
-  "Professional Services",
-  "Media/Entertainment",
-  "Education",
-  "Non-profit",
-  "Other",
-] as const;
-const COMPANY_SIZES = ["1–10", "11–50", "51–200", "201–1,000", "1,000+"] as const;
 
 const TEMPLATE =
   "name,email,phone,requisition_title,source,stage,notes\nJane Doe,jane@example.com,555-0100,Senior Frontend Engineer,LinkedIn,applied,\n";
@@ -118,28 +103,11 @@ function Onboarding() {
       return "";
     }
   });
-  const [accountRole, setAccountRole] = useState<AccountRole>(() => {
-    try {
-      const stored = window.localStorage.getItem(ACCOUNT_ROLE_KEY) as AccountRole | null;
-      return stored && (ACCOUNT_ROLES as readonly string[]).includes(stored) ? stored : "Owner";
-    } catch {
-      return "Owner";
-    }
-  });
 
   const chooseAccountType = (type: AccountType) => {
     setAccountType(type);
     try {
       window.localStorage.setItem(ACCOUNT_TYPE_KEY, type);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const chooseAccountRole = (role: AccountRole) => {
-    setAccountRole(role);
-    try {
-      window.localStorage.setItem(ACCOUNT_ROLE_KEY, role);
     } catch {
       /* ignore */
     }
@@ -195,10 +163,7 @@ function Onboarding() {
   };
 
   const step1Valid = state.full_name.trim().length > 0 && accountType !== "";
-  const step2Valid =
-    state.company_name.trim().length > 0 &&
-    state.company_industry.length > 0 &&
-    state.company_size.length > 0;
+  const step2Valid = state.company_name.trim().length > 0;
 
   const goNext = async () => {
     if (step === 1 && !step1Valid) return;
@@ -208,13 +173,13 @@ function Onboarding() {
       navigate({ to: "/candidate/applications" });
       return;
     }
-    const next = step + 1;
+    // Someone who joined through an invite already has an organisation, so
+    // they skip naming one.
+    const next = step === 1 && orgId ? 3 : step + 1;
     await persist({ onboarding_step: next });
     if (step === 2 && uid && !orgId) {
-      // Create the workspace as soon as we know the company name, then apply the
-      // account role the recruiter picked.
+      // Create the organisation as soon as we know its name; the creator is its Owner.
       const id = await ensureOrg(uid, state.company_name);
-      await applyAccountRole(id, accountRole);
       setOrgId(id);
     }
     setStep(next);
@@ -231,7 +196,6 @@ function Onboarding() {
     try {
       const org = orgId ?? (await ensureOrg(uid, state.company_name));
       setOrgId(org);
-      if (!orgId) await applyAccountRole(org, accountRole);
       if (opts.seedSamples) {
         const { error } = await supabase.rpc("seed_sample_data");
         if (error) throw error;
@@ -307,12 +271,7 @@ function Onboarding() {
             />
           )}
           {step === 2 && (
-            <Step2
-              state={state}
-              accountRole={accountRole}
-              onAccountRole={chooseAccountRole}
-              onChange={(patch) => setState({ ...state, ...patch })}
-            />
+            <Step2 state={state} onChange={(patch) => setState({ ...state, ...patch })} />
           )}
           {step === 3 && (
             <Step3
@@ -359,7 +318,7 @@ function Onboarding() {
 }
 
 function Progress({ step }: { step: number }) {
-  const items = ["Account type", "Company info", "Bring in data"];
+  const items = ["Account type", "Organisation", "Bring in data"];
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-4">
       {items.map((label, i) => {
@@ -492,23 +451,19 @@ function Step1({
 
 function Step2({
   state,
-  accountRole,
-  onAccountRole,
   onChange,
 }: {
   state: ProfileState;
-  accountRole: AccountRole;
-  onAccountRole: (role: AccountRole) => void;
   onChange: (patch: Partial<ProfileState>) => void;
 }) {
   return (
     <div>
-      <h1 className="font-display text-2xl font-bold sm:text-3xl">Tell us about your team</h1>
+      <h1 className="font-display text-2xl font-bold sm:text-3xl">Name your organisation</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        We'll tailor examples and defaults to match.
+        Your candidates, positions and team live here. You'll be its owner.
       </p>
       <div className="mt-6 space-y-4">
-        <Field label="Company name" required>
+        <Field label="Organisation name" required>
           <input
             className={inputCls}
             value={state.company_name}
@@ -516,55 +471,6 @@ function Step2({
             placeholder="Acme Inc."
             autoFocus
           />
-        </Field>
-        <Field label="Account role" required>
-          <select
-            className={inputCls}
-            value={accountRole}
-            onChange={(e) => onAccountRole(e.target.value as AccountRole)}
-          >
-            {ACCOUNT_ROLES.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Industry" required>
-          <select
-            className={inputCls}
-            value={state.company_industry}
-            onChange={(e) => onChange({ company_industry: e.target.value })}
-          >
-            <option value="">Select an industry…</option>
-            {INDUSTRIES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Company size" required>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {COMPANY_SIZES.map((s) => {
-              const active = state.company_size === s;
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => onChange({ company_size: s })}
-                  className={
-                    "rounded-xl border px-3 py-2 text-sm font-medium transition-colors " +
-                    (active
-                      ? "border-teal-500 bg-teal-500/10 text-foreground"
-                      : "border-input bg-white/60 dark:bg-white/5 text-muted-foreground hover:text-foreground")
-                  }
-                >
-                  {s}
-                </button>
-              );
-            })}
-          </div>
         </Field>
       </div>
     </div>
