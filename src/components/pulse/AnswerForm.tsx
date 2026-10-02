@@ -75,7 +75,7 @@ function AnswerHistory({ question, previous }: { question: PulseQuestion; previo
       <RatingTrend entries={ratings} />
       <ol className="relative ml-2 border-l-2 border-border pl-5">
         {entries.map((entry, index) => (
-          <li key={`${entry.roundNumber}-${entry.submittedAt}`} className={`relative pb-4 last:pb-0 ${index > 0 ? "text-muted-foreground" : "text-foreground"}`}>
+          <li key={`${entry.roundNumber}-${entry.submittedAt}`} className={`relative pb-4 last:pb-0 ${index === 0 ? "text-foreground" : index === 1 ? "text-muted-foreground" : "text-muted-foreground opacity-80"}`}>
             <span aria-hidden="true" className={`absolute -left-[27px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-card ${index === 0 ? "bg-primary" : "bg-muted-foreground/50"}`} />
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
               <span className={index === 0 ? "font-bold text-foreground" : "font-medium"}>Round {entry.roundNumber}</span>
