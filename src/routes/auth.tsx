@@ -105,7 +105,7 @@ function AuthPage() {
               className="font-medium text-teal-700 hover:underline"
               onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             >
-              {mode === "signin" ? "Create my organisation" : "Open my candidate flow"}
+              {mode === "signin" ? "Create account" : "Open my candidate flow"}
             </button>
           </p>
           <p className="mt-6 text-center text-xs text-muted-foreground">

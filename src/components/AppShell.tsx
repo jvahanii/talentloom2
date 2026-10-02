@@ -12,12 +12,13 @@ import {
   Building2,
   Plus,
   Activity,
+  UserRound,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut } from "@/lib/clerk";
 import { useSession, type AppUser } from "@/lib/auth";
-import { OrgProvider, useOrg } from "@/lib/org";
+import { ACCOUNT_ROLES, OrgProvider, applyAccountRole, useOrg, type AccountRole } from "@/lib/org";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,18 +103,44 @@ function NavUser({ user, fullName }: { user: AppUser | null; fullName?: string |
 }
 
 function OrgSwitcher() {
+  const navigate = useNavigate();
   const { orgs, orgId, setOrgId, refresh } = useOrg();
   const [creating, setCreating] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState("");
+  const [step, setStep] = useState<1 | 2>(1);
+  const [accountType, setAccountType] = useState<"recruiter" | "candidate" | "">("");
+  const [companyName, setCompanyName] = useState("");
+  const [accountRole, setAccountRole] = useState<AccountRole>("Owner");
 
-  const handleChange = async (value: string) => {
+  const resetDialog = () => {
+    setStep(1);
+    setAccountType("");
+    setCompanyName("");
+    setAccountRole("Owner");
+  };
+
+  const handleChange = (value: string) => {
     if (value === "__new__") {
-      setWorkspaceName("");
+      resetDialog();
       setCreateDialogOpen(true);
       return;
     }
     setOrgId(value);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setCreateDialogOpen(open);
+    if (!open) resetDialog();
+  };
+
+  const continueFromAccountType = () => {
+    if (accountType === "candidate") {
+      setCreateDialogOpen(false);
+      resetDialog();
+      navigate({ to: "/candidate/applications" });
+      return;
+    }
+    if (accountType === "recruiter") setStep(2);
   };
 
   if (!orgId) return null;
@@ -136,17 +163,17 @@ function OrgSwitcher() {
           ))}
           <SelectItem value="__new__">
             <span className="inline-flex items-center gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> New organisation
+              <Plus className="h-3.5 w-3.5" /> Create account
             </span>
           </SelectItem>
         </SelectContent>
       </Select>
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={handleOpenChange}>
         <DialogContent>
           <form
             onSubmit={async (event) => {
               event.preventDefault();
-              const name = workspaceName.trim();
+              const name = companyName.trim();
               if (!name) return;
               setCreating(true);
               try {
@@ -154,50 +181,136 @@ function OrgSwitcher() {
                   _name: name,
                 });
                 if (error) throw error;
+                await applyAccountRole(newId as string, accountRole);
                 refresh();
                 setOrgId(newId as string);
                 setCreateDialogOpen(false);
-                toast.success(`Organisation "${name}" created`);
+                resetDialog();
+                toast.success(`Account "${name}" created`);
               } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Failed to create organisation");
+                toast.error(e instanceof Error ? e.message : "Failed to create account");
               } finally {
                 setCreating(false);
               }
             }}
           >
             <DialogHeader>
-              <DialogTitle>Start a new organisation</DialogTitle>
+              <DialogTitle>Create account</DialogTitle>
               <DialogDescription>
-                Keep each hiring project focused and easy to find. Choose a name your team will
-                recognise.
+                {step === 1
+                  ? "How will you use Talentloom?"
+                  : "Tell us about your company to finish setting up your account."}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 py-2">
-              <Label htmlFor="workspace-name" required>
-                What should we call it?
-              </Label>
-              <Input
-                id="workspace-name"
-                value={workspaceName}
-                onChange={(event) => setWorkspaceName(event.target.value)}
-                placeholder="e.g. Acme product hiring"
-                autoFocus
-                disabled={creating}
-                required
-              />
-            </div>
+
+            {step === 1 ? (
+              <div className="space-y-3 py-2">
+                {[
+                  {
+                    value: "recruiter" as const,
+                    icon: Briefcase,
+                    title: "Recruiter",
+                    description: "Manage positions, candidates and your team.",
+                  },
+                  {
+                    value: "candidate" as const,
+                    icon: UserRound,
+                    title: "Candidate",
+                    description: "Browse roles and keep track of your applications.",
+                  },
+                ].map((option) => {
+                  const active = accountType === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setAccountType(option.value)}
+                      disabled={creating}
+                      className={
+                        "flex w-full items-start gap-3 rounded-xl border p-3 text-left transition " +
+                        (active
+                          ? "border-primary bg-primary/10"
+                          : "border-input hover:bg-secondary/60")
+                      }
+                    >
+                      <option.icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-foreground">
+                          {option.title}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="company-name" required>
+                    Company name
+                  </Label>
+                  <Input
+                    id="company-name"
+                    value={companyName}
+                    onChange={(event) => setCompanyName(event.target.value)}
+                    placeholder="e.g. Acme Inc."
+                    autoFocus
+                    disabled={creating}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="account-role" required>
+                    Account role
+                  </Label>
+                  <Select
+                    value={accountRole}
+                    onValueChange={(value) => setAccountRole(value as AccountRole)}
+                    disabled={creating}
+                  >
+                    <SelectTrigger id="account-role">
+                      <SelectValue placeholder="Choose a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ACCOUNT_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCreateDialogOpen(false)}
-                disabled={creating}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={creating || !workspaceName.trim()}>
-                {creating ? "Setting it up…" : "Create organisation"}
-              </Button>
+              {step === 1 ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOpenChange(false)}
+                    disabled={creating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="button" disabled={!accountType} onClick={continueFromAccountType}>
+                    Continue
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={creating}>
+                    Back
+                  </Button>
+                  <Button type="submit" disabled={creating || !companyName.trim()}>
+                    {creating ? "Setting it up…" : "Create account"}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>

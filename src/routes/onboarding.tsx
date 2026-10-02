@@ -5,7 +5,7 @@ import { clerkSignOut, hasClerkSession } from "@/lib/clerk";
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
-import { ensureOrg } from "@/lib/org";
+import { ensureOrg, ACCOUNT_ROLES, applyAccountRole, type AccountRole } from "@/lib/org";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { ArrowLeft, ArrowRight, Check, LogOut, Upload, Sparkles, Download } from "lucide-react";
 import { RequiredIndicator } from "@/components/ui/label";
@@ -28,7 +28,11 @@ export const Route = createFileRoute("/onboarding")({
   component: Onboarding,
 });
 
-const JOB_TITLES = ["Recruiter", "Hiring Manager", "HR Ops", "Talent Lead", "Other"] as const;
+type AccountType = "recruiter" | "candidate";
+
+const ACCOUNT_TYPE_KEY = "talently:onboarding-account-type";
+const ACCOUNT_ROLE_KEY = "talently:onboarding-account-role";
+
 const INDUSTRIES = [
   "Software/SaaS",
   "Financial Services",
@@ -84,8 +88,6 @@ function parseCSV(text: string): string[][] {
 
 type ProfileState = {
   full_name: string;
-  job_title: string;
-  job_title_other: string;
   company_name: string;
   company_industry: string;
   company_size: string;
@@ -94,8 +96,6 @@ type ProfileState = {
 
 const EMPTY: ProfileState = {
   full_name: "",
-  job_title: "",
-  job_title_other: "",
   company_name: "",
   company_industry: "",
   company_size: "",
@@ -110,6 +110,40 @@ function Onboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [accountType, setAccountType] = useState<AccountType | "">(() => {
+    try {
+      const stored = window.localStorage.getItem(ACCOUNT_TYPE_KEY);
+      return stored === "recruiter" || stored === "candidate" ? stored : "";
+    } catch {
+      return "";
+    }
+  });
+  const [accountRole, setAccountRole] = useState<AccountRole>(() => {
+    try {
+      const stored = window.localStorage.getItem(ACCOUNT_ROLE_KEY) as AccountRole | null;
+      return stored && (ACCOUNT_ROLES as readonly string[]).includes(stored) ? stored : "Owner";
+    } catch {
+      return "Owner";
+    }
+  });
+
+  const chooseAccountType = (type: AccountType) => {
+    setAccountType(type);
+    try {
+      window.localStorage.setItem(ACCOUNT_TYPE_KEY, type);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const chooseAccountRole = (role: AccountRole) => {
+    setAccountRole(role);
+    try {
+      window.localStorage.setItem(ACCOUNT_ROLE_KEY, role);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -136,16 +170,12 @@ function Onboarding() {
       }
       const { data: p } = await supabase
         .from("profiles")
-        .select(
-          "full_name, job_title, job_title_other, company_name, company_industry, company_size, onboarding_step",
-        )
+        .select("full_name, company_name, company_industry, company_size, onboarding_step")
         .eq("id", uid)
         .maybeSingle();
       if (p) {
         setState({
           full_name: p.full_name ?? "",
-          job_title: p.job_title ?? "",
-          job_title_other: p.job_title_other ?? "",
           company_name: p.company_name ?? "",
           company_industry: p.company_industry ?? "",
           company_size: p.company_size ?? "",
@@ -164,10 +194,7 @@ function Onboarding() {
     await supabase.from("profiles").update(next).eq("id", uid);
   };
 
-  const step1Valid =
-    state.full_name.trim().length > 0 &&
-    state.job_title.length > 0 &&
-    (state.job_title !== "Other" || state.job_title_other.trim().length > 0);
+  const step1Valid = state.full_name.trim().length > 0 && accountType !== "";
   const step2Valid =
     state.company_name.trim().length > 0 &&
     state.company_industry.length > 0 &&
@@ -176,11 +203,18 @@ function Onboarding() {
   const goNext = async () => {
     if (step === 1 && !step1Valid) return;
     if (step === 2 && !step2Valid) return;
+    if (step === 1 && accountType === "candidate") {
+      // Candidates don't need a hiring workspace — send them to their portal.
+      navigate({ to: "/candidate/applications" });
+      return;
+    }
     const next = step + 1;
     await persist({ onboarding_step: next });
     if (step === 2 && uid && !orgId) {
-      // Create the workspace as soon as we know the company name
+      // Create the workspace as soon as we know the company name, then apply the
+      // account role the recruiter picked.
       const id = await ensureOrg(uid, state.company_name);
+      await applyAccountRole(id, accountRole);
       setOrgId(id);
     }
     setStep(next);
@@ -197,6 +231,7 @@ function Onboarding() {
     try {
       const org = orgId ?? (await ensureOrg(uid, state.company_name));
       setOrgId(org);
+      if (!orgId) await applyAccountRole(org, accountRole);
       if (opts.seedSamples) {
         const { error } = await supabase.rpc("seed_sample_data");
         if (error) throw error;
@@ -210,6 +245,12 @@ function Onboarding() {
         })
         .eq("id", uid);
       if (error) throw error;
+      try {
+        window.localStorage.removeItem(ACCOUNT_TYPE_KEY);
+        window.localStorage.removeItem(ACCOUNT_ROLE_KEY);
+      } catch {
+        /* ignore */
+      }
       toast.success("You're all set");
       navigate({ to: "/pipeline", replace: true });
     } catch (e) {
@@ -258,10 +299,20 @@ function Onboarding() {
 
         <div className="glass-strong mt-6 rounded-3xl p-6 sm:p-8">
           {step === 1 && (
-            <Step1 state={state} onChange={(patch) => setState({ ...state, ...patch })} />
+            <Step1
+              state={state}
+              accountType={accountType}
+              onAccountType={chooseAccountType}
+              onChange={(patch) => setState({ ...state, ...patch })}
+            />
           )}
           {step === 2 && (
-            <Step2 state={state} onChange={(patch) => setState({ ...state, ...patch })} />
+            <Step2
+              state={state}
+              accountRole={accountRole}
+              onAccountRole={chooseAccountRole}
+              onChange={(patch) => setState({ ...state, ...patch })}
+            />
           )}
           {step === 3 && (
             <Step3
@@ -308,7 +359,7 @@ function Onboarding() {
 }
 
 function Progress({ step }: { step: number }) {
-  const items = ["Personal info", "Company info", "Bring in data"];
+  const items = ["Account type", "Company info", "Bring in data"];
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-4">
       {items.map((label, i) => {
@@ -372,11 +423,27 @@ const inputCls =
 
 function Step1({
   state,
+  accountType,
+  onAccountType,
   onChange,
 }: {
   state: ProfileState;
+  accountType: AccountType | "";
+  onAccountType: (type: AccountType) => void;
   onChange: (patch: Partial<ProfileState>) => void;
 }) {
+  const options: { value: AccountType; title: string; description: string }[] = [
+    {
+      value: "recruiter",
+      title: "Recruiter",
+      description: "Manage positions, candidates and your team.",
+    },
+    {
+      value: "candidate",
+      title: "Candidate",
+      description: "Browse roles and keep track of your applications.",
+    },
+  ];
   return (
     <div>
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Let’s make this yours</h1>
@@ -393,30 +460,31 @@ function Step1({
             autoFocus
           />
         </Field>
-        <Field label="Job title / role" required>
-          <select
-            className={inputCls}
-            value={state.job_title}
-            onChange={(e) => onChange({ job_title: e.target.value })}
-          >
-            <option value="">Select a role…</option>
-            {JOB_TITLES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+        <Field label="How will you use Talentloom?" required>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {options.map((option) => {
+              const active = accountType === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onAccountType(option.value)}
+                  className={
+                    "rounded-xl border p-4 text-left transition-colors " +
+                    (active
+                      ? "border-teal-500 bg-teal-500/10"
+                      : "border-input bg-white/60 dark:bg-white/5 hover:bg-white/80")
+                  }
+                >
+                  <span className="block text-sm font-semibold">{option.title}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </Field>
-        {state.job_title === "Other" && (
-          <Field label="Your role" required>
-            <input
-              className={inputCls}
-              value={state.job_title_other}
-              onChange={(e) => onChange({ job_title_other: e.target.value })}
-              placeholder="e.g. Head of People"
-            />
-          </Field>
-        )}
       </div>
     </div>
   );
@@ -424,9 +492,13 @@ function Step1({
 
 function Step2({
   state,
+  accountRole,
+  onAccountRole,
   onChange,
 }: {
   state: ProfileState;
+  accountRole: AccountRole;
+  onAccountRole: (role: AccountRole) => void;
   onChange: (patch: Partial<ProfileState>) => void;
 }) {
   return (
@@ -444,6 +516,19 @@ function Step2({
             placeholder="Acme Inc."
             autoFocus
           />
+        </Field>
+        <Field label="Account role" required>
+          <select
+            className={inputCls}
+            value={accountRole}
+            onChange={(e) => onAccountRole(e.target.value as AccountRole)}
+          >
+            {ACCOUNT_ROLES.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Industry" required>
           <select

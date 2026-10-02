@@ -66,7 +66,7 @@ function Landing() {
                   flowing
                 </span>
                 <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Create organization
+                  Create account
                 </span>
               </Link>
               <Link

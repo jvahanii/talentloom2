@@ -13,7 +13,6 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
 });
 
-const JOB_TITLES = ["Recruiter", "Hiring Manager", "HR Ops", "Talent Lead", "Other"] as const;
 const INDUSTRIES = [
   "Software/SaaS",
   "Financial Services",
@@ -39,8 +38,6 @@ function Settings() {
   const [email, setEmail] = useState("");
   const [form, setForm] = useState({
     full_name: "",
-    job_title: "",
-    job_title_other: "",
     company_name: "",
     company_industry: "",
     company_size: "",
@@ -54,15 +51,11 @@ function Settings() {
       if (!uid) return;
       const { data: p } = (await supabase
         .from("profiles")
-        .select(
-          "full_name, job_title, job_title_other, company_name, company_industry, company_size, email",
-        )
+        .select("full_name, company_name, company_industry, company_size, email")
         .eq("id", uid)
         .maybeSingle()) as unknown as {
         data: {
           full_name: string | null;
-          job_title: string | null;
-          job_title_other: string | null;
           company_name: string | null;
           company_industry: string | null;
           company_size: string | null;
@@ -73,8 +66,6 @@ function Settings() {
       if (p)
         setForm({
           full_name: p.full_name ?? "",
-          job_title: p.job_title ?? "",
-          job_title_other: p.job_title_other ?? "",
           company_name: p.company_name ?? "",
           company_industry: p.company_industry ?? "",
           company_size: p.company_size ?? "",
@@ -171,35 +162,6 @@ function Settings() {
                 className={inputCls}
               />
             </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Job title / role
-              </span>
-              <select
-                value={form.job_title}
-                onChange={(e) => patch({ job_title: e.target.value })}
-                className={inputCls}
-              >
-                <option value="">Select…</option>
-                {JOB_TITLES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {form.job_title === "Other" && (
-              <label className="block sm:col-span-2">
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                  Your role
-                </span>
-                <input
-                  value={form.job_title_other}
-                  onChange={(e) => patch({ job_title_other: e.target.value })}
-                  className={inputCls}
-                />
-              </label>
-            )}
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted-foreground">
                 Company name

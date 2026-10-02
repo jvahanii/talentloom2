@@ -129,6 +129,36 @@ async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
   }));
 }
 
+/** Organisation roles a recruiter can pick for themselves when creating an account. */
+export const ACCOUNT_ROLES = ["Owner", "Admin", "Member", "Viewer"] as const;
+export type AccountRole = (typeof ACCOUNT_ROLES)[number];
+
+/**
+ * Applies a role chosen at account creation to the current user's membership of
+ * the freshly created org. `create_organization` always seeds the creator as
+ * Owner, so we switch the membership title afterwards when a different role was
+ * picked. Choosing Owner needs no change.
+ */
+export async function applyAccountRole(orgId: string, roleName: AccountRole): Promise<void> {
+  if (roleName === "Owner") return;
+  const { data: uid, error: uidError } = await (
+    supabase.rpc as unknown as (fn: string) => Promise<{ data: string | null; error: unknown }>
+  )("current_profile_id");
+  if (uidError || !uid) return;
+  const { data: title, error: titleError } = await supabase
+    .from("organization_titles")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("name", roleName)
+    .maybeSingle();
+  if (titleError || !title?.id) return;
+  await supabase
+    .from("organization_members")
+    .update({ title_id: title.id, role: roleName.toLowerCase() as OrgRole })
+    .eq("org_id", orgId)
+    .eq("user_id", uid as string);
+}
+
 /** Returns the user's first org id, creating a personal org when none exists. */
 export async function ensureOrg(userId: string, name?: string): Promise<string> {
   const { data: m } = await supabase
