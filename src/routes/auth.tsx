@@ -15,6 +15,11 @@ async function waitForBackendToken(maxMs = 5000): Promise<void> {
 }
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const out: { mode?: "signup" } = {};
+    if (search.mode === "signup") out.mode = "signup";
+    return out;
+  },
   head: () => ({ meta: [{ title: "Recruiter organisation — Talentloom" }] }),
   component: AuthPage,
 });
@@ -36,8 +41,22 @@ function AuthPage() {
   const navigate = useNavigate();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const { mode: searchMode } = Route.useSearch();
+  const [mode, setMode] = useState<"signin" | "signup">(searchMode === "signup" ? "signup" : "signin");
   const [invited, setInvited] = useState(false);
+
+  useEffect(() => {
+    if (searchMode !== "signup") return;
+    // Arriving from the landing page's "Create organisation" button: after the
+    // account exists, onboarding should open straight on naming the organisation.
+    try {
+      window.localStorage.setItem(CREATE_ORG_INTENT_KEY, "1");
+      window.localStorage.setItem(ACCOUNT_TYPE_KEY, "recruiter");
+    } catch {
+      /* ignore */
+    }
+  }, [searchMode]);
+
 
   useEffect(() => {
     try {
