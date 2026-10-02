@@ -15,9 +15,11 @@ async function waitForBackendToken(maxMs = 5000): Promise<void> {
 }
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    mode: search.mode === "signup" ? ("signup" as const) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>) => {
+    const out: { mode?: "signup" } = {};
+    if (search.mode === "signup") out.mode = "signup";
+    return out;
+  },
   head: () => ({ meta: [{ title: "Recruiter organisation — Talentloom" }] }),
   component: AuthPage,
 });
