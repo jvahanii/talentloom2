@@ -1,21 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import {
-  ArrowDown,
-  ArrowLeft,
-  ArrowUp,
-  Copy,
-  Plus,
-  Trash2,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import {
   addPulseRespondents,
   deletePulseSurvey,
-  getIntervieweePulseHistory,
   getPulseResults,
   getPulseSurvey,
   removePulseRespondent,
@@ -27,6 +17,7 @@ import {
   type PulseQuestion,
   type QuestionType,
 } from "@/lib/pulse.functions";
+import { OwnershipPicker, ownershipPayload, ownershipLabel, type Ownership } from "@/components/pulse/OwnershipPicker";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { AnswerForm } from "@/components/pulse/AnswerForm";
@@ -36,13 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/surveys/$id")({
   head: () => ({
@@ -50,10 +35,7 @@ export const Route = createFileRoute("/_authenticated/surveys/$id")({
       { title: "Survey — Talentloom Pulse" },
       { name: "description", content: "Edit questions, run rounds and compare results over time." },
       { property: "og:title", content: "Survey — Talentloom Pulse" },
-      {
-        property: "og:description",
-        content: "Edit questions, run rounds and compare results over time.",
-      },
+      { property: "og:description", content: "Edit questions, run rounds and compare results over time." },
     ],
   }),
   component: SurveyPage,
@@ -86,18 +68,14 @@ function SurveyPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <Link
-        to="/surveys"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
+      <Link to="/surveys" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> All surveys
       </Link>
       <div>
         <h1 className="text-2xl font-bold">{survey.title}</h1>
         <p className="text-sm text-muted-foreground">
-          {isInterview ? "Structured interview" : "Survey"} ·{" "}
-          {survey.visibility === "org" ? "Organisation" : "Just me"} · {rounds.length} round
-          {rounds.length === 1 ? "" : "s"}
+          {isInterview ? "Structured interview" : "Survey"} · {ownershipLabel(survey)} ·{" "}
+          {rounds.length} round{rounds.length === 1 ? "" : "s"}
         </p>
       </div>
       <Tabs defaultValue={q.data.questions.length ? "results" : "questions"}>
@@ -105,71 +83,32 @@ function SurveyPage() {
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="rounds">Rounds{!isInterview && " & sharing"}</TabsTrigger>
-          {canManagePeople && (usesInvites || isInterview) && (
-            <TabsTrigger value="people">
-              {isInterview ? "Interviewees" : "Invited people"}
-            </TabsTrigger>
-          )}
-          {canManagePeople && isInterview && (
-            <TabsTrigger value="interview">Run interview</TabsTrigger>
-          )}
+          {canManagePeople && (usesInvites || isInterview) && <TabsTrigger value="people">{isInterview ? "Interviewees" : "Invited people"}</TabsTrigger>}
+          {canManagePeople && isInterview && <TabsTrigger value="interview">Run interview</TabsTrigger>}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
-        <TabsContent value="results">
-          <Results id={id} />
-        </TabsContent>
+        <TabsContent value="results"><Results id={id} /></TabsContent>
         <TabsContent value="questions">
-          <QuestionsEditor
-            surveyId={id}
-            initial={q.data.questions}
-            hasAnswers={rounds.some((r) => r.responses > 0)}
-            onSaved={refresh}
-          />
+          <QuestionsEditor surveyId={id} initial={q.data.questions} hasAnswers={rounds.some((r) => r.responses > 0)} onSaved={refresh} />
         </TabsContent>
-        <TabsContent value="rounds">
-          <Rounds data={q.data} onChange={refresh} />
-        </TabsContent>
-        <TabsContent value="people">
-          <People data={q.data} onChange={refresh} />
-        </TabsContent>
-        <TabsContent value="interview">
-          <Interview data={q.data} onChange={refresh} />
-        </TabsContent>
-        <TabsContent value="settings">
-          <Settings data={q.data} onChange={refresh} />
-        </TabsContent>
+        <TabsContent value="rounds"><Rounds data={q.data} onChange={refresh} /></TabsContent>
+        <TabsContent value="people"><People data={q.data} onChange={refresh} /></TabsContent>
+        <TabsContent value="interview"><Interview data={q.data} onChange={refresh} /></TabsContent>
+        <TabsContent value="settings"><Settings data={q.data} onChange={refresh} /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
 type SurveyData = Awaited<ReturnType<typeof getPulseSurvey>>;
-type Draft = {
-  id?: string;
-  key: string;
-  type: QuestionType;
-  prompt: string;
-  options: string[];
-  required: boolean;
-};
+type Draft = { id?: string; key: string; type: QuestionType; prompt: string; options: string[]; required: boolean };
 
-function QuestionsEditor({
-  surveyId,
-  initial,
-  hasAnswers,
-  onSaved,
-}: {
-  surveyId: string;
-  initial: PulseQuestion[];
-  hasAnswers: boolean;
-  onSaved: () => void;
-}) {
+function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId: string; initial: PulseQuestion[]; hasAnswers: boolean; onSaved: () => void }) {
   const toDraft = (qs: PulseQuestion[]): Draft[] => qs.map((x) => ({ ...x, key: x.id }));
   const [items, setItems] = useState<Draft[]>(toDraft(initial));
   const [busy, setBusy] = useState(false);
   useEffect(() => setItems(toDraft(initial)), [initial]);
-  const upd = (i: number, patch: Partial<Draft>) =>
-    setItems((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const upd = (i: number, patch: Partial<Draft>) => setItems((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const move = (i: number, d: number) =>
     setItems((a) => {
       const b = [...a];
@@ -183,8 +122,7 @@ function QuestionsEditor({
     <div className="space-y-4">
       {hasAnswers && (
         <p className="rounded-xl bg-secondary p-3 text-sm">
-          Keep question wording stable so rounds stay comparable. Deleting a question also deletes
-          its earlier answers.
+          Keep question wording stable so rounds stay comparable. Deleting a question also deletes its earlier answers.
         </p>
       )}
       {items.map((it, i) => (
@@ -192,57 +130,21 @@ function QuestionsEditor({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold">{i + 1}.</span>
             <Select value={it.type} onValueChange={(v) => upd(i, { type: v as QuestionType })}>
-              <SelectTrigger className="w-56">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(TYPE_LABEL).map(([k, l]) => (
-                  <SelectItem key={k} value={k}>
-                    {l}
-                  </SelectItem>
-                ))}
+                {Object.entries(TYPE_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
               </SelectContent>
             </Select>
             <label className="flex items-center gap-2 text-sm">
-              <Switch checked={it.required} onCheckedChange={(v) => upd(i, { required: v })} />{" "}
-              Required
+              <Switch checked={it.required} onCheckedChange={(v) => upd(i, { required: v })} /> Required
             </label>
             <div className="ml-auto flex gap-1">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => move(i, -1)}
-                aria-label="Move up"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => move(i, 1)}
-                aria-label="Move down"
-              >
-                <ArrowDown className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setItems((a) => a.filter((_, j) => j !== i))}
-                aria-label="Delete question"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <Button type="button" size="icon" variant="ghost" onClick={() => move(i, -1)} aria-label="Move up"><ArrowUp className="h-4 w-4" /></Button>
+              <Button type="button" size="icon" variant="ghost" onClick={() => move(i, 1)} aria-label="Move down"><ArrowDown className="h-4 w-4" /></Button>
+              <Button type="button" size="icon" variant="ghost" onClick={() => setItems((a) => a.filter((_, j) => j !== i))} aria-label="Delete question"><Trash2 className="h-4 w-4" /></Button>
             </div>
           </div>
-          <Input
-            value={it.prompt}
-            placeholder="Question"
-            onChange={(e) => upd(i, { prompt: e.target.value })}
-            maxLength={1000}
-          />
+          <Input value={it.prompt} placeholder="Question" onChange={(e) => upd(i, { prompt: e.target.value })} maxLength={1000} />
           {(it.type === "single" || it.type === "multi") && (
             <Textarea
               rows={3}
@@ -257,26 +159,14 @@ function QuestionsEditor({
         <Button
           type="button"
           variant="outline"
-          onClick={() =>
-            setItems((a) => [
-              ...a,
-              {
-                key: crypto.randomUUID(),
-                type: "rating",
-                prompt: "",
-                options: [],
-                required: false,
-              },
-            ])
-          }
+          onClick={() => setItems((a) => [...a, { key: crypto.randomUUID(), type: "rating", prompt: "", options: [], required: false }])}
         >
           <Plus className="mr-1 h-4 w-4" /> Add question
         </Button>
         <Button
           disabled={busy}
           onClick={async () => {
-            if (items.some((x) => !x.prompt.trim()))
-              return toast.error("Every question needs text");
+            if (items.some((x) => !x.prompt.trim())) return toast.error("Every question needs text");
             setBusy(true);
             try {
               await savePulseQuestions({
@@ -316,20 +206,13 @@ function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) 
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border-2 border-border bg-card p-4">
         <div className="space-y-1">
           <Label htmlFor="closes">Closes on (optional)</Label>
-          <Input
-            id="closes"
-            type="date"
-            value={closesOn}
-            onChange={(e) => setClosesOn(e.target.value)}
-          />
+          <Input id="closes" type="date" value={closesOn} onChange={(e) => setClosesOn(e.target.value)} />
         </div>
         <Button
           disabled={!data.questions.length}
           onClick={async () => {
             try {
-              const { number } = await startPulseRound({
-                data: { surveyId: survey.id, closesOn: closesOn || null },
-              });
+              const { number } = await startPulseRound({ data: { surveyId: survey.id, closesOn: closesOn || null } });
               toast.success(`Round ${number} started`);
               onChange();
             } catch (e) {
@@ -340,16 +223,11 @@ function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) 
           Start round {rounds.length + 1}
         </Button>
         <p className="text-xs text-muted-foreground">
-          {data.questions.length
-            ? "Starting a new round closes the current one."
-            : "Add questions first."}
+          {data.questions.length ? "Starting a new round closes the current one." : "Add questions first."}
         </p>
       </div>
       {[...rounds].reverse().map((r) => (
-        <div
-          key={r.id}
-          className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-border bg-card p-4"
-        >
+        <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-border bg-card p-4">
           <div>
             <p className="font-semibold">Round {r.number}</p>
             <p className="text-xs text-muted-foreground">
@@ -357,9 +235,7 @@ function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) 
               {r.closes_on && ` · closes ${formatDate(r.closes_on)}`} · {r.responses} answers
             </p>
           </div>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-            {r.status === "open" ? "Open" : "Closed"}
-          </span>
+          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">{r.status === "open" ? "Open" : "Closed"}</span>
           <div className="ml-auto flex gap-2">
             {linkAllowed && r.status === "open" && (
               <Button size="sm" variant="outline" onClick={() => copy(linkFor(r.public_token))}>
@@ -370,9 +246,7 @@ function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) 
               size="sm"
               variant="outline"
               onClick={async () => {
-                await setPulseRoundStatus({
-                  data: { roundId: r.id, status: r.status === "open" ? "closed" : "open" },
-                });
+                await setPulseRoundStatus({ data: { roundId: r.id, status: r.status === "open" ? "closed" : "open" } });
                 onChange();
               }}
             >
@@ -393,13 +267,7 @@ function People({ data, onChange }: { data: SurveyData; onChange: () => void }) 
     <div className="space-y-4">
       <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
         <Label htmlFor="ppl">Add people — one per line, as "Name, email" or just an email</Label>
-        <Textarea
-          id="ppl"
-          rows={4}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={"Aino Virtanen, aino@example.com\nbob@example.com"}
-        />
+        <Textarea id="ppl" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Aino Virtanen, aino@example.com\nbob@example.com"} />
         <Button
           disabled={!text.trim()}
           onClick={async () => {
@@ -414,11 +282,11 @@ function People({ data, onChange }: { data: SurveyData; onChange: () => void }) 
                 return { name, email };
               });
             try {
-              const { ids, skipped } = await addPulseRespondents({
-                data: { surveyId: data.survey.id, people },
-              });
+              const { ids, skipped } = await addPulseRespondents({ data: { surveyId: data.survey.id, people } });
               if (skipped)
-                toast.info(`Added ${ids.length}. Skipped ${skipped} already on the list.`);
+                toast.info(
+                  `Added ${ids.length}. Skipped ${skipped} already on the list.`,
+                );
               setText("");
               onChange();
             } catch (e) {
@@ -431,21 +299,16 @@ function People({ data, onChange }: { data: SurveyData; onChange: () => void }) 
       </div>
       {!isInterview && (
         <p className="text-sm text-muted-foreground">
-          Each person has a personal link that stays the same for every round, so their answers can
-          be followed over time. Send it to them yourself.
+          Each person has a personal link that stays the same for every round, so their answers can be followed over time. Send it to them yourself.
         </p>
       )}
       <div className="divide-y divide-border rounded-2xl border-2 border-border bg-card">
-        {data.respondents.length === 0 && (
-          <p className="p-4 text-sm text-muted-foreground">No one added yet.</p>
-        )}
+        {data.respondents.length === 0 && <p className="p-4 text-sm text-muted-foreground">No one added yet.</p>}
         {data.respondents.map((p) => (
           <div key={p.id} className="flex flex-wrap items-center gap-3 p-3">
             <div className="min-w-0">
               <p className="truncate font-medium">{p.name || p.email}</p>
-              {p.name && p.email && (
-                <p className="truncate text-xs text-muted-foreground">{p.email}</p>
-              )}
+              {p.name && p.email && <p className="truncate text-xs text-muted-foreground">{p.email}</p>}
             </div>
             <span className="text-xs text-muted-foreground">
               {latest && p.answeredRounds.includes(latest.number)
@@ -484,28 +347,15 @@ function Interview({ data, onChange }: { data: SurveyData; onChange: () => void 
   const [person, setPerson] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [formKey, setFormKey] = useState(0);
-
-  const historyQuery = useQuery({
-    queryKey: ["interview-history", data.survey.id, person],
-    queryFn: () =>
-      getIntervieweePulseHistory({ data: { surveyId: data.survey.id, respondentId: person } }),
-    enabled: Boolean(person),
-  });
-
-  if (!openRound)
-    return <p className="text-sm text-muted-foreground">Start a round first (Rounds tab).</p>;
-  const done = new Set(
-    data.respondents.filter((p) => p.answeredRounds.includes(openRound.number)).map((p) => p.id),
-  );
+  if (!openRound) return <p className="text-sm text-muted-foreground">Start a round first (Rounds tab).</p>;
+  const done = new Set(data.respondents.filter((p) => p.answeredRounds.includes(openRound.number)).map((p) => p.id));
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border-2 border-border bg-card p-4">
         <div className="space-y-1">
           <Label>Interviewee (round {openRound.number})</Label>
           <Select value={person} onValueChange={setPerson}>
-            <SelectTrigger className="w-72">
-              <SelectValue placeholder="Choose a person" />
-            </SelectTrigger>
+            <SelectTrigger className="w-72"><SelectValue placeholder="Choose a person" /></SelectTrigger>
             <SelectContent>
               {data.respondents.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
@@ -522,20 +372,12 @@ function Interview({ data, onChange }: { data: SurveyData; onChange: () => void 
         <AnswerForm
           key={`${person}-${formKey}`}
           questions={data.questions}
-          previousRounds={historyQuery.data}
           submitting={busy}
           submitLabel="Save interview"
           onSubmit={async (answers) => {
             setBusy(true);
             try {
-              await submitPulseInterview({
-                data: {
-                  surveyId: data.survey.id,
-                  roundId: openRound.id,
-                  respondentId: person,
-                  answers,
-                },
-              });
+              await submitPulseInterview({ data: { surveyId: data.survey.id, roundId: openRound.id, respondentId: person, answers } });
               toast.success("Interview saved");
               setPerson("");
               setFormKey((k) => k + 1);
@@ -557,14 +399,8 @@ function Delta({ value, unit = "" }: { value: number | null; unit?: string }) {
   const up = value > 0.005;
   const down = value < -0.005;
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${up ? "bg-primary/20" : down ? "bg-destructive/15 text-destructive" : "bg-secondary"}`}
-    >
-      {up ? (
-        <TrendingUp className="h-3.5 w-3.5" />
-      ) : down ? (
-        <TrendingDown className="h-3.5 w-3.5" />
-      ) : null}
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${up ? "bg-primary/20" : down ? "bg-destructive/15 text-destructive" : "bg-secondary"}`}>
+      {up ? <TrendingUp className="h-3.5 w-3.5" /> : down ? <TrendingDown className="h-3.5 w-3.5" /> : null}
       {value > 0 ? "+" : ""}
       {value.toFixed(unit ? 0 : 2)}
       {unit} vs previous round
@@ -573,25 +409,14 @@ function Delta({ value, unit = "" }: { value: number | null; unit?: string }) {
 }
 
 function Results({ id }: { id: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["pulse-results", id],
-    queryFn: () => getPulseResults({ data: { id } }),
-  });
+  const { data, isLoading } = useQuery({ queryKey: ["pulse-results", id], queryFn: () => getPulseResults({ data: { id } }) });
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
-  if (!data || !data.rounds.length)
-    return (
-      <p className="text-sm text-muted-foreground">
-        No rounds yet. Add questions and start a round.
-      </p>
-    );
+  if (!data || !data.rounds.length) return <p className="text-sm text-muted-foreground">No rounds yet. Add questions and start a round.</p>;
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
         {data.rounds.map((r) => (
-          <span
-            key={r.id}
-            className="rounded-full border-2 border-border bg-card px-3 py-1 text-xs"
-          >
+          <span key={r.id} className="rounded-full border-2 border-border bg-card px-3 py-1 text-xs">
             Round {r.number} · {formatDate(r.opens_on)} · {r.responses} answers
           </span>
         ))}
@@ -603,35 +428,19 @@ function Results({ id }: { id: string }) {
         return (
           <div key={q.id} className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-medium">
-                {i + 1}. {q.prompt}
-              </p>
-              {numeric && (
-                <span className="ml-auto">
-                  <Delta value={q.delta} unit={q.type === "yesno" ? " pts" : ""} />
-                </span>
-              )}
+              <p className="font-medium">{i + 1}. {q.prompt}</p>
+              {numeric && <span className="ml-auto"><Delta value={q.delta} unit={q.type === "yesno" ? " pts" : ""} /></span>}
             </div>
             {numeric && (
               <div className="space-y-1.5">
                 {q.stats.map((s) => (
                   <div key={s.roundNumber} className="flex items-center gap-2 text-xs">
-                    <span className="w-16 shrink-0 text-muted-foreground">
-                      Round {s.roundNumber}
-                    </span>
+                    <span className="w-16 shrink-0 text-muted-foreground">Round {s.roundNumber}</span>
                     <div className="h-4 flex-1 overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${((s.mean ?? 0) / max) * 100}%` }}
-                      />
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${((s.mean ?? 0) / max) * 100}%` }} />
                     </div>
                     <span className="w-24 shrink-0 text-right">
-                      {s.mean == null
-                        ? "—"
-                        : q.type === "rating"
-                          ? `${s.mean.toFixed(2)} / 5`
-                          : `${Math.round(s.mean)}% yes`}{" "}
-                      ({s.count})
+                      {s.mean == null ? "—" : q.type === "rating" ? `${s.mean.toFixed(2)} / 5` : `${Math.round(s.mean)}% yes`} ({s.count})
                     </span>
                   </div>
                 ))}
@@ -643,11 +452,7 @@ function Results({ id }: { id: string }) {
                   <thead>
                     <tr className="text-muted-foreground">
                       <th className="py-1 text-left font-normal">Option</th>
-                      {q.stats.map((s) => (
-                        <th key={s.roundNumber} className="py-1 text-right font-normal">
-                          Round {s.roundNumber}
-                        </th>
-                      ))}
+                      {q.stats.map((s) => <th key={s.roundNumber} className="py-1 text-right font-normal">Round {s.roundNumber}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -655,19 +460,15 @@ function Results({ id }: { id: string }) {
                       <tr key={o} className="border-t border-border">
                         <td className="py-1">{o}</td>
                         {q.stats.map((s, k) => {
-                          const pct = (st: typeof s) =>
-                            st.count ? ((st.distribution[o] ?? 0) / st.count) * 100 : 0;
+                          const pct = (st: typeof s) => (st.count ? ((st.distribution[o] ?? 0) / st.count) * 100 : 0);
                           const prev = q.stats[k - 1];
                           const d = prev && prev.count && s.count ? pct(s) - pct(prev) : null;
                           return (
                             <td key={s.roundNumber} className="py-1 text-right">
                               {Math.round(pct(s))}%
                               {d != null && Math.abs(d) >= 1 && (
-                                <span
-                                  className={d > 0 ? "ml-1 text-primary" : "ml-1 text-destructive"}
-                                >
-                                  ({d > 0 ? "+" : ""}
-                                  {Math.round(d)})
+                                <span className={d > 0 ? "ml-1 text-primary" : "ml-1 text-destructive"}>
+                                  ({d > 0 ? "+" : ""}{Math.round(d)})
                                 </span>
                               )}
                             </td>
@@ -681,15 +482,7 @@ function Results({ id }: { id: string }) {
             )}
             {q.type === "text" && (
               <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
-                {latest?.texts.length ? (
-                  latest.texts.map((t, k) => (
-                    <li key={k} className="rounded-lg bg-secondary px-3 py-1.5">
-                      {t}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-muted-foreground">No answers in the latest round.</li>
-                )}
+                {latest?.texts.length ? latest.texts.map((t, k) => <li key={k} className="rounded-lg bg-secondary px-3 py-1.5">{t}</li>) : <li className="text-muted-foreground">No answers in the latest round.</li>}
               </ul>
             )}
           </div>
@@ -697,9 +490,7 @@ function Results({ id }: { id: string }) {
       })}
       {data.people.length > 0 && (
         <div className="rounded-2xl border-2 border-border bg-card p-4">
-          <p className="mb-3 font-medium">
-            How each person moved (average rating, latest vs previous round)
-          </p>
+          <p className="mb-3 font-medium">How each person moved (average rating, latest vs previous round)</p>
           <div className="divide-y divide-border text-sm">
             {data.people.map((p) => (
               <div key={p.id} className="flex flex-wrap items-center gap-3 py-2">
@@ -707,9 +498,7 @@ function Results({ id }: { id: string }) {
                 <span className="text-xs text-muted-foreground">
                   {p.previous?.toFixed(2) ?? "—"} → {p.latest?.toFixed(2) ?? "—"}
                 </span>
-                <span className="ml-auto">
-                  <Delta value={p.delta} />
-                </span>
+                <span className="ml-auto"><Delta value={p.delta} /></span>
               </div>
             ))}
           </div>
@@ -726,65 +515,32 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
   const [title, setTitle] = useState(survey.title);
   const [description, setDescription] = useState(survey.description ?? "");
   const [mode, setMode] = useState(survey.response_mode);
-  const [visibility, setVisibility] = useState(survey.visibility);
-  const [org, setOrg] = useState(survey.org_id ?? orgs[0]?.org_id ?? null);
+  const [own, setOwn] = useState<Ownership>({
+    allOrgs: !!survey.all_orgs,
+    orgIds: survey.orgIds ?? [],
+    ownerEmails: survey.ownerEmails ?? [],
+    selected: !!survey.orgIds?.length,
+    invite: !!survey.ownerEmails?.length,
+  });
+  const [emails, setEmails] = useState((survey.ownerEmails ?? []).join(", "));
   const [showPrevious, setShowPrevious] = useState(survey.show_previous_answers ?? true);
   return (
     <div className="max-w-xl space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="st" required>
-          Title
-        </Label>
+        <Label htmlFor="st" required>Title</Label>
         <Input id="st" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="sd">Description</Label>
-        <Textarea
-          id="sd"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          maxLength={2000}
-        />
+        <Textarea id="sd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
       </div>
+      <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Who owns it</Label>
-          <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="private">Just me</SelectItem>
-              <SelectItem value="org" disabled={!orgs.length}>
-                My organisation
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {visibility === "org" && (
-          <div className="space-y-2">
-            <Label>Organisation</Label>
-            <Select value={org ?? undefined} onValueChange={setOrg}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose" />
-              </SelectTrigger>
-              <SelectContent>
-                {orgs.map((o) => (
-                  <SelectItem key={o.org_id} value={o.org_id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
         {survey.kind === "survey" && (
           <div className="space-y-2">
             <Label>How people answer</Label>
             <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="link">Anyone with the link</SelectItem>
                 <SelectItem value="invite">Invited people only</SelectItem>
@@ -805,8 +561,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           <span>
             Show people their previous answers
             <span className="block text-xs text-muted-foreground">
-              From round 2 on, people answering through their personal link see what they answered
-              last time.
+              From round 2 on, people answering through their personal link see what they answered last time.
             </span>
           </span>
         </label>
@@ -817,15 +572,7 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           onClick={async () => {
             try {
               await updatePulseSurvey({
-                data: {
-                  id: survey.id,
-                  title,
-                  description: description || null,
-                  responseMode: mode,
-                  visibility,
-                  orgId: visibility === "org" ? org : null,
-                  showPreviousAnswers: showPrevious,
-                },
+                data: { id: survey.id, title, description: description || null, responseMode: mode, ...ownershipPayload(own, emails), showPreviousAnswers: showPrevious },
               });
               toast.success("Saved");
               onChange();

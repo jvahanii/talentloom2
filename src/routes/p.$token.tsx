@@ -11,10 +11,7 @@ export const Route = createFileRoute("/p/$token")({
       { title: "Answer a survey — Talentloom Pulse" },
       { name: "description", content: "Share your answers in a short Talentloom Pulse survey." },
       { property: "og:title", content: "Answer a survey — Talentloom Pulse" },
-      {
-        property: "og:description",
-        content: "Share your answers in a short Talentloom Pulse survey.",
-      },
+      { property: "og:description", content: "Share your answers in a short Talentloom Pulse survey." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
@@ -27,9 +24,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto max-w-2xl">
-        <p className="mb-6 text-center text-sm font-semibold text-muted-foreground">
-          Talentloom Pulse
-        </p>
+        <p className="mb-6 text-center text-sm font-semibold text-muted-foreground">Talentloom Pulse</p>
         {children}
       </div>
     </div>
@@ -49,20 +44,9 @@ function PublicSurvey() {
     retry: false,
   });
 
-  if (isLoading)
-    return (
-      <Shell>
-        <p className="text-center text-muted-foreground">Loading…</p>
-      </Shell>
-    );
+  if (isLoading) return <Shell><p className="text-center text-muted-foreground">Loading…</p></Shell>;
   if (!data || !data.found)
-    return (
-      <Shell>
-        <Card title="Survey not found">
-          This link doesn't lead to a survey. Check the link you received.
-        </Card>
-      </Shell>
-    );
+    return <Shell><Card title="Survey not found">This link doesn't lead to a survey. Check the link you received.</Card></Shell>;
   if (done || data.alreadyAnswered)
     return (
       <Shell>
@@ -84,27 +68,19 @@ function PublicSurvey() {
       </Shell>
     );
   if (!data.open)
-    return (
-      <Shell>
-        <Card title={data.title}>This survey isn't taking answers right now.</Card>
-      </Shell>
-    );
+    return <Shell><Card title={data.title}>This survey isn't taking answers right now.</Card></Shell>;
 
   return (
     <Shell>
       <div className="mb-6 rounded-2xl border-2 border-border bg-card p-6 shadow-[0_4px_0_var(--brand-mint)]">
-        {data.greetingName && (
-          <p className="mb-1 text-sm text-muted-foreground">Hi {data.greetingName}!</p>
-        )}
+        {data.greetingName && <p className="mb-1 text-sm text-muted-foreground">Hi {data.greetingName}!</p>}
         <h1 className="text-2xl font-bold">{data.title}</h1>
-        {data.roundNumber && (
-          <p className="text-xs text-muted-foreground">Round {data.roundNumber}</p>
-        )}
+        {data.roundNumber && <p className="text-xs text-muted-foreground">Round {data.roundNumber}</p>}
         {data.description && <p className="mt-3 whitespace-pre-line text-sm">{data.description}</p>}
       </div>
       <AnswerForm
         questions={data.questions}
-        previousRounds={data.previousRounds}
+        previous={data.previousAnswers}
         submitting={sending}
         onSubmit={async (answers) => {
           setSending(true);
