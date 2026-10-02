@@ -27,14 +27,19 @@ async function loadProfileWithRetry(attempts = 4) {
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
+    // Remember where the person was going, so sign-in can bring them back.
+    const back = { redirect: location.href };
+    // Pulse surveys can be personal, so they don't need onboarding or an organisation.
+    const isPulse = location.pathname === "/surveys" || location.pathname.startsWith("/surveys/");
+
     const clerk = await waitForClerk();
-    if (!clerk?.session) throw redirect({ to: "/auth" });
+    if (!clerk?.session) throw redirect({ to: "/auth", search: back });
 
     // A session without a usable template token means we cannot authenticate
     // against the backend — send the user back to sign in rather than erroring.
     const token = await getClerkToken();
-    if (!token) throw redirect({ to: "/auth" });
+    if (!token) throw redirect({ to: "/auth", search: back });
 
     // Make sure a profile row exists for this Clerk user (creates or links it).
     let profile: Awaited<ReturnType<typeof ensureMyProfile>>;
@@ -50,7 +55,7 @@ export const Route = createFileRoute("/_authenticated")({
             : String(err);
       console.error("[auth] ensureMyProfile failed:", message, err);
       if (/unauthorized|no authorization header|invalid token/i.test(message)) {
-        throw redirect({ to: "/auth" });
+        throw redirect({ to: "/auth", search: back });
       }
       if (NETWORK_ERROR.test(message)) {
         throw new Error(
@@ -77,7 +82,7 @@ export const Route = createFileRoute("/_authenticated")({
     }
 
     // Enforce onboarding completion before entering the app.
-    if (!profile.onboardingCompleted) {
+    if (!profile.onboardingCompleted && !isPulse) {
       throw redirect({ to: "/onboarding" });
     }
 

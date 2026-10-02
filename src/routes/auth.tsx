@@ -17,8 +17,16 @@ async function waitForBackendToken(maxMs = 5000): Promise<void> {
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => {
-    const out: { mode?: "signup" } = {};
+    const out: { mode?: "signup"; redirect?: string } = {};
     if (search.mode === "signup") out.mode = "signup";
+    // Only same-site paths, so the link can't send people to another site.
+    if (
+      typeof search.redirect === "string" &&
+      search.redirect.startsWith("/") &&
+      !search.redirect.startsWith("//")
+    ) {
+      out.redirect = search.redirect;
+    }
     return out;
   },
   head: () => ({ meta: [{ title: "Sign in — Talentloom" }] }),
@@ -42,7 +50,7 @@ function AuthPage() {
   const navigate = useNavigate();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const { mode: searchMode } = Route.useSearch();
+  const { mode: searchMode, redirect: redirectTo } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup">(searchMode === "signup" ? "signup" : "signin");
   const [invited, setInvited] = useState(false);
 
@@ -86,6 +94,11 @@ function AuthPage() {
       } catch {
         /* ignore */
       }
+      if (!joiningOrCreating && redirectTo) {
+        // Back to the page that asked them to sign in (e.g. Pulse surveys).
+        window.location.replace(redirectTo);
+        return;
+      }
       if (!joiningOrCreating) {
         try {
           to = (await getSignInDestination()).to;
@@ -99,7 +112,7 @@ function AuthPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, navigate, router]);
+  }, [isLoaded, isSignedIn, navigate, router, redirectTo]);
 
   return (
     <MarketingShell>
