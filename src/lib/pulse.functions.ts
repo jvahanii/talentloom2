@@ -42,6 +42,11 @@ export type PulseSurvey = {
   response_mode: "link" | "invite" | "both";
   status: "draft" | "open" | "closed";
   show_previous_answers: boolean;
+  all_orgs: boolean;
+  orgIds?: string[];
+  ownerEmails?: string[];
+  orgCount?: number;
+  ownerCount?: number;
   created_at: string;
   updated_at: string;
 };
@@ -49,6 +54,21 @@ export type PulseSurvey = {
 const Uuid = z.string().uuid();
 const AnswerValue = z.union([z.number(), z.string().max(5000), z.boolean(), z.array(z.string().max(500)).max(50), z.null()]);
 const Answers = z.record(Uuid, AnswerValue);
+
+const Sharing = {
+  allOrgs: z.boolean(),
+  orgIds: z.array(Uuid).max(50),
+  ownerEmails: z.array(z.string().trim().toLowerCase().email().max(255)).max(100),
+};
+
+async function saveSharing(sb: Loose, surveyId: string, d: { orgIds: string[]; ownerEmails: string[] }) {
+  fail((await sb.from("pulse_survey_orgs").delete().eq("survey_id", surveyId)).error);
+  if (d.orgIds.length)
+    fail((await sb.from("pulse_survey_orgs").insert(d.orgIds.map((org_id) => ({ survey_id: surveyId, org_id })))).error);
+  fail((await sb.from("pulse_survey_owners").delete().eq("survey_id", surveyId)).error);
+  if (d.ownerEmails.length)
+    fail((await sb.from("pulse_survey_owners").insert(d.ownerEmails.map((email) => ({ survey_id: surveyId, email })))).error);
+}
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -60,7 +80,7 @@ export const listPulseSurveys = createServerFn({ method: "GET" })
     const sb = context.supabase as Loose;
     const { data, error } = await sb
       .from("pulse_surveys")
-      .select("*, pulse_rounds(id, number, status), pulse_responses(id, round_id)")
+      .select("*, pulse_rounds(id, number, status), pulse_responses(id, round_id), pulse_survey_orgs(org_id), pulse_survey_owners(email)")
       .order("updated_at", { ascending: false });
     fail(error);
     return (data ?? []).map((s: Loose) => {
@@ -70,6 +90,10 @@ export const listPulseSurveys = createServerFn({ method: "GET" })
         ...(s as PulseSurvey),
         pulse_rounds: undefined,
         pulse_responses: undefined,
+        pulse_survey_orgs: undefined,
+        pulse_survey_owners: undefined,
+        orgCount: (s.pulse_survey_orgs ?? []).length,
+        ownerCount: (s.pulse_survey_owners ?? []).length,
         roundCount: rounds.length,
         latestResponses: latest
           ? (s.pulse_responses ?? []).filter((r: Loose) => r.round_id === latest.id).length
@@ -123,21 +147,20 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         title: z.string().trim().min(1).max(200),
         description: z.string().trim().max(2000).optional(),
         kind: z.enum(["survey", "interview"]),
-        visibility: z.enum(["private", "org"]),
-        orgId: Uuid.nullable(),
+        ...Sharing,
         responseMode: z.enum(["link", "invite", "both"]),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
-    if (data.visibility === "org" && !data.orgId) throw new Error("Choose an organisation first");
     const { data: row, error } = await sb
       .from("pulse_surveys")
       .insert({
         owner_id: context.userId,
-        org_id: data.orgId,
-        visibility: data.visibility,
+        org_id: null,
+        visibility: data.allOrgs || data.orgIds.length ? "org" : "private",
+        all_orgs: data.allOrgs,
         kind: data.kind,
         title: data.title,
         description: data.description || null,
@@ -146,6 +169,7 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
       .select("id")
       .single();
     fail(error);
+    await saveSharing(sb, row.id, data);
     return { id: row.id as string };
   });
 
@@ -154,7 +178,7 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
   .inputValidator((d) => z.object({ id: Uuid }).parse(d))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
-    const [s, q, r, p, resp, manage] = await Promise.all([
+    const [s, q, r, p, resp, manage, so, sw] = await Promise.all([
       sb.from("pulse_surveys").select("*").eq("id", data.id).maybeSingle(),
       sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
       sb.from("pulse_rounds").select("*").eq("survey_id", data.id).order("number"),
@@ -162,6 +186,8 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
       sb.from("pulse_responses").select("id, round_id, respondent_id").eq("survey_id", data.id),
       // Survey owner, or an org owner/admin. Others only get their own respondent row (RLS).
       sb.rpc("can_manage_pulse_survey", { _survey: data.id }),
+      sb.from("pulse_survey_orgs").select("org_id").eq("survey_id", data.id),
+      sb.from("pulse_survey_owners").select("email").eq("survey_id", data.id),
     ]);
     fail(s.error);
     if (!s.data) throw new Error("Survey not found");
@@ -169,7 +195,13 @@ export const getPulseSurvey = createServerFn({ method: "GET" })
     const rounds = (r.data ?? []) as Loose[];
     const roundNo = new Map(rounds.map((x) => [x.id, x.number as number]));
     return {
-      survey: s.data as PulseSurvey,
+      survey: {
+        ...(s.data as PulseSurvey),
+        orgIds: ((so.data ?? []) as Loose[]).map((x) => x.org_id as string),
+        ownerEmails: ((sw.data ?? []) as Loose[]).map((x) => x.email as string),
+        orgCount: (so.data ?? []).length,
+        ownerCount: (sw.data ?? []).length,
+      } as PulseSurvey,
       canManagePeople: manage.data === true,
       questions: (q.data ?? []) as PulseQuestion[],
       rounds: rounds.map((x) => ({
@@ -198,8 +230,7 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
         title: z.string().trim().min(1).max(200),
         description: z.string().trim().max(2000).nullable(),
         responseMode: z.enum(["link", "invite", "both"]),
-        visibility: z.enum(["private", "org"]),
-        orgId: Uuid.nullable(),
+        ...Sharing,
         showPreviousAnswers: z.boolean(),
       })
       .parse(d),
@@ -213,11 +244,13 @@ export const updatePulseSurvey = createServerFn({ method: "POST" })
         title: data.title,
         description: data.description,
         response_mode: data.responseMode,
-        visibility: data.visibility,
-        org_id: data.visibility === "org" ? data.orgId : null,
+        visibility: data.allOrgs || data.orgIds.length ? "org" : "private",
+        all_orgs: data.allOrgs,
+        org_id: null,
       })
       .eq("id", data.id);
     fail(error);
+    await saveSharing(sb, data.id, data);
     return { ok: true };
   });
 

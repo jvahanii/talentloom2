@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
-import { useOrg } from "@/lib/org";
+import { OwnershipPicker, emptyOwnership, ownershipPayload, ownershipLabel } from "@/components/pulse/OwnershipPicker";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +81,7 @@ function PulseList() {
             >
               <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                 {s.kind === "interview" ? <MessagesSquare className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
-                {s.kind === "interview" ? "Interview" : "Survey"} · {s.visibility === "org" ? "Organisation" : "Just me"}
+                {s.kind === "interview" ? "Interview" : "Survey"} · {ownershipLabel(s)}
                 <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 font-medium">{STATUS[s.status]}</span>
               </div>
               <p className="font-semibold">{s.title}</p>
@@ -98,16 +98,14 @@ function PulseList() {
 }
 
 function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
-  const { orgs, orgId } = useOrg();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<"survey" | "interview">("survey");
-  const [visibility, setVisibility] = useState<"private" | "org">("private");
-  const [org, setOrg] = useState<string | null>(null);
+  const [own, setOwn] = useState(emptyOwnership());
+  const [emails, setEmails] = useState("");
   const [mode, setMode] = useState<"link" | "invite" | "both">("both");
   const [busy, setBusy] = useState(false);
-  const chosenOrg = org ?? orgId ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,7 +117,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             setBusy(true);
             try {
               const { id } = await createPulseSurvey({
-                data: { title, description, kind, visibility, orgId: visibility === "org" ? chosenOrg : null, responseMode: mode },
+                data: { title, description, kind, ...ownershipPayload(own, emails), responseMode: mode },
               });
               onCreated();
               onOpenChange(false);
@@ -140,6 +138,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             <Label htmlFor="pd">Description</Label>
             <Textarea id="pd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
           </div>
+          <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Type</Label>
@@ -151,27 +150,6 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Who owns it</Label>
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="private">Just me</SelectItem>
-                  <SelectItem value="org" disabled={!orgs.length}>My organisation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {visibility === "org" && (
-              <div className="space-y-2">
-                <Label>Organisation</Label>
-                <Select value={chosenOrg ?? undefined} onValueChange={setOrg}>
-                  <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
-                  <SelectContent>
-                    {orgs.map((o) => <SelectItem key={o.org_id} value={o.org_id}>{o.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             {kind === "survey" && (
               <div className="space-y-2">
                 <Label>How people answer</Label>
