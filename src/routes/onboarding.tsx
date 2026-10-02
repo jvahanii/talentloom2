@@ -30,7 +30,9 @@ export const Route = createFileRoute("/onboarding")({
 
 type AccountType = "recruiter" | "candidate";
 
-const ACCOUNT_TYPE_KEY = "talently:onboarding-account-type";
+export const ACCOUNT_TYPE_KEY = "talently:onboarding-account-type";
+/** Set when someone signs up through "Create organisation": onboarding opens on naming it. */
+export const CREATE_ORG_INTENT_KEY = "talently:onboarding-create-org";
 const ACCOUNT_ROLE_KEY = "talently:onboarding-account-role";
 
 const TEMPLATE =
@@ -95,6 +97,8 @@ function Onboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // People who skip step 1 give their name alongside the organisation name.
+  const [askNameInStep2, setAskNameInStep2] = useState(false);
   const [accountType, setAccountType] = useState<AccountType | "">(() => {
     try {
       const stored = window.localStorage.getItem(ACCOUNT_TYPE_KEY);
@@ -121,6 +125,7 @@ function Onboarding() {
         return;
       }
       setUid(uid);
+      let joinedViaInvite = false;
       // Accept a pending workspace invite, if the user arrived via one
       try {
         const token = window.sessionStorage.getItem(PENDING_INVITE_KEY);
@@ -130,6 +135,7 @@ function Onboarding() {
             window.sessionStorage.removeItem(PENDING_INVITE_KEY);
             window.localStorage.setItem("talently:current-org", joinedOrg as string);
             setOrgId(joinedOrg as string);
+            joinedViaInvite = true;
             toast.success("You joined the organisation");
           }
         }
@@ -149,7 +155,20 @@ function Onboarding() {
           company_size: p.company_size ?? "",
           onboarding_step: p.onboarding_step ?? 1,
         });
-        setStep(Math.min(Math.max(p.onboarding_step ?? 1, 1), 3));
+        let startStep = Math.min(Math.max(p.onboarding_step ?? 1, 1), 3);
+        let createOrgIntent = false;
+        try {
+          createOrgIntent = window.localStorage.getItem(CREATE_ORG_INTENT_KEY) === "1";
+        } catch {
+          /* ignore */
+        }
+        // Signed up through "Create organisation": go straight to naming it.
+        if (createOrgIntent && startStep === 1 && !joinedViaInvite) {
+          chooseAccountType("recruiter");
+          startStep = 2;
+          setAskNameInStep2(!(p.full_name ?? "").trim());
+        }
+        setStep(startStep);
       }
       setLoading(false);
     })();
@@ -163,7 +182,8 @@ function Onboarding() {
   };
 
   const step1Valid = state.full_name.trim().length > 0 && accountType !== "";
-  const step2Valid = state.company_name.trim().length > 0;
+  const step2Valid =
+    state.company_name.trim().length > 0 && (!askNameInStep2 || state.full_name.trim().length > 0);
 
   const goNext = async () => {
     if (step === 1 && !step1Valid) return;
@@ -212,6 +232,7 @@ function Onboarding() {
       try {
         window.localStorage.removeItem(ACCOUNT_TYPE_KEY);
         window.localStorage.removeItem(ACCOUNT_ROLE_KEY);
+        window.localStorage.removeItem(CREATE_ORG_INTENT_KEY);
       } catch {
         /* ignore */
       }
@@ -271,7 +292,11 @@ function Onboarding() {
             />
           )}
           {step === 2 && (
-            <Step2 state={state} onChange={(patch) => setState({ ...state, ...patch })} />
+            <Step2
+              state={state}
+              askName={askNameInStep2}
+              onChange={(patch) => setState({ ...state, ...patch })}
+            />
           )}
           {step === 3 && (
             <Step3
@@ -451,9 +476,11 @@ function Step1({
 
 function Step2({
   state,
+  askName,
   onChange,
 }: {
   state: ProfileState;
+  askName: boolean;
   onChange: (patch: Partial<ProfileState>) => void;
 }) {
   return (
@@ -472,6 +499,16 @@ function Step2({
             autoFocus
           />
         </Field>
+        {askName && (
+          <Field label="Your name" required>
+            <input
+              className={inputCls}
+              value={state.full_name}
+              onChange={(e) => onChange({ full_name: e.target.value })}
+              placeholder="Jane Doe"
+            />
+          </Field>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { SignIn, SignUp, useAuth } from "@clerk/clerk-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { getClerkToken } from "@/lib/clerk";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
+import { ACCOUNT_TYPE_KEY, CREATE_ORG_INTENT_KEY } from "@/routes/onboarding";
 
 async function waitForBackendToken(maxMs = 5000): Promise<void> {
   const start = Date.now();
@@ -103,9 +104,24 @@ function AuthPage() {
               : "Already have an organisation?"}{" "}
             <button
               className="font-medium text-teal-700 hover:underline"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              onClick={() => {
+                const next = mode === "signin" ? "signup" : "signin";
+                // Signing up here means creating an organisation: after the account
+                // exists, onboarding opens straight on naming it.
+                try {
+                  if (next === "signup") {
+                    window.localStorage.setItem(CREATE_ORG_INTENT_KEY, "1");
+                    window.localStorage.setItem(ACCOUNT_TYPE_KEY, "recruiter");
+                  } else {
+                    window.localStorage.removeItem(CREATE_ORG_INTENT_KEY);
+                  }
+                } catch {
+                  /* ignore */
+                }
+                setMode(next);
+              }}
             >
-              {mode === "signin" ? "Create account" : "Open my candidate flow"}
+              {mode === "signin" ? "Create organisation" : "Open my candidate flow"}
             </button>
           </p>
           <p className="mt-6 text-center text-xs text-muted-foreground">
