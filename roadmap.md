@@ -6,3 +6,4 @@
 - [x] Centre the Clerk sign-in box inside the auth cards (overflows right on narrow screens)
 - [x] Show personal answer history beneath each survey question, newest first, with a rating trend.
 - [x] Block survey deletion by a creator who has left every linked organisation (only an org member who can manage titles may delete it then).
+- [x] Remove the Viewer role completely (external database + app).
