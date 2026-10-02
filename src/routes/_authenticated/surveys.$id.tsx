@@ -43,6 +43,7 @@ export const Route = createFileRoute("/_authenticated/surveys/$id")({
 
 const TYPE_LABEL: Record<QuestionType, string> = {
   rating: "Rating 1-5",
+  rating_text: "Rating 1-5 + reason",
   single: "Multiple choice (one)",
   multi: "Multiple choice (many)",
   text: "Free text",
@@ -423,8 +424,9 @@ function Results({ id }: { id: string }) {
       </div>
       {data.questions.map((q, i) => {
         const latest = q.stats[q.stats.length - 1];
-        const numeric = q.type === "rating" || q.type === "yesno";
-        const max = q.type === "rating" ? 5 : 100;
+        const isRating = q.type === "rating" || q.type === "rating_text";
+        const numeric = isRating || q.type === "yesno";
+        const max = isRating ? 5 : 100;
         return (
           <div key={q.id} className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -440,7 +442,7 @@ function Results({ id }: { id: string }) {
                       <div className="h-full rounded-full bg-primary" style={{ width: `${((s.mean ?? 0) / max) * 100}%` }} />
                     </div>
                     <span className="w-24 shrink-0 text-right">
-                      {s.mean == null ? "—" : q.type === "rating" ? `${s.mean.toFixed(2)} / 5` : `${Math.round(s.mean)}% yes`} ({s.count})
+                      {s.mean == null ? "—" : isRating ? `${s.mean.toFixed(2)} / 5` : `${Math.round(s.mean)}% yes`} ({s.count})
                     </span>
                   </div>
                 ))}
@@ -480,7 +482,7 @@ function Results({ id }: { id: string }) {
                 </table>
               </div>
             )}
-            {q.type === "text" && (
+            {(q.type === "text" || q.type === "rating_text") && (
               <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
                 {latest?.texts.length ? latest.texts.map((t, k) => <li key={k} className="rounded-lg bg-secondary px-3 py-1.5">{t}</li>) : <li className="text-muted-foreground">No answers in the latest round.</li>}
               </ul>
