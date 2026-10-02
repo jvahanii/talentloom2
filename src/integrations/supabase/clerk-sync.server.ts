@@ -149,6 +149,19 @@ export async function provisionProfileForClerkUser(clerkUserId: string): Promise
     })
     .select("id, onboarding_completed_at, email, full_name")
     .single();
-  if (error) throw error;
+  if (error) {
+    // A new user's first page load fires several server calls at once, and each
+    // tries to create the profile. The losers hit the unique clerk_user_id index;
+    // they use the row the winner created.
+    if (error.code === "23505") {
+      const { data: winner } = await admin
+        .from("profiles")
+        .select("id, onboarding_completed_at, email, full_name")
+        .eq("clerk_user_id", clerkUserId)
+        .maybeSingle();
+      if (winner) return winner as ProfileRow;
+    }
+    throw new Error(`Could not create your profile: ${error.message}`);
+  }
   return created as ProfileRow;
 }

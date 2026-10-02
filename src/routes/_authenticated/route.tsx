@@ -41,7 +41,13 @@ export const Route = createFileRoute("/_authenticated")({
     try {
       profile = await loadProfileWithRetry();
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      // Errors can arrive as plain objects (e.g. database errors), not Error instances.
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err && "message" in err
+            ? String((err as { message: unknown }).message)
+            : String(err);
       console.error("[auth] ensureMyProfile failed:", message, err);
       if (/unauthorized|no authorization header|invalid token/i.test(message)) {
         throw redirect({ to: "/auth" });
