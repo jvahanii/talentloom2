@@ -130,7 +130,7 @@ async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
 }
 
 /** Organisation roles a recruiter can pick for themselves when creating an account. */
-export const ACCOUNT_ROLES = ["Owner", "Admin", "Member", "Viewer"] as const;
+export const ACCOUNT_ROLES = ["Owner", "Admin", "Member"] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
 
 /**
