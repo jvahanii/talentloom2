@@ -154,17 +154,19 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
 
     let invited = 0;
     if (shareWithOrg) {
+      // Cap matches addPulseRespondents' own bulk-insert limit, so one very
+      // large organisation can't blow past the database/API payload limits.
+      // Fetch one extra row beyond the cap so excluding the creator below
+      // still leaves a full page when they happen to be in it.
+      const MAX_ORG_INVITE = 500;
       const { data: members, error: membersError } = await sb
         .from("organization_members")
         .select("user_id")
-        .eq("org_id", data.orgId);
+        .eq("org_id", data.orgId)
+        .neq("user_id", context.userId)
+        .limit(MAX_ORG_INVITE);
       fail(membersError);
-      // Cap matches addPulseRespondents' own bulk-insert limit, so one very
-      // large organisation can't blow past the database/API payload limits.
-      const MAX_ORG_INVITE = 500;
-      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))]
-        .filter((id) => id !== context.userId)
-        .slice(0, MAX_ORG_INVITE);
+      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))];
       if (userIds.length) {
         const { data: people, error: peopleError } = await sb
           .from("profiles")

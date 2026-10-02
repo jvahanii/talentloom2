@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
@@ -110,7 +110,11 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
   const [shareWithOrg, setShareWithOrg] = useState(false);
   const [busy, setBusy] = useState(false);
   const chosenOrg = org ?? orgId ?? null;
-  const beforeShareRef = useRef<{ visibility: typeof visibility; mode: typeof mode } | null>(null);
+  // Sharing with the whole org always needs org-visibility and a response mode
+  // that accepts personal invite links; derive the effective values instead of
+  // mutating the raw selections, so turning the switch off restores them.
+  const effectiveVisibility = shareWithOrg ? "org" : visibility;
+  const effectiveMode = shareWithOrg && mode === "link" ? "both" : mode;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,9 +130,9 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                   title,
                   description,
                   kind,
-                  visibility,
-                  orgId: visibility === "org" ? chosenOrg : null,
-                  responseMode: mode,
+                  visibility: effectiveVisibility,
+                  orgId: effectiveVisibility === "org" ? chosenOrg : null,
+                  responseMode: effectiveMode,
                   inviteOrg: shareWithOrg,
                 },
               });
@@ -167,7 +171,11 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             </div>
             <div className="space-y-2">
               <Label>Who owns it</Label>
-              <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
+              <Select
+                value={effectiveVisibility}
+                disabled={shareWithOrg}
+                onValueChange={(v) => setVisibility(v as typeof visibility)}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="private">Just me</SelectItem>
@@ -175,7 +183,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 </SelectContent>
               </Select>
             </div>
-            {visibility === "org" && (
+            {effectiveVisibility === "org" && (
               <div className="space-y-2">
                 <Label>Organisation</Label>
                 <Select value={chosenOrg ?? undefined} onValueChange={setOrg}>
@@ -189,7 +197,11 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             {kind === "survey" && (
               <div className="space-y-2">
                 <Label>How people answer</Label>
-                <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+                <Select
+                  value={effectiveMode}
+                  disabled={shareWithOrg && mode === "link"}
+                  onValueChange={(v) => setMode(v as typeof mode)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="link">Anyone with the link</SelectItem>
@@ -213,18 +225,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
               id="pulse-share-org"
               checked={shareWithOrg}
               disabled={!orgs.length}
-              onCheckedChange={(checked) => {
-                setShareWithOrg(checked);
-                if (checked) {
-                  beforeShareRef.current = { visibility, mode };
-                  setVisibility("org");
-                  if (mode === "link") setMode("both");
-                } else if (beforeShareRef.current) {
-                  setVisibility(beforeShareRef.current.visibility);
-                  setMode(beforeShareRef.current.mode);
-                  beforeShareRef.current = null;
-                }
-              }}
+              onCheckedChange={setShareWithOrg}
             />
           </div>
           <DialogFooter>
