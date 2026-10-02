@@ -58,8 +58,9 @@ const isProtectedTitle = (n?: string | null) => !!n && PROTECTED_TITLES.includes
 
 export function OrgSettings() {
   const qc = useQueryClient();
-  const { orgId, title, orgs, refresh, can } = useOrg();
+  const { orgId, title, role, orgs, refresh, can } = useOrg();
   const isOwner = title === "Owner";
+  const canDeleteOrg = isOwner || role === "owner";
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
 
   const [name, setName] = useState(orgName);
@@ -417,6 +418,71 @@ export function OrgSettings() {
       )}
 
       {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
+
+      {canDeleteOrg && <DeleteOrgPanel orgId={orgId} orgName={orgName} />}
+    </div>
+  );
+}
+
+/** Owners can delete the organisation; they must type its name to confirm. */
+function DeleteOrgPanel({ orgId, orgName }: { orgId: string; orgName: string }) {
+  const [confirmName, setConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const matches = confirmName.trim() === orgName.trim() && !!orgName.trim();
+
+  const deleteOrg = async () => {
+    if (!matches) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", orgId)
+        .select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("Only an owner can delete this organisation");
+      try {
+        window.localStorage.removeItem("talently:current-org");
+      } catch {
+        /* ignore */
+      }
+      toast.success(`Deleted ${orgName}`);
+      // Full reload so every org-scoped view drops the deleted organisation.
+      window.location.assign("/pipeline");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete the organisation");
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="mt-8 rounded-2xl border-2 border-destructive/40 p-4">
+      <h4 className="font-semibold text-destructive">Delete organisation</h4>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Permanently deletes <span className="font-medium text-foreground">{orgName}</span> with all
+        its candidates, positions, pipeline history, organisation surveys and invites, and removes
+        everyone from it. This can't be undone.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="block min-w-52 flex-1">
+          <span className="mb-1 block text-xs font-medium text-muted-foreground">
+            Type the organisation name to confirm
+          </span>
+          <input
+            value={confirmName}
+            onChange={(e) => setConfirmName(e.target.value)}
+            placeholder={orgName}
+            className={inputCls}
+          />
+        </label>
+        <button
+          onClick={deleteOrg}
+          disabled={!matches || deleting}
+          className="rounded-xl bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
+        >
+          {deleting ? "Deleting…" : "Delete organisation"}
+        </button>
+      </div>
     </div>
   );
 }
