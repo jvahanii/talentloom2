@@ -5,6 +5,7 @@ import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
 import { OwnershipPicker, emptyOwnership, ownershipPayload, ownershipLabel } from "@/components/pulse/OwnershipPicker";
+import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/surveys/")({
   head: () => ({
@@ -98,6 +100,7 @@ function PulseList() {
 }
 
 function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
+  const { orgId } = useOrg();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -105,7 +108,12 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
   const [own, setOwn] = useState(emptyOwnership());
   const [emails, setEmails] = useState("");
   const [mode, setMode] = useState<"link" | "invite" | "both">("both");
+  const [shareWithOrg, setShareWithOrg] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Sharing with the whole org always needs a response mode that accepts
+  // personal invite links; derive the effective value instead of mutating
+  // the raw selection, so turning the switch off restores it.
+  const effectiveMode = shareWithOrg && mode === "link" ? "both" : mode;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,9 +124,22 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             e.preventDefault();
             setBusy(true);
             try {
-              const { id } = await createPulseSurvey({
-                data: { title, description, kind, ...ownershipPayload(own, emails), responseMode: mode },
+              const { id, invited, skipped } = await createPulseSurvey({
+                data: {
+                  title,
+                  description,
+                  kind,
+                  ...ownershipPayload(own, emails),
+                  responseMode: effectiveMode,
+                  inviteOrgId: shareWithOrg ? orgId : null,
+                },
               });
+              if (shareWithOrg && invited) {
+                toast.success(
+                  `Invite link sent to ${invited} ${invited === 1 ? "person" : "people"} in your organisation` +
+                    (skipped ? ` (${skipped} skipped — no email on file)` : ""),
+                );
+              }
               onCreated();
               onOpenChange(false);
               navigate({ to: "/surveys/$id", params: { id } });
@@ -153,7 +174,11 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             {kind === "survey" && (
               <div className="space-y-2">
                 <Label>How people answer</Label>
-                <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+                <Select
+                  value={effectiveMode}
+                  disabled={shareWithOrg && mode === "link"}
+                  onValueChange={(v) => setMode(v as typeof mode)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="link">Anyone with the link</SelectItem>
@@ -163,6 +188,22 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                 </Select>
               </div>
             )}
+          </div>
+          <div className="flex items-center justify-end gap-3 rounded-xl border-2 border-border bg-secondary/30 p-3">
+            <div className="mr-auto">
+              <Label htmlFor="pulse-share-org">Share with my organisation</Label>
+              <p className="text-xs text-muted-foreground">
+                {orgId
+                  ? "Sends an invite link to everyone in your organisation as soon as you create it."
+                  : "Join or create an organisation to share surveys with its members."}
+              </p>
+            </div>
+            <Switch
+              id="pulse-share-org"
+              checked={shareWithOrg}
+              disabled={!orgId}
+              onCheckedChange={setShareWithOrg}
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

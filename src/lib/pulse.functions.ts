@@ -149,11 +149,13 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         kind: z.enum(["survey", "interview"]),
         ...Sharing,
         responseMode: z.enum(["link", "invite", "both"]),
+        inviteOrgId: Uuid.nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
+    const shareWithOrg = Boolean(data.inviteOrgId);
     const { data: row, error } = await sb
       .from("pulse_surveys")
       .insert({
@@ -164,13 +166,54 @@ export const createPulseSurvey = createServerFn({ method: "POST" })
         kind: data.kind,
         title: data.title,
         description: data.description || null,
-        response_mode: data.responseMode,
+        // A link-only survey can't be answered through a personal invite link,
+        // so switch it to "both" whenever it's being shared with the whole org.
+        response_mode: shareWithOrg && data.responseMode === "link" ? "both" : data.responseMode,
       })
       .select("id")
       .single();
     fail(error);
-    await saveSharing(sb, row.id, data);
-    return { id: row.id as string };
+    const surveyId = row.id as string;
+    await saveSharing(sb, surveyId, data);
+
+    let invited = 0;
+    let skipped = 0;
+    if (shareWithOrg) {
+      // Cap matches addPulseRespondents' own bulk-insert limit, so one very
+      // large organisation can't blow past the database/API payload limits.
+      const MAX_ORG_INVITE = 500;
+      const { data: members, error: membersError } = await sb
+        .from("organization_members")
+        .select("user_id")
+        .eq("org_id", data.inviteOrgId)
+        .neq("user_id", context.userId)
+        .limit(MAX_ORG_INVITE);
+      fail(membersError);
+      const userIds = [...new Set((members ?? []).map((m: Loose) => m.user_id as string))];
+      if (userIds.length) {
+        const { data: people, error: peopleError } = await sb
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+        fail(peopleError);
+        const found = (people ?? []) as Loose[];
+        const rows = found
+          .filter((p) => p.email)
+          .map((p) => ({ survey_id: surveyId, name: p.full_name || null, email: p.email }));
+        // Members without a profile row, or a profile with no email on file,
+        // can't get a personal invite link; let the caller know they were skipped.
+        skipped = userIds.length - rows.length;
+        if (rows.length) {
+          const { data: ins, error: insError } = await sb
+            .from("pulse_respondents")
+            .insert(rows)
+            .select("id");
+          fail(insError);
+          invited = (ins ?? []).length;
+        }
+      }
+    }
+    return { id: surveyId, invited, skipped };
   });
 
 export const getPulseSurvey = createServerFn({ method: "GET" })
