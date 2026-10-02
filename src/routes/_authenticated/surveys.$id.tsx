@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, Plus, Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Lock, Plus, Trash2, TrendingDown, TrendingUp, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   addPulseRespondents,
   deletePulseSurvey,
+  duplicatePulseSurvey,
+  exportPulseCsv,
   getPulseResults,
   getPulseSurvey,
   removePulseRespondent,
@@ -90,7 +92,13 @@ function SurveyPage() {
         </TabsList>
         <TabsContent value="results"><Results id={id} /></TabsContent>
         <TabsContent value="questions">
-          <QuestionsEditor surveyId={id} initial={q.data.questions} hasAnswers={rounds.some((r) => r.responses > 0)} onSaved={refresh} />
+          <QuestionsEditor
+            surveyId={id}
+            initial={q.data.questions}
+            hasAnswers={rounds.some((r) => r.responses > 0)}
+            locked={rounds.some((r) => r.status === "open" && (!r.closes_on || r.closes_on >= new Date().toISOString().slice(0, 10)))}
+            onSaved={refresh}
+          />
         </TabsContent>
         <TabsContent value="rounds"><Rounds data={q.data} onChange={refresh} /></TabsContent>
         <TabsContent value="people"><People data={q.data} onChange={refresh} /></TabsContent>
@@ -102,12 +110,58 @@ function SurveyPage() {
 }
 
 type SurveyData = Awaited<ReturnType<typeof getPulseSurvey>>;
-type Draft = { id?: string; key: string; type: QuestionType; prompt: string; options: string[]; required: boolean };
+type Draft = {
+  id?: string;
+  key: string;
+  type: QuestionType;
+  prompt: string;
+  options: string[];
+  required: boolean;
+  measure: string;
+};
 
-function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId: string; initial: PulseQuestion[]; hasAnswers: boolean; onSaved: () => void }) {
-  const toDraft = (qs: PulseQuestion[]): Draft[] => qs.map((x) => ({ ...x, key: x.id }));
+/**
+ * Pasted statements, one per line. "Measure; Statement" (or a tab instead of
+ * ";") puts the statement under that measured thing.
+ */
+function parseStatements(text: string, type: QuestionType): Draft[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(/^([^;\t]{1,200})[;\t]\s*(.+)$/);
+      return {
+        key: crypto.randomUUID(),
+        type,
+        prompt: (m ? m[2] : line).trim().slice(0, 1000),
+        options: [],
+        required: false,
+        measure: m ? m[1].trim() : "",
+      };
+    });
+}
+
+function QuestionsEditor({
+  surveyId,
+  initial,
+  hasAnswers,
+  locked,
+  onSaved,
+}: {
+  surveyId: string;
+  initial: PulseQuestion[];
+  hasAnswers: boolean;
+  locked: boolean;
+  onSaved: () => void;
+}) {
+  const toDraft = (qs: PulseQuestion[]): Draft[] => qs.map((x) => ({ ...x, measure: x.measure ?? "", key: x.id }));
   const [items, setItems] = useState<Draft[]>(toDraft(initial));
   const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importType, setImportType] = useState<QuestionType>("rating");
+  const measureNames = [...new Set(items.map((x) => x.measure.trim()).filter(Boolean))];
   useEffect(() => setItems(toDraft(initial)), [initial]);
   const upd = (i: number, patch: Partial<Draft>) => setItems((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const move = (i: number, d: number) =>
@@ -119,6 +173,27 @@ function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId:
       return b;
     });
 
+  if (locked) {
+    return (
+      <div className="space-y-4">
+        <p className="flex items-start gap-2 rounded-xl bg-secondary p-3 text-sm">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+          Questions are locked while a round is open, so everyone in the round answers the same statements. Close the
+          round (Rounds tab) to edit them; changes apply from the next round.
+        </p>
+        {items.map((it, i) => (
+          <div key={it.key} className="rounded-2xl border-2 border-border bg-card p-4 text-sm">
+            <span className="font-semibold">{i + 1}.</span> {it.prompt}
+            <span className="ml-2 text-xs text-muted-foreground">
+              {TYPE_LABEL[it.type]}
+              {it.measure ? ` · ${it.measure}` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {hasAnswers && (
@@ -126,6 +201,11 @@ function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId:
           Keep question wording stable so rounds stay comparable. Deleting a question also deletes its earlier answers.
         </p>
       )}
+      <datalist id="pulse-measures">
+        {measureNames.map((m) => (
+          <option key={m} value={m} />
+        ))}
+      </datalist>
       {items.map((it, i) => (
         <div key={it.key} className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +225,16 @@ function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId:
               <Button type="button" size="icon" variant="ghost" onClick={() => setItems((a) => a.filter((_, j) => j !== i))} aria-label="Delete question"><Trash2 className="h-4 w-4" /></Button>
             </div>
           </div>
-          <Input value={it.prompt} placeholder="Question" onChange={(e) => upd(i, { prompt: e.target.value })} maxLength={1000} />
+          <Input value={it.prompt} placeholder="Statement or question" onChange={(e) => upd(i, { prompt: e.target.value })} maxLength={1000} />
+          <Input
+            value={it.measure}
+            list="pulse-measures"
+            placeholder="Measures (optional), e.g. Wellbeing"
+            onChange={(e) => upd(i, { measure: e.target.value })}
+            maxLength={200}
+            className="max-w-sm text-sm"
+            aria-label="Measured thing"
+          />
           {(it.type === "single" || it.type === "multi") && (
             <Textarea
               rows={3}
@@ -160,9 +249,12 @@ function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId:
         <Button
           type="button"
           variant="outline"
-          onClick={() => setItems((a) => [...a, { key: crypto.randomUUID(), type: "rating", prompt: "", options: [], required: false }])}
+          onClick={() => setItems((a) => [...a, { key: crypto.randomUUID(), type: "rating", prompt: "", options: [], required: false, measure: "" }])}
         >
           <Plus className="mr-1 h-4 w-4" /> Add question
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setImportOpen((v) => !v)}>
+          <Upload className="mr-1 h-4 w-4" /> Import statements
         </Button>
         <Button
           disabled={busy}
@@ -179,6 +271,7 @@ function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId:
                     prompt: x.prompt,
                     options: x.options.map((o) => o.trim()).filter(Boolean),
                     required: x.required,
+                    measure: x.measure.trim() || null,
                   })),
                 },
               });
@@ -194,6 +287,45 @@ function QuestionsEditor({ surveyId, initial, hasAnswers, onSaved }: { surveyId:
           {busy ? "Saving…" : "Save questions"}
         </Button>
       </div>
+      {importOpen && (
+        <div className="space-y-3 rounded-2xl border-2 border-dashed border-border bg-card p-4">
+          <Label htmlFor="import-statements">Paste statements, one per line</Label>
+          <p className="text-xs text-muted-foreground">
+            Put the measured thing first to group a statement, e.g. "Wellbeing; I feel rested at work". Copied
+            spreadsheet columns (measure, statement) work too. Imported statements are added below; save to keep them.
+          </p>
+          <Textarea
+            id="import-statements"
+            rows={6}
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            placeholder={"Wellbeing; I feel rested at work\nWorkload; My workload is manageable"}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={importType} onValueChange={(v) => setImportType(v as QuestionType)}>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(TYPE_LABEL)
+                  .filter(([k]) => k !== "single" && k !== "multi")
+                  .map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              disabled={!importText.trim()}
+              onClick={() => {
+                const added = parseStatements(importText, importType);
+                setItems((a) => [...a, ...added].slice(0, 100));
+                setImportText("");
+                setImportOpen(false);
+                toast.success(`Added ${added.length} statement${added.length === 1 ? "" : "s"}. Save to keep them.`);
+              }}
+            >
+              Add statements
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -410,11 +542,58 @@ function Delta({ value, unit = "" }: { value: number | null; unit?: string }) {
 }
 
 function Results({ id }: { id: string }) {
-  const { data, isLoading } = useQuery({ queryKey: ["pulse-results", id], queryFn: () => getPulseResults({ data: { id } }) });
+  const [orgFilter, setOrgFilter] = useState<string>("all");
+  const orgId = orgFilter === "all" ? null : orgFilter;
+  const { data, isLoading } = useQuery({
+    queryKey: ["pulse-results", id, orgId],
+    queryFn: () => getPulseResults({ data: { id, orgId } }),
+  });
+  const [exporting, setExporting] = useState(false);
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const { filename, csv } = await exportPulseCsv({ data: { id } });
+      // BOM so Excel opens Finnish characters correctly.
+      const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not export");
+    } finally {
+      setExporting(false);
+    }
+  };
   if (isLoading) return <p className="text-muted-foreground">Loading…</p>;
   if (!data || !data.rounds.length) return <p className="text-sm text-muted-foreground">No rounds yet. Add questions and start a round.</p>;
   return (
     <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        {data.orgs.length > 0 && (
+          <Select value={orgFilter} onValueChange={setOrgFilter}>
+            <SelectTrigger className="h-8 w-56 text-xs" aria-label="Filter by organisation">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All respondents</SelectItem>
+              {data.orgs.map((o) => (
+                <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Button size="sm" variant="outline" className="ml-auto" disabled={exporting} onClick={exportCsv}>
+          <Download className="mr-1 h-3.5 w-3.5" /> {exporting ? "Exporting…" : "Export CSV"}
+        </Button>
+      </div>
+      {data.orgId && (
+        <p className="text-xs text-muted-foreground">
+          Showing answers from invited people who are members of this organisation. Answers through the shared link
+          can't be tied to an organisation, so they aren't included.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         {data.rounds.map((r) => (
           <span key={r.id} className="rounded-full border-2 border-border bg-card px-3 py-1 text-xs">
@@ -422,6 +601,31 @@ function Results({ id }: { id: string }) {
           </span>
         ))}
       </div>
+      {data.measures.length > 0 && (
+        <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+          <p className="font-medium">Measured things (average rating across their statements)</p>
+          {data.measures.map((m) => (
+            <div key={m.name} className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium">{m.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {m.statements} rating statement{m.statements === 1 ? "" : "s"}
+                </span>
+                <span className="ml-auto"><Delta value={m.delta} /></span>
+              </div>
+              {m.means.map((mean, ri) => (
+                <div key={ri} className="flex items-center gap-2 text-xs">
+                  <span className="w-16 shrink-0 text-muted-foreground">Round {data.rounds[ri]?.number}</span>
+                  <div className="h-3 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${((mean ?? 0) / 5) * 100}%` }} />
+                  </div>
+                  <span className="w-16 shrink-0 text-right">{mean == null ? "—" : `${mean.toFixed(2)} / 5`}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
       {data.questions.map((q, i) => {
         const latest = q.stats[q.stats.length - 1];
         const isRating = q.type === "rating" || q.type === "rating_text";
@@ -431,6 +635,7 @@ function Results({ id }: { id: string }) {
           <div key={q.id} className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium">{i + 1}. {q.prompt}</p>
+              {q.measure && <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">{q.measure}</span>}
               {numeric && <span className="ml-auto"><Delta value={q.delta} unit={q.type === "yesno" ? " pts" : ""} /></span>}
             </div>
             {numeric && (
@@ -584,6 +789,20 @@ function Settings({ data, onChange }: { data: SurveyData; onChange: () => void }
           }}
         >
           Save settings
+        </Button>
+        <Button
+          variant="outline"
+          onClick={async () => {
+            try {
+              const { id: copyId } = await duplicatePulseSurvey({ data: { id: survey.id } });
+              toast.success("Survey duplicated. Rounds, answers and invited people aren't copied.");
+              navigate({ to: "/surveys/$id", params: { id: copyId } });
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Could not duplicate");
+            }
+          }}
+        >
+          <Copy className="mr-1 h-4 w-4" /> Duplicate survey
         </Button>
         <Button
           variant="destructive"

@@ -14,6 +14,8 @@ export type PulseQuestion = {
   prompt: string;
   options: string[];
   required: boolean;
+  /** The measured thing this statement belongs to (e.g. "Wellbeing"); null = ungrouped. */
+  measure: string | null;
 };
 export type PulseRound = {
   id: string;
@@ -360,6 +362,18 @@ export const deletePulseSurvey = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** A round is open when its status is open and its closing date (if any) hasn't passed. */
+async function hasOpenRound(sb: Loose, surveyId: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from("pulse_rounds")
+    .select("closes_on")
+    .eq("survey_id", surveyId)
+    .eq("status", "open");
+  fail(error);
+  const today = new Date().toISOString().slice(0, 10);
+  return ((data ?? []) as { closes_on: string | null }[]).some((r) => !r.closes_on || r.closes_on >= today);
+}
+
 export const savePulseQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
@@ -374,6 +388,7 @@ export const savePulseQuestions = createServerFn({ method: "POST" })
               prompt: z.string().trim().min(1).max(1000),
               options: z.array(z.string().trim().min(1).max(300)).max(30),
               required: z.boolean(),
+              measure: z.string().trim().max(200).nullable().optional(),
             }),
           )
           .max(100),
@@ -382,6 +397,11 @@ export const savePulseQuestions = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
+    // Questions are locked while a round is open, so everyone in a round answers
+    // the same statements. Edits made between rounds apply from the next round.
+    if (await hasOpenRound(sb, data.surveyId)) {
+      throw new Error("Close the open round before editing questions. Changes apply from the next round.");
+    }
     const { data: existing, error } = await sb
       .from("pulse_questions")
       .select("id")
@@ -398,6 +418,7 @@ export const savePulseQuestions = createServerFn({ method: "POST" })
         prompt: q.prompt,
         options: q.type === "single" || q.type === "multi" ? q.options : [],
         required: q.required,
+        measure: q.measure?.trim() || null,
       };
       const res = q.id
         ? await sb.from("pulse_questions").update(row).eq("id", q.id).eq("survey_id", data.surveyId)
@@ -564,11 +585,17 @@ export type PulseResults = {
     latest: number | null;
     delta: number | null;
   }[];
+  /** Average rating per measured thing per round, over all its rating statements. */
+  measures: { name: string; statements: number; means: (number | null)[]; delta: number | null }[];
+  /** Organisations the survey is shared with, for filtering results. */
+  orgs: { id: string; name: string }[];
+  /** The organisation the results are filtered to, if any. */
+  orgId: string | null;
 };
 
 export const getPulseResults = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ id: Uuid }).parse(d))
+  .inputValidator((d) => z.object({ id: Uuid, orgId: Uuid.nullable().optional() }).parse(d))
   .handler(async ({ data, context }): Promise<PulseResults> => {
     const sb = context.supabase as Loose;
     const [q, r, resp, people, me] = await Promise.all([
@@ -583,12 +610,48 @@ export const getPulseResults = createServerFn({ method: "GET" })
     const myEmail = ((me.data?.email as string | null) ?? "").trim().toLowerCase();
     const questions = (q.data ?? []) as PulseQuestion[];
     const rounds = (r.data ?? []) as { id: string; number: number; opens_on: string }[];
-    const responses = (resp.data ?? []) as {
+    let responses = (resp.data ?? []) as {
       id: string;
       round_id: string;
       respondent_id: string | null;
       pulse_answers: { question_id: string; value: unknown }[];
     }[];
+
+    // Organisations this survey is shared with. Names and memberships are read
+    // with the admin client (the caller may not be in every linked org), and
+    // only aggregates leave the server.
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const admin = supabaseAdmin as Loose;
+    const { data: links } = await sb.from("pulse_survey_orgs").select("org_id").eq("survey_id", data.id);
+    const linkedIds = ((links ?? []) as Loose[]).map((x) => x.org_id as string);
+    const { data: orgRows } = linkedIds.length
+      ? await admin.from("organizations").select("id, name").in("id", linkedIds)
+      : { data: [] };
+    const orgs = ((orgRows ?? []) as { id: string; name: string }[]).sort((a, b) => a.name.localeCompare(b.name));
+    const orgId = data.orgId && linkedIds.includes(data.orgId) ? data.orgId : null;
+    if (orgId) {
+      // Keep answers from invited people whose email belongs to a member of the org.
+      // Shared-link answers can't be tied to a person, so they drop out of the filter.
+      const [{ data: members }, { data: invitees }] = await Promise.all([
+        admin.from("organization_members").select("user_id").eq("org_id", orgId),
+        admin.from("pulse_respondents").select("id, email").eq("survey_id", data.id),
+      ]);
+      const memberIds = ((members ?? []) as Loose[]).map((m) => m.user_id as string);
+      const { data: memberProfiles } = memberIds.length
+        ? await admin.from("profiles").select("email").in("id", memberIds)
+        : { data: [] };
+      const memberEmails = new Set(
+        ((memberProfiles ?? []) as Loose[])
+          .map((p) => (p.email as string | null)?.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const inOrg = new Set(
+        ((invitees ?? []) as Loose[])
+          .filter((p) => p.email && memberEmails.has(String(p.email).trim().toLowerCase()))
+          .map((p) => p.id as string),
+      );
+      responses = responses.filter((x) => x.respondent_id && inOrg.has(x.respondent_id));
+    }
 
     const statFor = (qq: PulseQuestion, roundId: string, roundNumber: number): QuestionRoundStat => {
       const vals = responses
@@ -664,6 +727,25 @@ export const getPulseResults = createServerFn({ method: "GET" })
       ...others.map(({ isMe: _isMe, ...p }, i) => ({ id: `person-${i + 1}`, label: `Person ${i + 1}`, ...p })),
     ];
 
+    const measureNames = [
+      ...new Set(questions.map((x) => x.measure?.trim()).filter((m): m is string => !!m)),
+    ];
+    const measures = measureNames.map((name) => {
+      const ids = new Set(
+        questions.filter((x) => x.measure?.trim() === name && ratingIds.has(x.id)).map((x) => x.id),
+      );
+      const means = rounds.map((rd) => {
+        const nums = responses
+          .filter((x) => x.round_id === rd.id)
+          .flatMap((x) => x.pulse_answers.filter((a) => ids.has(a.question_id)).map((a) => ratingOf(a.value)))
+          .filter((n): n is number => n != null);
+        return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+      });
+      const last = means[means.length - 1];
+      const prev = means[means.length - 2];
+      return { name, statements: ids.size, means, delta: last != null && prev != null ? last - prev : null };
+    });
+
     return {
       rounds: rounds.map((rd) => ({
         ...rd,
@@ -671,6 +753,9 @@ export const getPulseResults = createServerFn({ method: "GET" })
       })),
       questions: qOut,
       people: peopleOut,
+      measures,
+      orgs,
+      orgId,
     };
   });
 
@@ -810,4 +895,161 @@ export const submitPublicPulse = createServerFn({ method: "POST" })
       .map(([question_id, value]) => ({ response_id: resp.id, question_id, value }));
     if (rows.length) fail((await sb.from("pulse_answers").insert(rows)).error);
     return { ok: true };
+  });
+
+// ---------- Export & duplicate ----------
+
+const csvCell = (v: unknown) => {
+  const t = v === null || v === undefined ? "" : String(v);
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+
+/**
+ * Every answer as CSV, one row per answer. Respondent details are included as
+ * the database shows them to the caller: survey owners and org owners/admins
+ * see everyone; others see only their own entry.
+ */
+export const exportPulseCsv = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: Uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as Loose;
+    const [s, q, r, resp, people] = await Promise.all([
+      sb.from("pulse_surveys").select("title").eq("id", data.id).maybeSingle(),
+      sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
+      sb.from("pulse_rounds").select("id, number, opens_on").eq("survey_id", data.id),
+      sb
+        .from("pulse_responses")
+        .select("id, round_id, respondent_id, submitted_at, pulse_answers(question_id, value)")
+        .eq("survey_id", data.id),
+      sb.from("pulse_respondents").select("id, name, email").eq("survey_id", data.id),
+    ]);
+    fail(s.error);
+    fail(q.error);
+    fail(resp.error);
+    if (!s.data) throw new Error("Survey not found");
+    const questions = (q.data ?? []) as PulseQuestion[];
+    const qIndex = new Map(questions.map((x, i) => [x.id, i]));
+    const roundById = new Map(((r.data ?? []) as Loose[]).map((x) => [x.id as string, x]));
+    const personById = new Map(((people.data ?? []) as Loose[]).map((x) => [x.id as string, x]));
+
+    const header = [
+      "round",
+      "round_opened",
+      "response_id",
+      "submitted_at",
+      "respondent_id",
+      "respondent_email",
+      "respondent_name",
+      "measure",
+      "question_no",
+      "question",
+      "type",
+      "answer",
+      "reason",
+    ];
+    const rows: unknown[][] = [];
+    const responses = ((resp.data ?? []) as Loose[]).sort((a, b) => {
+      const ra = roundById.get(a.round_id)?.number ?? 0;
+      const rb = roundById.get(b.round_id)?.number ?? 0;
+      return ra - rb || String(a.submitted_at).localeCompare(String(b.submitted_at));
+    });
+    for (const x of responses) {
+      const round = roundById.get(x.round_id);
+      const person = x.respondent_id ? personById.get(x.respondent_id) : null;
+      const answers = ((x.pulse_answers ?? []) as { question_id: string; value: unknown }[]).sort(
+        (a, b) => (qIndex.get(a.question_id) ?? 0) - (qIndex.get(b.question_id) ?? 0),
+      );
+      for (const a of answers) {
+        const i = qIndex.get(a.question_id);
+        const qq = i === undefined ? null : questions[i];
+        const v = a.value as Loose;
+        let answer: unknown = v;
+        let reason = "";
+        if (v && typeof v === "object" && !Array.isArray(v)) {
+          answer = v.rating ?? "";
+          reason = v.reason ?? "";
+        } else if (Array.isArray(v)) answer = v.join("; ");
+        else if (v === true) answer = "Yes";
+        else if (v === false) answer = "No";
+        rows.push([
+          round?.number ?? "",
+          round?.opens_on ?? "",
+          x.id,
+          x.submitted_at ?? "",
+          x.respondent_id ?? "",
+          person?.email ?? "",
+          person?.name ?? "",
+          qq?.measure ?? "",
+          i === undefined ? "" : i + 1,
+          qq?.prompt ?? "(deleted question)",
+          qq?.type ?? "",
+          answer,
+          reason,
+        ]);
+      }
+    }
+    const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+    const base = String(s.data.title).replace(/[^\p{L}\p{N} _-]+/gu, "").trim() || "survey";
+    return { filename: `${base}.csv`, csv };
+  });
+
+/** Copies a survey's settings, sharing and questions. Rounds, answers and invited people are not copied. */
+export const duplicatePulseSurvey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: Uuid }).parse(d))
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as Loose;
+    const [s, q, orgs] = await Promise.all([
+      sb.from("pulse_surveys").select("*").eq("id", data.id).maybeSingle(),
+      sb.from("pulse_questions").select("*").eq("survey_id", data.id).order("position"),
+      sb.from("pulse_survey_orgs").select("org_id").eq("survey_id", data.id),
+    ]);
+    fail(s.error);
+    fail(q.error);
+    if (!s.data) throw new Error("Survey not found");
+    const src = s.data as Loose;
+    const { data: row, error } = await sb
+      .from("pulse_surveys")
+      .insert({
+        owner_id: context.userId,
+        org_id: src.org_id,
+        visibility: src.visibility,
+        all_orgs: src.all_orgs ?? false,
+        kind: src.kind,
+        title: `${src.title} (copy)`.slice(0, 200),
+        description: src.description,
+        response_mode: src.response_mode,
+        show_previous_answers: src.show_previous_answers ?? true,
+      })
+      .select("id")
+      .single();
+    fail(error);
+    const newId = row.id as string;
+    const orgIds = ((orgs.data ?? []) as Loose[]).map((x) => x.org_id as string);
+    if (orgIds.length) {
+      fail(
+        (await sb.from("pulse_survey_orgs").insert(orgIds.map((org_id) => ({ survey_id: newId, org_id }))))
+          .error,
+      );
+    }
+    const qs = (q.data ?? []) as Loose[];
+    if (qs.length) {
+      fail(
+        (
+          await sb.from("pulse_questions").insert(
+            qs.map((x) => ({
+              survey_id: newId,
+              position: x.position,
+              type: x.type,
+              prompt: x.prompt,
+              options: x.options ?? [],
+              required: x.required,
+              measure: x.measure ?? null,
+            })),
+          )
+        ).error,
+      );
+    }
+    return { id: newId };
   });
