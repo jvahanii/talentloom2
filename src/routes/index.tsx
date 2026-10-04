@@ -114,13 +114,13 @@ function Landing() {
               <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
                 New &amp; free
               </span>
-              <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">Talentloom Pulse</h2>
+              <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">Talentloom Surveys</h2>
               <p className="text-soft mt-1 text-sm sm:text-base">
                 A free solution for running longitudinal surveys and structured interviews.
               </p>
             </div>
             <span className="btn-mint shrink-0 rounded-xl px-5 py-2.5 text-sm font-medium">
-              Explore Pulse →
+              Explore Surveys→
             </span>
           </div>
         </Link>
