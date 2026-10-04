@@ -45,7 +45,7 @@ const NAV = [
   { to: "/candidates", label: "Candidates", icon: Users, org: true },
   { to: "/requisitions", label: "Positions", icon: Briefcase, org: true },
   { to: "/analytics", label: "Analytics", icon: BarChart3, org: true },
-  { to: "/surveys", label: "Pulse surveys", icon: Activity, org: false },
+  { to: "/surveys", label: "My surveys", icon: Activity, org: false },
   { to: "/import", label: "Import", icon: Upload, org: true },
   { to: "/export", label: "Export", icon: Download, org: true },
   { to: "/settings", label: "Settings", icon: Settings, org: false },
