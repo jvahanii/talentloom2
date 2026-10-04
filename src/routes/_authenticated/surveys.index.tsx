@@ -38,7 +38,7 @@ function PulseList() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pulse</h1>
-          <p className="text-sm text-muted-foreground">Surveys and structured interviews, compared round by round.</p>
+          <p className="text-sm text-muted-foreground">Surveys and structured interviews with results compared round by round.</p>
         </div>
         <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" /> New survey</Button>
       </div>
