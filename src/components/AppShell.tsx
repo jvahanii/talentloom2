@@ -63,7 +63,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           to="/pipeline"
           onClick={onNavigate}
-          className="mb-1 flex items-center gap-2.5 rounded-lg border border-dashed border-primary/50 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+          className="mb-1 flex items-center gap-2.5 rounded-lg border border-dashed border-primary/50 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
           <Plus className="h-4 w-4" />
           Create organisation
