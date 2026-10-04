@@ -191,7 +191,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
           </div>
           <div className="flex items-center justify-end gap-3 rounded-xl border-2 border-border bg-secondary/30 p-3">
             <div className="mr-auto">
-              <Label htmlFor="pulse-share-org">Everyone in this organization can see and answer</Label>
+              <Label htmlFor="pulse-share-org">Publish to this organization</Label>
               <p className="text-xs text-muted-foreground">
                 {orgId
                   ? "Sends an invite link to everyone in your organisation as soon as you create it."
