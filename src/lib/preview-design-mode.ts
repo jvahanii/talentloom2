@@ -9,6 +9,8 @@ export function isPreviewDesignMode(): boolean {
     host === "localhost" ||
     host === "127.0.0.1" ||
     /^id-preview(--|-)/i.test(host) ||
-    /^project--/i.test(host)
+    /^project--/i.test(host) ||
+    /\.lovableproject(-dev)?\.com$/i.test(host) ||
+    /\.(gpt-eng\.com|gptengineer\.run)$/i.test(host)
   );
 }
