@@ -141,7 +141,7 @@ function PulseLanding() {
               {
                 icon: Users,
                 t: "1. Invite your people",
-                d: "Add the group you want to follow — a team, a cohort, a study panel — once.",
+                d: "Add the group you want to follow — your organization, a team, a cohort, a study panel — once.",
               },
               {
                 icon: Activity,
