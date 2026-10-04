@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut, hasClerkSession } from "@/lib/clerk";
+import { isPreviewDesignMode } from "@/lib/preview-design-mode";
 import { toast } from "sonner";
 import { MarketingShell } from "@/components/MarketingShell";
 import {
@@ -55,7 +56,7 @@ function CandidatePortalPage() {
 
   useEffect(() => {
     hasClerkSession().then((ok) => {
-      if (!ok) {
+      if (!ok && !isPreviewDesignMode()) {
         navigate({ to: "/candidate/auth", replace: true });
       } else {
         setSessionChecked(true);

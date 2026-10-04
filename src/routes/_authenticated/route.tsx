@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { AppShell } from "@/components/AppShell";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { getClerkToken, waitForClerk } from "@/lib/clerk";
+import { isPreviewDesignMode } from "@/lib/preview-design-mode";
 import { ensureMyProfile } from "@/lib/profile.functions";
 
 const NETWORK_ERROR = /failed to fetch|networkerror|load failed|network request failed/i;
@@ -36,7 +37,12 @@ export const Route = createFileRoute("/_authenticated")({
     const skipsOnboarding = under("/surveys") || under("/settings");
 
     const clerk = await waitForClerk();
-    if (!clerk?.session) throw redirect({ to: "/auth", search: back });
+    if (!clerk?.session) {
+      // Lovable editor preview: let pages render (with empty states) so visual
+      // edits are possible without signing in. Never applies on the live site.
+      if (isPreviewDesignMode()) return { userId: "preview-design-mode" };
+      throw redirect({ to: "/auth", search: back });
+    }
 
     // A session without a usable template token means we cannot authenticate
     // against the backend — send the user back to sign in rather than erroring.
