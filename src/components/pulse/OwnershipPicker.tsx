@@ -38,10 +38,10 @@ export function OwnershipPicker({ value, onChange, emailText, onEmailText }: { v
     <div className="space-y-2 rounded-2xl border-2 border-border p-3">
       <Label>Who owns it</Label>
       <Check checked disabled label="Just me" hint="You always own the surveys you create." />
-      <Check checked={value.allOrgs} disabled={!orgs.length} onChange={(v) => set({ allOrgs: v })} label="All my organisations" />
+      <Check checked={value.allOrgs} disabled={!orgs.length} onChange={(v) => set({ allOrgs: v })} label="All organisations I am a member of" />
       {!value.allOrgs && (
         <>
-          <Check checked={value.selected} disabled={!orgs.length} onChange={(v) => set({ selected: v })} label="Selected organisations" />
+          <Check checked={value.selected} disabled={!orgs.length} onChange={(v) => set({ selected: v })} label="Selected organisations I am a member of" />
           {value.selected && (
             <div className="ml-6 space-y-1">
               {orgs.map((o) => (
@@ -56,7 +56,7 @@ export function OwnershipPicker({ value, onChange, emailText, onEmailText }: { v
           )}
         </>
       )}
-      <Check checked={value.invite} onChange={(v) => set({ invite: v })} label="Invited users" hint="They can see and edit the survey after signing in with this email." />
+      <Check checked={value.invite} onChange={(v) => set({ invite: v })} label="Invited users" hint="They can see and edit the survey after signing in with an invite link." />
       {value.invite && (
         <Textarea className="ml-6 w-[calc(100%-1.5rem)]" placeholder="anna@firm.com, ben@firm.com" value={emailText} onChange={(e) => onEmailText(e.target.value)} />
       )}

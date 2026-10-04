@@ -152,7 +152,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
         >
           <DialogHeader><DialogTitle>New survey</DialogTitle></DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="pt" required>Title</Label>
+            <Label htmlFor="pt" required>Survey title</Label>
             <Input id="pt" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
           </div>
           <div className="space-y-2">
@@ -173,7 +173,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             </div>
             {kind === "survey" && (
               <div className="space-y-2">
-                <Label>How people answer</Label>
+                <Label>Invites only / anyone with a link?</Label>
                 <Select
                   value={effectiveMode}
                   disabled={shareWithOrg && mode === "link"}
@@ -191,7 +191,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
           </div>
           <div className="flex items-center justify-end gap-3 rounded-xl border-2 border-border bg-secondary/30 p-3">
             <div className="mr-auto">
-              <Label htmlFor="pulse-share-org">Share with my organisation</Label>
+              <Label htmlFor="pulse-share-org">Share with everyone in this organization</Label>
               <p className="text-xs text-muted-foreground">
                 {orgId
                   ? "Sends an invite link to everyone in your organisation as soon as you create it."
