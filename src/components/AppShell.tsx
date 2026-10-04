@@ -349,10 +349,9 @@ function NoOrganisation() {
   return (
     <div className="mx-auto max-w-lg rounded-2xl border-2 border-border bg-card p-6 shadow-[0_4px_0_var(--brand-mint)]">
       <Building2 className="h-6 w-6 text-primary" />
-      <h1 className="mt-2 text-xl font-bold">You're not in an organisation</h1>
+      <h1 className="mt-2 text-xl font-bold">You don't have an organization yet</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Candidates, positions and the candidate flow live inside an organisation. Create your own,
-        or join a team through an invite link from one of its owners or admins.
+        All of these settings and candidates, positions and the candidate flow live inside an organisation. Create your own, or join a team through an invite link from one of an organization's owners or admins.
       </p>
       <form
         className="mt-5 space-y-2"
@@ -396,8 +395,7 @@ function NoOrganisation() {
         </div>
       </form>
       <p className="mt-5 text-xs text-muted-foreground">
-        Joining a team? Ask an owner or admin to invite you, then open the link from the invite.
-        Pulse surveys work without an organisation. Looking for jobs instead?{" "}
+        Joining an organization? Ask an owner or admin to invite you, then open the link from the invite. Pulse surveys work without an organisation. Or looking for jobs instead?{" "}
         <Link to="/candidate/applications" className="font-medium text-primary hover:underline">
           Go to my applications
         </Link>
