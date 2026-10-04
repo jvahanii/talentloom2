@@ -156,7 +156,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             <Input id="pt" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pd">Description</Label>
+            <Label htmlFor="pd">Survey description</Label>
             <Textarea id="pd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
           </div>
           <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
