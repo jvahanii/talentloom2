@@ -221,6 +221,10 @@ function PulseLanding() {
           <Link to="/" className="underline hover:text-foreground">
             Talentloom
           </Link>
+          ·
+          <Link to="/docs" hash="pulse" className="underline hover:text-foreground">
+            Pulse user guide
+          </Link>
         </p>
       </footer>
     </div>
