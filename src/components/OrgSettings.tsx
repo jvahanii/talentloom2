@@ -241,7 +241,10 @@ export function OrgSettings() {
       <h3 className="font-display font-semibold">Organisation</h3>
       <p className="mt-1 text-sm text-muted-foreground">
         Manage this organisation and who can access it. Your title here:{" "}
-        <span className="font-medium">{title ?? "—"}</span>.
+        <span className="font-medium">
+          {orgs.find((o) => o.org_id === orgId)?.viaSuperuser ? "Superuser (not a member)" : (title ?? "—")}
+        </span>
+        .
       </p>
 
       {can("rename_org") && (

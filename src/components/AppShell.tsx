@@ -181,6 +181,7 @@ function OrgSwitcher() {
           {orgs.map((o) => (
             <SelectItem key={o.org_id} value={o.org_id}>
               {o.name}
+              {o.viaSuperuser && <span className="ml-1.5 text-[10px] text-muted-foreground">superuser</span>}
             </SelectItem>
           ))}
           <SelectItem value="__new__">

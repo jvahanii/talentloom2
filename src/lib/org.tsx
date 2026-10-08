@@ -80,6 +80,8 @@ export interface OrgMembership {
   title_id: string | null;
   title_name: string | null;
   permissions: TitlePermissions;
+  /** A superuser's access to an organisation they aren't a member of. */
+  viaSuperuser?: boolean;
 }
 
 const STORAGE_KEY = "talently:current-org";
@@ -119,7 +121,7 @@ async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
     .select("org_id, role, title_id, organizations(name), organization_titles(*)")
     .eq("user_id", uid as string);
   if (error) throw error;
-  return ((data ?? []) as unknown as MemberRow[]).map((m) => ({
+  const memberships: OrgMembership[] = ((data ?? []) as unknown as MemberRow[]).map((m) => ({
     org_id: m.org_id,
     role: m.role,
     name: m.organizations?.name ?? "Organisation",
@@ -127,6 +129,31 @@ async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
     title_name: m.organization_titles?.name ?? null,
     permissions: toPermissions(m.organization_titles),
   }));
+
+  // Superusers work in every organisation with every permission. The database
+  // enforces this; here the organisations are only listed. A missing or failing
+  // check simply means "not a superuser".
+  const { data: superuser } = await (
+    supabase.rpc as unknown as (fn: string) => Promise<{ data: boolean | null; error: unknown }>
+  )("is_superuser");
+  if (superuser !== true) return memberships;
+  const ALL_PERMS = Object.fromEntries(PERMISSIONS.map((p) => [p, true])) as TitlePermissions;
+  const { data: allOrgs } = await supabase.from("organizations").select("id, name").order("name");
+  const mine = new Set(memberships.map((m) => m.org_id));
+  return [
+    ...memberships.map((m) => ({ ...m, permissions: ALL_PERMS })),
+    ...((allOrgs ?? []) as { id: string; name: string }[])
+      .filter((o) => !mine.has(o.id))
+      .map((o) => ({
+        org_id: o.id,
+        role: "owner" as OrgRole,
+        name: o.name,
+        title_id: null,
+        title_name: "Owner",
+        permissions: ALL_PERMS,
+        viaSuperuser: true,
+      })),
+  ];
 }
 
 /** Organisation roles a recruiter can pick for themselves when creating an account. */
