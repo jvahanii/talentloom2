@@ -13,12 +13,14 @@ import {
   Plus,
   Activity,
   UserRound,
+  ShieldCheck,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut } from "@/lib/clerk";
 import { useSession, type AppUser } from "@/lib/auth";
 import { ACCOUNT_ROLES, OrgProvider, applyAccountRole, useOrg, type AccountRole } from "@/lib/org";
+import { amISuperuser } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +57,16 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { orgs, loaded } = useOrg();
   const noOrganisation = loaded && orgs.length === 0;
-  const items = noOrganisation ? NAV.filter((item) => !item.org) : NAV;
+  const { data: me } = useQuery({
+    queryKey: ["am-i-superuser"],
+    queryFn: () => amISuperuser(),
+    staleTime: Infinity,
+    retry: false,
+  });
+  const items = [
+    ...(noOrganisation ? NAV.filter((item) => !item.org) : NAV),
+    ...(me?.superuser ? [{ to: "/admin", label: "Superuser", icon: ShieldCheck, org: false }] : []),
+  ];
   return (
     <nav className="flex flex-col gap-1">
       {noOrganisation && (
