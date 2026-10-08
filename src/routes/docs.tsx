@@ -210,10 +210,10 @@ function Docs() {
                   icon: UserRound,
                   text: (
                     <>
-                      After signing in you land where you belong: your organisation's candidate
-                      flow, your own applications if you're a candidate, or your Pulse surveys if
-                      that's all you use. Brand-new accounts are asked whether they're a recruiter
-                      or a candidate.
+                      After signing in you land where you belong: the organisation you last used, if
+                      you're in one; otherwise your Pulse surveys, if you have any; otherwise the
+                      job board to explore open roles. Brand-new accounts are first asked whether
+                      they're a recruiter or a candidate.
                     </>
                   ),
                 },

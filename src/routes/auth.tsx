@@ -84,8 +84,8 @@ function AuthPage() {
       await router.invalidate();
       if (cancelled) return;
       // One sign-in for everyone: invites and new organisations go to the recruiter
-      // app; candidates go to their applications.
-      let to: "/pipeline" | "/candidate/applications" | "/surveys" = "/pipeline";
+      // app; otherwise the server picks an organisation, Pulse surveys or open roles.
+      let to: "/pipeline" | "/surveys" | "/apply" = "/pipeline";
       let joiningOrCreating = false;
       try {
         joiningOrCreating =
