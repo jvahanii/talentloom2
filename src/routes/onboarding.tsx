@@ -75,15 +75,11 @@ function parseCSV(text: string): string[][] {
 
 type ProfileState = {
   full_name: string;
-  company_industry: string;
-  company_size: string;
   onboarding_step: number;
 };
 
 const EMPTY: ProfileState = {
   full_name: "",
-  company_industry: "",
-  company_size: "",
   onboarding_step: 1,
 };
 
@@ -144,14 +140,12 @@ function Onboarding() {
       }
       const { data: p } = await supabase
         .from("profiles")
-        .select("full_name, company_industry, company_size, onboarding_step")
+        .select("full_name, onboarding_step")
         .eq("id", uid)
         .maybeSingle();
       if (p) {
         setState({
           full_name: p.full_name ?? "",
-          company_industry: p.company_industry ?? "",
-          company_size: p.company_size ?? "",
           onboarding_step: p.onboarding_step ?? 1,
         });
         let startStep = Math.min(Math.max(p.onboarding_step ?? 1, 1), 3);

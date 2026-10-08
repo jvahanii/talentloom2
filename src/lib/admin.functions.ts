@@ -340,3 +340,15 @@ export const adminRemoveAccount = createServerFn({ method: "POST" })
     }
     return { email: (profile.email as string | null) ?? null, signInRemoved };
   });
+
+/** Deletes a survey with its questions, rounds, invited people and answers. */
+export const adminDeleteSurvey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireSuperuser(context);
+    const { data: gone, error } = await admin.from("pulse_surveys").delete().eq("id", data.id).select("id, title");
+    if (error) throw new Error(error.message);
+    if (!gone?.length) throw new Error("Survey not found");
+    return { title: gone[0].title as string };
+  });

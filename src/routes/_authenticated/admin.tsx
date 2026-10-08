@@ -5,6 +5,7 @@ import { ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   adminDeleteOrganisation,
+  adminDeleteSurvey,
   adminRemoveAccount,
   getAdminOverview,
   type AccountType,
@@ -74,6 +75,25 @@ function AdminPage() {
       await qc.invalidateQueries({ queryKey: ["admin-overview"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not delete the organisation");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const deleteSurvey = async (sv: AdminOverview["surveys"][number]) => {
+    const typed = window.prompt(
+      `Delete the survey "${sv.title}"?\n\nThis permanently deletes its ${sv.questions} questions, ${sv.rounds} rounds, ${sv.invited} invited people and ${sv.responses} answers.\n\nType the survey's title to confirm:`,
+    );
+    if (typed === null) return;
+    if (typed.trim() !== sv.title.trim()) return void toast.error("The title didn't match. Nothing was deleted.");
+    setBusyId(sv.id);
+    try {
+      const { title } = await adminDeleteSurvey({ data: { id: sv.id } });
+      toast.success(`Deleted ${title}`);
+      await qc.invalidateQueries({ queryKey: ["admin-overview"] });
+      void qc.invalidateQueries({ queryKey: ["pulse-list"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the survey");
     } finally {
       setBusyId(null);
     }
@@ -252,7 +272,7 @@ function AdminPage() {
         </TabsContent>
 
         <TabsContent value="surveys">
-          <Table head={["Survey", "Type", "Owner", "Shared with", "Questions", "Rounds", "Invited", "Answers", "Created"]}>
+          <Table head={["Survey", "Type", "Owner", "Shared with", "Questions", "Rounds", "Invited", "Answers", "Created", ""]}>
             {surveys.map((s) => (
               <tr key={s.id}>
                 <td className={`${td} font-medium`}>
@@ -271,6 +291,19 @@ function AdminPage() {
                 <td className={td}>{s.invited}</td>
                 <td className={td}>{s.responses}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDate(s.createdAt)}</td>
+                <td className={td}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={busyId === s.id}
+                    onClick={() => deleteSurvey(s)}
+                    aria-label={`Delete ${s.title}`}
+                    title="Delete survey"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </td>
               </tr>
             ))}
           </Table>

@@ -793,7 +793,7 @@ function Docs() {
                   icon: Settings2,
                   text: (
                     <>
-                      Update your name, role, company details, and light or dark appearance in{" "}
+                      Update your name and choose a light or dark appearance in{" "}
                       <strong>Settings</strong>. Settings is available even before you have an
                       organisation.
                     </>
