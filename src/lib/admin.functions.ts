@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/app-auth-middleware";
+import { z } from "zod";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
@@ -28,6 +29,8 @@ export type AdminOverview = {
     organisations: { name: string; title: string | null }[];
     applications: number;
     surveysOwned: number;
+    /** Surveys this account owns outright; they are deleted with the account. */
+    ownedSurveysDeletedWithAccount: number;
     surveysInvited: number;
     onboarded: boolean;
     canSignIn: boolean;
@@ -188,6 +191,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
             })),
             applications,
             surveysOwned,
+            ownedSurveysDeletedWithAccount: surveysByOwner.get(p.id) ?? 0,
             surveysInvited,
             onboarded: Boolean(p.onboarding_completed_at),
             canSignIn: Boolean(p.clerk_user_id),
@@ -223,4 +227,116 @@ export const getAdminOverview = createServerFn({ method: "GET" })
         })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
+  });
+
+// ---------- Superuser actions ----------
+
+async function requireSuperuser(context: { supabase: unknown }) {
+  const { data } = await (context.supabase as Loose).rpc("is_superuser");
+  if (data !== true) throw new Error("Only a superuser can do this");
+  const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+  return supabaseAdmin as Loose;
+}
+
+const must = (res: { error: { message: string } | null }, what: string) => {
+  if (res.error) throw new Error(`${what}: ${res.error.message}`);
+};
+
+/** Deletes an organisation with its candidates, positions, history, invites and survey links. */
+export const adminDeleteOrganisation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await requireSuperuser(context);
+    // Deleted as the signed-in superuser, not with the service role: the database's
+    // "only an owner can remove admins" rule checks who is signed in.
+    const { data: gone, error } = await (context.supabase as Loose)
+      .from("organizations")
+      .delete()
+      .eq("id", data.id)
+      .select("id, name");
+    if (error) throw new Error(error.message);
+    if (!gone?.length) throw new Error("Organisation not found");
+    return { name: gone[0].name as string };
+  });
+
+/**
+ * Removes an account: memberships, private candidate data, owned surveys, the
+ * profile, and the sign-in at Clerk. Applications they made stay with the
+ * organisations as candidate records, no longer linked to an account.
+ */
+export const adminRemoveAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireSuperuser(context);
+    if (data.id === context.userId) throw new Error("You can't remove your own account");
+
+    const { data: profile, error: profileError } = await admin
+      .from("profiles")
+      .select("id, email, clerk_user_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (profileError) throw new Error(profileError.message);
+    if (!profile) throw new Error("Account not found");
+
+    // An organisation must keep someone who can manage titles. Refuse if this
+    // person is the only one anywhere, and say where.
+    const { data: memberships, error: memError } = await admin
+      .from("organization_members")
+      .select("org_id, organization_titles(can_manage_titles), organizations(name)")
+      .eq("user_id", data.id);
+    if (memError) throw new Error(memError.message);
+    const managed = ((memberships ?? []) as Loose[]).filter((m) => m.organization_titles?.can_manage_titles);
+    const stuck: string[] = [];
+    for (const m of managed) {
+      const { data: others, error: othersError } = await admin
+        .from("organization_members")
+        .select("user_id, organization_titles(can_manage_titles)")
+        .eq("org_id", m.org_id)
+        .neq("user_id", data.id);
+      if (othersError) throw new Error(othersError.message);
+      if (!((others ?? []) as Loose[]).some((o) => o.organization_titles?.can_manage_titles)) {
+        stuck.push((m.organizations?.name as string) ?? "an organisation");
+      }
+    }
+    if (stuck.length) {
+      throw new Error(
+        `This person is the only one who can manage ${stuck.join(", ")}. Delete ${stuck.length === 1 ? "that organisation" : "those organisations"} or make someone else an owner first.`,
+      );
+    }
+
+    // As the signed-in superuser, for the same reason as deleting an organisation.
+    must(
+      await (context.supabase as Loose).from("organization_members").delete().eq("user_id", data.id),
+      "Memberships",
+    );
+    const { count: left } = await admin
+      .from("organization_members")
+      .select("user_id", { count: "exact", head: true })
+      .eq("user_id", data.id);
+    if (left) throw new Error("Could not remove this person's organisation memberships. Nothing else was changed.");
+    must(await admin.from("candidate_board_prefs").delete().eq("user_id", data.id), "Job board preferences");
+    must(await admin.from("candidate_position_ratings").delete().eq("user_id", data.id), "Position ratings");
+    must(await admin.from("candidate_documents").delete().eq("user_id", data.id), "Documents");
+    must(
+      await admin.from("candidates").update({ applicant_user_id: null }).eq("applicant_user_id", data.id),
+      "Applications",
+    );
+    // Deleting the profile also deletes the surveys they own (with their answers).
+    must(await admin.from("profiles").delete().eq("id", data.id), "Profile");
+
+    // Remove the sign-in too; otherwise signing in again would recreate an empty account.
+    let signInRemoved = !profile.clerk_user_id;
+    if (profile.clerk_user_id) {
+      try {
+        const { createClerkClient } = await import("@clerk/backend");
+        const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
+        await clerk.users.deleteUser(profile.clerk_user_id as string);
+        signInRemoved = true;
+      } catch (e) {
+        console.error("[admin] Clerk user delete failed:", e);
+      }
+    }
+    return { email: (profile.email as string | null) ?? null, signInRemoved };
   });

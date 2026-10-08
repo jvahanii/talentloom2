@@ -1,8 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ShieldCheck } from "lucide-react";
-import { getAdminOverview, type AccountType } from "@/lib/admin.functions";
+import { ShieldCheck, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  adminDeleteOrganisation,
+  adminRemoveAccount,
+  getAdminOverview,
+  type AccountType,
+  type AdminOverview,
+} from "@/lib/admin.functions";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,8 +55,52 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
 
 function AdminPage() {
   const navigate = useNavigate();
-  const { setOrgId } = useOrg();
+  const { setOrgId, refresh } = useOrg();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const deleteOrganisation = async (o: AdminOverview["organisations"][number]) => {
+    const typed = window.prompt(
+      `Delete "${o.name}"?\n\nThis permanently deletes its ${o.candidates} candidates, ${o.positions} positions, pipeline history and invites, and removes its ${o.members} members from it. Surveys shared with it stay but lose the link.\n\nType the organisation's name to confirm:`,
+    );
+    if (typed === null) return;
+    if (typed.trim() !== o.name.trim()) return void toast.error("The name didn't match. Nothing was deleted.");
+    setBusyId(o.id);
+    try {
+      const { name } = await adminDeleteOrganisation({ data: { id: o.id } });
+      toast.success(`Deleted ${name}`);
+      refresh();
+      await qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete the organisation");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const removeAccount = async (a: AdminOverview["accounts"][number]) => {
+    const who = a.email || a.name || "this account";
+    const surveys = a.ownedSurveysDeletedWithAccount;
+    const typed = window.prompt(
+      `Remove ${who}?\n\nThis permanently removes the account and its sign-in, its organisation memberships, saved documents and job-board ratings${surveys ? `, and deletes the ${surveys} survey${surveys === 1 ? "" : "s"} it owns with all answers` : ""}. Applications it made stay with the organisations.\n\nType ${a.email ? "the email address" : "REMOVE"} to confirm:`,
+    );
+    if (typed === null) return;
+    if (typed.trim().toLowerCase() !== (a.email ?? "REMOVE").trim().toLowerCase()) {
+      return void toast.error("That didn't match. Nothing was removed.");
+    }
+    setBusyId(a.id);
+    try {
+      const r = await adminRemoveAccount({ data: { id: a.id } });
+      if (r.signInRemoved) toast.success(`Removed ${r.email ?? "the account"}`);
+      else toast.warning(`Removed ${r.email ?? "the account"} from Talentloom, but its sign-in couldn't be deleted at Clerk. Delete it in the Clerk dashboard.`);
+      await qc.invalidateQueries({ queryKey: ["admin-overview"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not remove the account");
+    } finally {
+      setBusyId(null);
+    }
+  };
   const { data, isLoading, error } = useQuery({
     queryKey: ["admin-overview"],
     queryFn: () => getAdminOverview(),
@@ -114,7 +165,7 @@ function AdminPage() {
                 <td className={td}>{o.surveys}</td>
                 <td className={td}>{o.pendingInvites}</td>
                 <td className={`${td} whitespace-nowrap`}>{formatDate(o.createdAt)}</td>
-                <td className={td}>
+                <td className={`${td} whitespace-nowrap`}>
                   <Button
                     size="sm"
                     variant="outline"
@@ -125,6 +176,17 @@ function AdminPage() {
                   >
                     Open
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={busyId === o.id}
+                    onClick={() => deleteOrganisation(o)}
+                    aria-label={`Delete ${o.name}`}
+                    title="Delete organisation"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -132,7 +194,7 @@ function AdminPage() {
         </TabsContent>
 
         <TabsContent value="accounts">
-          <Table head={["Name", "Email", "Type", "Organisations", "Applications", "Surveys", "Created"]}>
+          <Table head={["Name", "Email", "Type", "Organisations", "Applications", "Surveys", "Created", ""]}>
             {accounts.map((a) => (
               <tr key={a.id}>
                 <td className={`${td} font-medium`}>{a.name || "—"}</td>
@@ -164,6 +226,21 @@ function AdminPage() {
                   {a.surveysOwned} owned · {a.surveysInvited} invited
                 </td>
                 <td className={`${td} whitespace-nowrap`}>{formatDate(a.createdAt)}</td>
+                <td className={td}>
+                  {!a.types.includes("Superuser") && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={busyId === a.id}
+                      onClick={() => removeAccount(a)}
+                      aria-label={`Remove ${a.email ?? a.name ?? "account"}`}
+                      title="Remove account"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </Table>
