@@ -494,8 +494,9 @@ function Docs() {
                     text: (
                       <>
                         Turn on <strong>Share with my organisation</strong> to add every member of
-                        the organisation you currently have open as an invited person. No email is
-                        sent; they find the survey under <strong>Waiting for your answer</strong>.
+                        the organisation you currently have open as an invited person. They find the
+                        survey under <strong>Waiting for your answer</strong>, and are emailed when
+                        you start a round.
                       </>
                     ),
                   },
@@ -583,8 +584,18 @@ function Docs() {
                         In <strong>Invited people</strong>, add people one per line as "Name, email"
                         or just an email. Each gets a <strong>personal link</strong> that stays the
                         same for every round, which is what lets Pulse follow their answers over
-                        time. Send the link yourself — Pulse doesn't email it. An email already on
-                        the list is skipped.
+                        time. An email already on the list is skipped.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Send,
+                    text: (
+                      <>
+                        When you start a round, Pulse emails each invited person their personal
+                        link — switch this off before starting if you'd rather send the links
+                        yourself. While a round is open, <strong>Email a reminder</strong> in
+                        Invited people emails only those who haven't answered yet.
                       </>
                     ),
                   },

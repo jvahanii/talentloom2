@@ -194,7 +194,7 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
               <Label htmlFor="pulse-share-org">Publish to this organization</Label>
               <p className="text-xs text-muted-foreground">
                 {orgId
-                  ? "Sends an invite link to everyone in your organisation as soon as you create it."
+                  ? "Adds everyone in the organisation you have open as invited people. They're emailed their link when you start a round."
                   : "Join or create an organisation to share surveys with its members."}
               </p>
             </div>

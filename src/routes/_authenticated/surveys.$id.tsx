@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Lock, Plus, Trash2, TrendingDown, TrendingUp, Upload } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Copy, Download, Lock, Mail, Plus, Trash2, TrendingDown, TrendingUp, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   addPulseRespondents,
@@ -19,6 +19,7 @@ import {
   type PulseQuestion,
   type QuestionType,
 } from "@/lib/pulse.functions";
+import { sendPulseRoundEmails } from "@/lib/pulse-email.functions";
 import { OwnershipPicker, ownershipPayload, ownershipLabel, type Ownership } from "@/components/pulse/OwnershipPicker";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
@@ -330,10 +331,34 @@ function QuestionsEditor({
   );
 }
 
+/** Emails invited people who haven't answered the open round, and reports the outcome. */
+async function emailInvitedPeople(surveyId: string, kind: "invite" | "reminder") {
+  try {
+    const r = await sendPulseRoundEmails({ data: { surveyId, kind } });
+    const notes = [
+      r.noEmail ? `${r.noEmail} without an email address` : "",
+      r.alreadyAnswered ? `${r.alreadyAnswered} already answered` : "",
+    ].filter(Boolean);
+    const extra = notes.length ? ` (${notes.join(", ")})` : "";
+    if (r.failed) {
+      toast.error(`Emailed ${r.sent}, but ${r.failed} couldn't be sent: ${r.error ?? "unknown error"}`);
+    } else if (r.sent) {
+      toast.success(`Emailed ${r.sent} ${r.sent === 1 ? "person" : "people"} for round ${r.roundNumber}${extra}`);
+    } else {
+      toast.info(`Nobody to email for round ${r.roundNumber}${extra}`);
+    }
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : "Could not send the emails");
+  }
+}
+
 function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) {
   const [closesOn, setClosesOn] = useState("");
+  const [emailOnStart, setEmailOnStart] = useState(true);
   const { survey, rounds } = data;
   const linkAllowed = survey.kind === "survey" && survey.response_mode !== "invite";
+  const canEmail =
+    data.canManagePeople && survey.kind === "survey" && survey.response_mode !== "link" && data.respondents.length > 0;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border-2 border-border bg-card p-4">
@@ -348,6 +373,7 @@ function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) 
               const { number } = await startPulseRound({ data: { surveyId: survey.id, closesOn: closesOn || null } });
               toast.success(`Round ${number} started`);
               onChange();
+              if (canEmail && emailOnStart) await emailInvitedPeople(survey.id, "invite");
             } catch (e) {
               toast.error(e instanceof Error ? e.message : "Could not start round");
             }
@@ -358,6 +384,13 @@ function Rounds({ data, onChange }: { data: SurveyData; onChange: () => void }) 
         <p className="text-xs text-muted-foreground">
           {data.questions.length ? "Starting a new round closes the current one." : "Add questions first."}
         </p>
+        {canEmail && (
+          <label className="flex w-full items-center gap-2 text-sm">
+            <Switch checked={emailOnStart} onCheckedChange={setEmailOnStart} />
+            Email the {data.respondents.length} invited {data.respondents.length === 1 ? "person" : "people"} their
+            personal link when the round starts
+          </label>
+        )}
       </div>
       {[...rounds].reverse().map((r) => (
         <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-border bg-card p-4">
@@ -396,8 +429,36 @@ function People({ data, onChange }: { data: SurveyData; onChange: () => void }) 
   const [text, setText] = useState("");
   const isInterview = data.survey.kind === "interview";
   const latest = data.rounds[data.rounds.length - 1];
+  const [emailing, setEmailing] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const openRound = [...data.rounds].reverse().find((r) => r.status === "open" && (!r.closes_on || r.closes_on >= today));
+  const waiting = openRound
+    ? data.respondents.filter((p) => p.email && !p.answeredRounds.includes(openRound.number)).length
+    : 0;
   return (
     <div className="space-y-4">
+      {!isInterview && data.survey.response_mode !== "link" && openRound && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-border bg-card p-4">
+          <p className="text-sm">
+            Round {openRound.number} is open.{" "}
+            {waiting
+              ? `${waiting} invited ${waiting === 1 ? "person hasn't" : "people haven't"} answered yet.`
+              : "Everyone with an email address has answered."}
+          </p>
+          <Button
+            className="ml-auto"
+            variant="outline"
+            disabled={!waiting || emailing}
+            onClick={async () => {
+              setEmailing(true);
+              await emailInvitedPeople(data.survey.id, "reminder");
+              setEmailing(false);
+            }}
+          >
+            <Mail className="mr-1 h-4 w-4" /> {emailing ? "Sending…" : "Email a reminder"}
+          </Button>
+        </div>
+      )}
       <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
         <Label htmlFor="ppl">Add people — one per line, as "Name, email" or just an email</Label>
         <Textarea id="ppl" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Aino Virtanen, aino@example.com\nbob@example.com"} />
@@ -432,7 +493,7 @@ function People({ data, onChange }: { data: SurveyData; onChange: () => void }) 
       </div>
       {!isInterview && (
         <p className="text-sm text-muted-foreground">
-          Each person has a personal link that stays the same for every round, so their answers can be followed over time. Send it to them yourself.
+          Each person has a personal link that stays the same for every round, so their answers can be followed over time. It's emailed when a round starts (if you leave that switched on), or you can copy it and send it yourself.
         </p>
       )}
       <div className="divide-y divide-border rounded-2xl border-2 border-border bg-card">
