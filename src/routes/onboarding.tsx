@@ -75,7 +75,6 @@ function parseCSV(text: string): string[][] {
 
 type ProfileState = {
   full_name: string;
-  company_name: string;
   company_industry: string;
   company_size: string;
   onboarding_step: number;
@@ -83,7 +82,6 @@ type ProfileState = {
 
 const EMPTY: ProfileState = {
   full_name: "",
-  company_name: "",
   company_industry: "",
   company_size: "",
   onboarding_step: 1,
@@ -94,6 +92,8 @@ function Onboarding() {
   const [uid, setUid] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [state, setState] = useState<ProfileState>(EMPTY);
+  // The new organisation's name. It names the organisation only, not the person.
+  const [orgName, setOrgName] = useState("");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -144,13 +144,12 @@ function Onboarding() {
       }
       const { data: p } = await supabase
         .from("profiles")
-        .select("full_name, company_name, company_industry, company_size, onboarding_step")
+        .select("full_name, company_industry, company_size, onboarding_step")
         .eq("id", uid)
         .maybeSingle();
       if (p) {
         setState({
           full_name: p.full_name ?? "",
-          company_name: p.company_name ?? "",
           company_industry: p.company_industry ?? "",
           company_size: p.company_size ?? "",
           onboarding_step: p.onboarding_step ?? 1,
@@ -183,7 +182,7 @@ function Onboarding() {
 
   const step1Valid = state.full_name.trim().length > 0 && accountType !== "";
   const step2Valid =
-    state.company_name.trim().length > 0 && (!askNameInStep2 || state.full_name.trim().length > 0);
+    orgName.trim().length > 0 && (!askNameInStep2 || state.full_name.trim().length > 0);
 
   const goNext = async () => {
     if (step === 1 && !step1Valid) return;
@@ -199,7 +198,7 @@ function Onboarding() {
     await persist({ onboarding_step: next });
     if (step === 2 && uid && !orgId) {
       // Create the organisation as soon as we know its name; the creator is its Owner.
-      const id = await ensureOrg(uid, state.company_name);
+      const id = await ensureOrg(uid, orgName);
       setOrgId(id);
     }
     setStep(next);
@@ -214,7 +213,7 @@ function Onboarding() {
     if (!uid) return;
     setSaving(true);
     try {
-      const org = orgId ?? (await ensureOrg(uid, state.company_name));
+      const org = orgId ?? (await ensureOrg(uid, orgName));
       setOrgId(org);
       if (opts.seedSamples) {
         const { error } = await supabase.rpc("seed_sample_data");
@@ -294,6 +293,8 @@ function Onboarding() {
           {step === 2 && (
             <Step2
               state={state}
+              orgName={orgName}
+              onOrgName={setOrgName}
               askName={askNameInStep2}
               onChange={(patch) => setState({ ...state, ...patch })}
             />
@@ -476,10 +477,14 @@ function Step1({
 
 function Step2({
   state,
+  orgName,
+  onOrgName,
   askName,
   onChange,
 }: {
   state: ProfileState;
+  orgName: string;
+  onOrgName: (name: string) => void;
   askName: boolean;
   onChange: (patch: Partial<ProfileState>) => void;
 }) {
@@ -493,8 +498,8 @@ function Step2({
         <Field label="Organisation name" required>
           <input
             className={inputCls}
-            value={state.company_name}
-            onChange={(e) => onChange({ company_name: e.target.value })}
+            value={orgName}
+            onChange={(e) => onOrgName(e.target.value)}
             placeholder="Acme Inc."
             autoFocus
           />

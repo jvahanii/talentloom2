@@ -284,7 +284,7 @@ function OrgSwitcher() {
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="company-name" required>
-                    Company name
+                    Organisation name
                   </Label>
                   <Input
                     id="company-name"

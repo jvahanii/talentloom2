@@ -38,7 +38,6 @@ function Settings() {
   const [email, setEmail] = useState("");
   const [form, setForm] = useState({
     full_name: "",
-    company_name: "",
     company_industry: "",
     company_size: "",
   });
@@ -51,12 +50,11 @@ function Settings() {
       if (!uid) return;
       const { data: p } = (await supabase
         .from("profiles")
-        .select("full_name, company_name, company_industry, company_size, email")
+        .select("full_name, company_industry, company_size, email")
         .eq("id", uid)
         .maybeSingle()) as unknown as {
         data: {
           full_name: string | null;
-          company_name: string | null;
           company_industry: string | null;
           company_size: string | null;
           email: string | null;
@@ -66,7 +64,6 @@ function Settings() {
       if (p)
         setForm({
           full_name: p.full_name ?? "",
-          company_name: p.company_name ?? "",
           company_industry: p.company_industry ?? "",
           company_size: p.company_size ?? "",
         });
@@ -159,16 +156,6 @@ function Settings() {
               <input
                 value={form.full_name}
                 onChange={(e) => patch({ full_name: e.target.value })}
-                className={inputCls}
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Company name
-              </span>
-              <input
-                value={form.company_name}
-                onChange={(e) => patch({ company_name: e.target.value })}
                 className={inputCls}
               />
             </label>
