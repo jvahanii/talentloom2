@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Briefcase, UserRound } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
+import { supabase } from "@/integrations/supabase/app-client";
+import { useSession } from "@/lib/auth";
 import {
   Accordion,
   AccordionContent,
@@ -32,6 +35,22 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const { user } = useSession();
+  const profileId = user?.id ?? null;
+  // Access rules return only the organisations this person can open.
+  const { data: orgCount, isLoading: orgsLoading } = useQuery({
+    queryKey: ["home-org-count", profileId],
+    enabled: Boolean(profileId),
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("organizations")
+        .select("id", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const hasOrganisation = Boolean(profileId) && (orgCount ?? 0) > 0;
+
   return (
     <MarketingShell>
       <section className="mx-auto max-w-6xl px-4 pt-3 pb-12 sm:px-6 sm:pt-5 sm:pb-20">
@@ -54,8 +73,9 @@ function Landing() {
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
-                to="/auth"
-                search={{ mode: "signup" }}
+                {...(hasOrganisation
+                  ? { to: "/pipeline" as const }
+                  : { to: "/auth" as const, search: { mode: "signup" as const } })}
                 className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <Briefcase className="h-7 w-7 text-white" />
@@ -66,8 +86,10 @@ function Landing() {
                   Give candidates a standout experience while keeping all positions and processes
                   flowing
                 </span>
-                <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
-                  Create organisation
+                <span
+                  className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
+                >
+                  {hasOrganisation ? "Go to my organisation" : "Create organisation"}
                 </span>
               </Link>
               <Link
