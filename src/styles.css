@@ -40,7 +40,7 @@
   --color-brand-berry: #ff5fa2;
   --color-brand-grape: #b79cff;
   --color-brand-sky: #9bdcff;
-  --color-brand-ink: #4a3a55;
+  --color-brand-ink: #000000;
 
   /* Legacy aliases kept so existing components stay wired up */
   --color-brand-light-blue: #9bdcff;
@@ -50,7 +50,7 @@
   --color-brand-red: #ff6b8a;
   --color-brand-orange: #ffb27a;
   --color-brand-yellow: #ffe9a8;
-  --color-brand-black: #4a3a55;
+  --color-brand-black: #000000;
   --color-brand-creme: #fffdf5;
 
   --color-teal-50: #fffdf5;
@@ -76,26 +76,26 @@
   --brand-berry: #ff5fa2;
   --brand-grape: #b79cff;
   --brand-sky: #9bdcff;
-  --brand-ink: #4a3a55;
+  --brand-ink: #000000;
 
   --background: #fffdf5;
-  --foreground: #4a3a55;
+  --foreground: #000000;
   --card: #ffffff;
-  --card-foreground: #4a3a55;
+  --card-foreground: #000000;
   --popover: #ffffff;
-  --popover-foreground: #4a3a55;
+  --popover-foreground: #000000;
   --primary: #ff9ec7;
-  --primary-foreground: #4a3a55;
+  --primary-foreground: #000000;
   --secondary: #e6fbf2;
-  --secondary-foreground: #4a3a55;
+  --secondary-foreground: #000000;
   --muted: #fff6e2;
-  --muted-foreground: rgba(74, 58, 85, 0.62);
+  --muted-foreground: #000000;
   --accent: #bdf5e0;
-  --accent-foreground: #4a3a55;
+  --accent-foreground: #000000;
   --destructive: #ff6b8a;
   --destructive-foreground: #fffdf5;
-  --border: rgba(74, 58, 85, 0.14);
-  --input: rgba(74, 58, 85, 0.16);
+  --border: rgba(0, 0, 0, 0.16);
+  --input: rgba(0, 0, 0, 0.18);
   --ring: #ff9ec7;
 
   --teal-50: #fffdf5;
@@ -228,15 +228,20 @@
     color: var(--color-foreground);
   }
 
+  .text-muted-foreground {
+    color: #000000;
+  }
+
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   select,
   textarea {
-    color: #4a3a55;
+    color: #000000;
     border-radius: 0.9rem;
   }
   input::placeholder,
   textarea::placeholder {
-    color: rgba(74, 58, 85, 0.45);
+    color: #000000;
+    opacity: 0.75;
   }
 
   a:focus-visible,
@@ -251,7 +256,7 @@
 
   ::selection {
     background: #ffe9a8;
-    color: #4a3a55;
+    color: #000000;
   }
 }
 
@@ -259,10 +264,10 @@
 
 @utility glass {
   background: #ffffff;
-  border: 2px solid rgba(74, 58, 85, 0.12);
+  border: 2px solid rgba(0, 0, 0, 0.12);
   border-radius: 1.75rem;
   box-shadow: 0 6px 0 rgba(255, 158, 199, 0.28);
-  color: #4a3a55;
+  color: #000000;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
@@ -276,7 +281,7 @@
   border: 2px solid rgba(255, 158, 199, 0.55);
   border-radius: 2rem;
   box-shadow: 0 8px 0 rgba(189, 245, 224, 0.75);
-  color: #4a3a55;
+  color: #000000;
 }
 
 @utility glass-teal {
@@ -284,14 +289,14 @@
   border: 2px solid rgba(78, 214, 166, 0.35);
   border-radius: 1.75rem;
   box-shadow: 0 6px 0 rgba(189, 245, 224, 0.8);
-  color: #4a3a55;
+  color: #000000;
 }
 
 /* ---------- Squishy buttons ---------- */
 
 @utility btn-teal {
   background: linear-gradient(180deg, #ffb4d6 0%, #ff9ec7 100%);
-  color: #4a3a55;
+  color: #000000;
   font-weight: 700;
   border-radius: 999px;
   border: 2px solid #ff7fb6;
@@ -313,7 +318,7 @@
 
 @utility btn-light {
   background: #ffffff;
-  color: #4a3a55;
+  color: #000000;
   font-weight: 600;
   border-radius: 999px;
   border: 2px solid rgba(78, 214, 166, 0.5);
@@ -355,7 +360,7 @@
 
 @utility btn-pink {
   background: linear-gradient(180deg, #ffe3f0 0%, #ffb4d6 100%);
-  color: #4a3a55;
+  color: #000000;
   font-weight: 700;
   border-radius: 999px;
   border: 2px solid #ff9ec7;
@@ -377,7 +382,7 @@
 
 @utility btn-butter {
   background: linear-gradient(180deg, #fff0c2 0%, #ffe9a8 100%);
-  color: #4a3a55;
+  color: #000000;
   font-weight: 700;
   border-radius: 999px;
   border: 2px solid #ffd56e;
@@ -407,7 +412,7 @@
 }
 
 @utility text-soft {
-  color: rgba(74, 58, 85, 0.62);
+  color: #000000;
 }
 
 /* Sparkle accent — add ✨ before an element */
