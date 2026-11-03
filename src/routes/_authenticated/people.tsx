@@ -8,7 +8,8 @@ import { useOrg } from "@/lib/org";
 import { getMyProfileId } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
-import { SkillsInput } from "@/components/SkillsInput";
+import { SkillChips, SkillsInput } from "@/components/SkillsInput";
+import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
 import { sendInviteEmail } from "@/lib/invite.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,7 @@ type Person = {
   userId: string;
   name: string | null;
   email: string | null;
-  skills: string[];
+  skills: Skill[];
   titleId: string | null;
   titleName: string | null;
   joinedAt: string;
@@ -83,7 +84,7 @@ function PeoplePage() {
       const { data: profiles } = ids.length
         ? await supabase
             .from("profiles")
-            .select("id, full_name, email, skills, created_at")
+            .select("id, full_name, email, skills, skill_levels, created_at")
             .in("id", ids)
         : { data: [] };
       const byId = new Map(
@@ -93,6 +94,7 @@ function PeoplePage() {
             full_name: string | null;
             email: string | null;
             skills: string[] | null;
+            skill_levels: unknown;
             created_at: string;
           }[]
         ).map((p) => [p.id, p]),
@@ -104,7 +106,7 @@ function PeoplePage() {
           userId: r.user_id,
           name: p?.full_name ?? null,
           email: p?.email ?? null,
-          skills: p?.skills ?? [],
+          skills: readSkills(p?.skills, p?.skill_levels),
           titleId: r.title_id,
           titleName:
             (r as unknown as { organization_titles: { name: string } | null }).organization_titles
@@ -165,7 +167,7 @@ function PeoplePage() {
 
   // Name and skill editing
   const [names, setNames] = useState<Record<string, string>>({});
-  const [skillDrafts, setSkillDrafts] = useState<Record<string, string[]>>({});
+  const [skillDrafts, setSkillDrafts] = useState<Record<string, Skill[]>>({});
   const [filter, setFilter] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -254,7 +256,7 @@ function PeoplePage() {
     }
   };
 
-  const saveSkills = async (p: Person, skills: string[]) => {
+  const saveSkills = async (p: Person, skills: Skill[]) => {
     setSkillDrafts((d) => ({ ...d, [p.userId]: skills }));
     try {
       await updatePersonSkills({ data: { orgId, userId: p.userId, skills } });
@@ -403,7 +405,7 @@ function PeoplePage() {
       <Input
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="Find people by name, email or skill"
+        placeholder="Find people by name, email, skill or level"
         className="max-w-sm"
         aria-label="Find people"
       />
@@ -431,9 +433,11 @@ function PeoplePage() {
               .filter((p) => {
                 const q = filter.trim().toLowerCase();
                 if (!q) return true;
-                return [p.name ?? "", p.email ?? "", ...p.skills].some((v) =>
-                  v.toLowerCase().includes(q),
-                );
+                return [
+                  p.name ?? "",
+                  p.email ?? "",
+                  ...p.skills.map((s) => `${s.name} ${skillLevelLabel(s.level) ?? ""}`),
+                ].some((v) => v.toLowerCase().includes(q));
               })
               .map((p) => {
                 const canEditName = p.isSelf || can("change_titles");
@@ -508,19 +512,8 @@ function PeoplePage() {
                           onChange={(next) => saveSkills(p, next)}
                           placeholder="Add a skill"
                         />
-                      ) : p.skills.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {p.skills.map((s) => (
-                            <span
-                              key={s}
-                              className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-                            >
-                              {s}
-                            </span>
-                          ))}
-                        </div>
                       ) : (
-                        "—"
+                        <SkillChips skills={p.skills} />
                       )}
                     </td>
                     <td className={`${td} whitespace-nowrap`}>{formatDate(p.joinedAt)}</td>

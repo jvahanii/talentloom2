@@ -1,58 +1,89 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import {
+  MAX_SKILLS,
+  MAX_SKILL_LENGTH,
+  SKILL_LEVELS,
+  cleanSkills,
+  skillLevelLabel,
+  type Skill,
+  type SkillLevel,
+} from "@/lib/skills";
 
-export const MAX_SKILLS = 30;
-export const MAX_SKILL_LENGTH = 60;
+const chipCls =
+  "inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary";
 
-/** Trims, drops empties and case-insensitive duplicates, and caps the list. */
-export function cleanSkills(list: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of list) {
-    const s = raw.trim().replace(/\s+/g, " ").slice(0, MAX_SKILL_LENGTH);
-    const key = s.toLowerCase();
-    if (!s || seen.has(key)) continue;
-    seen.add(key);
-    out.push(s);
-  }
-  return out.slice(0, MAX_SKILLS);
+/** Read-only skills, each with its level when one is set. */
+export function SkillChips({ skills }: { skills: Skill[] }) {
+  if (!skills.length) return <>—</>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {skills.map((s) => (
+        <span key={s.name} className={chipCls}>
+          {s.name}
+          {s.level !== null && (
+            <span className="font-normal opacity-75">· {skillLevelLabel(s.level)}</span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
 }
 
-/** Skills as removable chips. Enter or a comma adds what's typed; pasting a comma list adds them all. */
+/**
+ * Skills as removable chips, each with a level picker. Enter or a comma adds
+ * what's typed; pasting a comma list adds them all. New skills have no level.
+ */
 export function SkillsInput({
   value,
   onChange,
   disabled,
   placeholder = "Add a skill and press Enter",
 }: {
-  value: string[];
-  onChange: (next: string[]) => void;
+  value: Skill[];
+  onChange: (next: Skill[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }) {
   const [draft, setDraft] = useState("");
 
   const add = (text: string) => {
-    const parts = text.split(/[,;\n]/);
+    const parts = text.split(/[,;\n]/).map((name) => ({ name, level: null }));
     const next = cleanSkills([...value, ...parts]);
     if (next.length !== value.length) onChange(next);
     setDraft("");
   };
 
+  const setLevel = (name: string, level: SkillLevel | null) =>
+    onChange(value.map((s) => (s.name === name ? { ...s, level } : s)));
+
   return (
     <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border border-input bg-white/70 px-2 py-1.5 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/30 dark:bg-white/5">
       {value.map((s) => (
-        <span
-          key={s}
-          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-        >
-          {s}
+        <span key={s.name} className={chipCls}>
+          {s.name}
+          <select
+            value={s.level ?? ""}
+            disabled={disabled}
+            onChange={(e) =>
+              setLevel(s.name, e.target.value ? (Number(e.target.value) as SkillLevel) : null)
+            }
+            className="cursor-pointer rounded-full bg-transparent text-xs font-normal outline-none hover:underline disabled:cursor-default"
+            aria-label={`Level of ${s.name}`}
+          >
+            <option value="">no level</option>
+            {SKILL_LEVELS.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </select>
           {!disabled && (
             <button
               type="button"
-              onClick={() => onChange(value.filter((v) => v !== s))}
+              onClick={() => onChange(value.filter((v) => v.name !== s.name))}
               className="rounded-full hover:text-destructive"
-              aria-label={`Remove ${s}`}
+              aria-label={`Remove ${s.name}`}
             >
               <X className="h-3 w-3" />
             </button>

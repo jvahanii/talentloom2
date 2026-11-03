@@ -422,7 +422,7 @@ function Docs() {
                   icon: Users,
                   text: (
                     <>
-                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles and skills, find people by skill, remove people, add someone who already has an account, or invite a new email address.
+                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles and skills with their levels (Novice, Basic, Advanced, Master), find people by skill or level, remove people, add someone who already has an account, or invite a new email address.
                       An organisation always keeps at least one person who can manage titles.
                     </>
                   ),

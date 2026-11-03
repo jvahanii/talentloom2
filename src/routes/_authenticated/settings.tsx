@@ -8,12 +8,12 @@ import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { OrgSettings } from "@/components/OrgSettings";
 import { SkillsInput } from "@/components/SkillsInput";
+import { readSkills, writeSkills, type Skill } from "@/lib/skills";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Talentloom" }] }),
   component: Settings,
 });
-
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
@@ -23,7 +23,7 @@ function Settings() {
   const { theme, setTheme } = useAppTheme();
 
   const [email, setEmail] = useState("");
-  const [form, setForm] = useState<{ full_name: string; skills: string[] }>({
+  const [form, setForm] = useState<{ full_name: string; skills: Skill[] }>({
     full_name: "",
     skills: [],
   });
@@ -36,20 +36,21 @@ function Settings() {
       if (!uid) return;
       const { data: p } = (await supabase
         .from("profiles")
-        .select("full_name, email, skills")
+        .select("full_name, email, skills, skill_levels")
         .eq("id", uid)
         .maybeSingle()) as unknown as {
         data: {
           full_name: string | null;
           email: string | null;
           skills: string[] | null;
+          skill_levels: unknown;
         } | null;
       };
       setEmail(p?.email ?? "");
       if (p)
         setForm({
           full_name: p.full_name ?? "",
-          skills: p.skills ?? [],
+          skills: readSkills(p.skills, p.skill_levels),
         });
     })();
   }, []);
@@ -59,8 +60,11 @@ function Settings() {
     try {
       const uid = await getMyProfileId();
       if (!uid) throw new Error("Not authenticated");
-      // `skills` lives in the external database; Lovable regenerates types.ts without it.
-      const { error } = await supabase.from("profiles").update(form as never).eq("id", uid);
+      // The skill columns live in the external database; Lovable regenerates types.ts without them.
+      const { error } = await supabase
+        .from("profiles")
+        .update({ full_name: form.full_name, ...writeSkills(form.skills) } as never)
+        .eq("id", uid);
       if (error) throw error;
       toast.success("Saved");
     } catch (e) {
