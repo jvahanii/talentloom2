@@ -1,7 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/app-auth-middleware";
 import { z } from "zod";
-import { MAX_SKILLS, MAX_SKILL_LENGTH, writeSkills, type Skill } from "@/lib/skills";
+import {
+  MAX_SKILLS,
+  MAX_SKILL_LENGTH,
+  readSkills,
+  writeSkills,
+  type Skill,
+  type SkillLevel,
+} from "@/lib/skills";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
@@ -180,4 +187,106 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
       .eq("id", data.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * Merges skills that mean the same into one name for everyone in the
+ * organisation. Each person keeps the skill once, in the place of the first
+ * variant they had, at the highest level any variant had. The organisation's
+ * learning groups for the variants move to the kept name; someone who ends up
+ * in two of them stays in the first. Skills live on profiles, so the new name
+ * shows in the person's other organisations too. Needs "change titles".
+ */
+export const mergeSkills = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { orgId: string; variants: string[]; into: string }) =>
+    z
+      .object({
+        orgId: z.string().uuid(),
+        variants: z.array(z.string().trim().min(1).max(MAX_SKILL_LENGTH)).min(2).max(20),
+        into: z.string().trim().min(1).max(MAX_SKILL_LENGTH),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as Loose;
+    if (!(await hasPermission(sb, data.orgId, context.userId, "change_titles"))) {
+      throw new Error("Your title doesn't allow editing other people's skills");
+    }
+    const variants = new Set([...data.variants, data.into].map((v) => v.toLowerCase()));
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const admin = supabaseAdmin as Loose;
+
+    const { data: members, error: mError } = await admin
+      .from("organization_members")
+      .select("user_id")
+      .eq("org_id", data.orgId);
+    if (mError) throw new Error(mError.message);
+    const ids = (members ?? []).map((m: { user_id: string }) => m.user_id);
+    const { data: profiles, error: pError } = ids.length
+      ? await admin.from("profiles").select("id, skills, skill_levels").in("id", ids)
+      : { data: [], error: null };
+    if (pError) throw new Error(pError.message);
+
+    let people = 0;
+    for (const p of (profiles ?? []) as {
+      id: string;
+      skills: string[] | null;
+      skill_levels: unknown;
+    }[]) {
+      const list = readSkills(p.skills, p.skill_levels);
+      const hits = list.filter((s) => variants.has(s.name.toLowerCase()));
+      if (!hits.length || (hits.length === 1 && hits[0].name === data.into)) continue;
+      const levels = hits.map((s) => s.level).filter((l): l is SkillLevel => l !== null);
+      const level = levels.length ? (Math.max(...levels) as SkillLevel) : null;
+      const at = list.findIndex((s) => variants.has(s.name.toLowerCase()));
+      const next = list.filter((s) => !variants.has(s.name.toLowerCase()));
+      next.splice(at, 0, { name: data.into, level });
+      const { error } = await admin.from("profiles").update(writeSkills(next)).eq("id", p.id);
+      if (error) throw new Error(error.message);
+      people += 1;
+    }
+
+    // Learning groups: rename to the kept skill, then keep each person in one group per skill.
+    const { data: groups, error: gError } = await admin
+      .from("learning_groups")
+      .select("id, topic, created_at, learning_group_members(user_id)")
+      .eq("org_id", data.orgId)
+      .order("created_at", { ascending: true });
+    if (gError) throw new Error(gError.message);
+    const affected = (
+      (groups ?? []) as {
+        id: string;
+        topic: string | null;
+        learning_group_members: { user_id: string }[];
+      }[]
+    ).filter((g) => variants.has((g.topic ?? "").toLowerCase()));
+    const seen = new Set<string>();
+    for (const g of affected) {
+      const stay = g.learning_group_members.map((m) => m.user_id).filter((u) => !seen.has(u));
+      if (stay.length < 2) {
+        const { error } = await admin.from("learning_groups").delete().eq("id", g.id);
+        if (error) throw new Error(error.message);
+        continue;
+      }
+      const leave = g.learning_group_members.map((m) => m.user_id).filter((u) => seen.has(u));
+      if (leave.length) {
+        const { error } = await admin
+          .from("learning_group_members")
+          .delete()
+          .eq("group_id", g.id)
+          .in("user_id", leave);
+        if (error) throw new Error(error.message);
+      }
+      if (g.topic !== data.into) {
+        const { error } = await admin
+          .from("learning_groups")
+          .update({ topic: data.into })
+          .eq("id", g.id);
+        if (error) throw new Error(error.message);
+      }
+      stay.forEach((u) => seen.add(u));
+    }
+
+    return { people };
   });

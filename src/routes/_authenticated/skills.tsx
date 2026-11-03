@@ -27,6 +27,7 @@ import {
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
+import { SkillMergeSuggestions } from "@/components/SkillMergeSuggestions";
 import { canonicalSkillName } from "@/lib/skills";
 import { Input } from "@/components/ui/input";
 
@@ -48,7 +49,7 @@ type SkillGroup = {
 };
 
 function SkillsPage() {
-  const { orgId, orgs } = useOrg();
+  const { orgId, orgs, can } = useOrg();
   const levelNames = useSkillLevelNames();
   const knownSkills = useOrgSkillNames();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
@@ -232,6 +233,13 @@ function SkillsPage() {
           or tap one name and then the other.
         </p>
       </div>
+
+      {can("change_titles") && (
+        <SkillMergeSuggestions
+          orgId={orgId}
+          skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+        />
+      )}
 
       <form
         className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-center"
