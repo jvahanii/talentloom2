@@ -50,6 +50,7 @@ const NAV = [
   { to: "/requisitions", label: "Positions", icon: Briefcase, org: true },
   { to: "/analytics", label: "Analytics", icon: BarChart3, org: true },
   { to: "/people", label: "People", icon: UsersRound, org: true },
+  { to: "/skills", label: "Skills", icon: Sparkles, org: true },
   { to: "/surveys", label: "My surveys", icon: Activity, org: false },
   { to: "/import", label: "Import", icon: Upload, org: true },
   { to: "/export", label: "Export", icon: Download, org: true },
