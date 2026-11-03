@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Copy, Link2, Mail, Trash2, UserPlus } from "lucide-react";
+import { Copy, Link2, Mail, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg } from "@/lib/org";
@@ -11,6 +11,14 @@ import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/peop
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
 import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
+import {
+  fetchLearningGroups,
+  groupOf,
+  learnTogether,
+  learningGroupsKey,
+  leaveLearningGroup,
+  type LearningGroup,
+} from "@/lib/learning";
 import { sendInviteEmail } from "@/lib/invite.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +63,12 @@ function PeoplePage() {
   const { orgId, orgs, title, role, can, refresh } = useOrg();
   const isOwner = title === "Owner" || role === "owner";
   const levelNames = useSkillLevelNames();
+  // The same "Learning with" groups as on the Skills page.
+  const learning = useQuery({
+    queryKey: learningGroupsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchLearningGroups(orgId!),
+  });
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
 
   const titles = useQuery({
@@ -262,6 +276,14 @@ function PeoplePage() {
     setSkillDrafts((d) => ({ ...d, [p.userId]: skills }));
     try {
       await updatePersonSkills({ data: { orgId, userId: p.userId, skills } });
+      // Without the skill there's nothing to learn together in it.
+      const kept = new Set(skills.map((s) => s.name.toLowerCase()));
+      const dropped = p.skills.filter((s) => !kept.has(s.name.toLowerCase()));
+      for (const s of dropped) {
+        const group = groupOf(learning.data ?? [], s.name, p.userId);
+        if (group) await leaveLearningGroup(group, p.userId);
+      }
+      if (dropped.length) await qc.invalidateQueries({ queryKey: learningGroupsKey(orgId) });
       await qc.invalidateQueries({ queryKey: ["org-people", orgId] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update the skills");
@@ -413,10 +435,19 @@ function PeoplePage() {
       />
 
       <div className="overflow-x-auto rounded-2xl border-2 border-border bg-card">
-        <table className="w-full min-w-[960px] border-collapse">
+        <table className="w-full min-w-[1180px] border-collapse">
           <thead className="border-b border-border">
             <tr>
-              {["Name", "Email", "Title", "Skills", "Joined", "Account created", ""].map((h) => (
+              {[
+                "Name",
+                "Email",
+                "Title",
+                "Skills",
+                "Learning with",
+                "Joined",
+                "Account created",
+                "",
+              ].map((h) => (
                 <th key={h} className={th}>
                   {h}
                 </th>
@@ -426,7 +457,7 @@ function PeoplePage() {
           <tbody className="divide-y divide-border">
             {people.isLoading && (
               <tr>
-                <td className={td} colSpan={7}>
+                <td className={td} colSpan={8}>
                   Loading…
                 </td>
               </tr>
@@ -518,6 +549,14 @@ function PeoplePage() {
                         <SkillChips skills={p.skills} />
                       )}
                     </td>
+                    <td className={`${td} min-w-56`}>
+                      <LearningWithCell
+                        orgId={orgId}
+                        person={p}
+                        people={people.data ?? []}
+                        groups={learning.data ?? []}
+                      />
+                    </td>
                     <td className={`${td} whitespace-nowrap`}>{formatDate(p.joinedAt)}</td>
                     <td className={`${td} whitespace-nowrap`}>
                       {p.accountCreatedAt ? formatDate(p.accountCreatedAt) : "—"}
@@ -593,6 +632,155 @@ function PeoplePage() {
             ))}
           </ul>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A person's "Learning with" groups, one per skill, with a way to leave each
+ * and to start learning a skill with someone else who has it. Anyone in the
+ * organisation can arrange these, as on the Skills page.
+ */
+function LearningWithCell({
+  orgId,
+  person,
+  people,
+  groups,
+}: {
+  orgId: string;
+  person: Person;
+  people: Person[];
+  groups: LearningGroup[];
+}) {
+  const qc = useQueryClient();
+  const [adding, setAdding] = useState(false);
+  const [skill, setSkill] = useState("");
+  const [other, setOther] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const label = (id: string) => {
+    const p = people.find((x) => x.userId === id);
+    return p?.name || p?.email || "Someone";
+  };
+  const mine = groups.filter((g) => g.members.includes(person.userId));
+  const sameSkill = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const candidates = skill
+    ? people.filter(
+        (x) => x.userId !== person.userId && x.skills.some((s) => sameSkill(s.name, skill)),
+      )
+    : [];
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await action();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update the learning group");
+    } finally {
+      await qc.invalidateQueries({ queryKey: learningGroupsKey(orgId) });
+      setBusy(false);
+    }
+  };
+
+  const add = () =>
+    run(async () => {
+      const created = await learnTogether({
+        orgId,
+        topic: skill,
+        mover: person.userId,
+        target: other,
+        me: await getMyProfileId(),
+        groups,
+      });
+      if (created)
+        toast.success(`${label(person.userId)} is learning ${skill} with ${label(other)}`);
+      else toast.info("They already learn this together");
+      setAdding(false);
+      setSkill("");
+      setOther("");
+    });
+
+  return (
+    <div className="space-y-1">
+      {mine.map((g) => (
+        <div
+          key={g.id}
+          className="inline-flex max-w-full items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs"
+        >
+          <span className="truncate">
+            <span className="font-semibold">{g.topic}:</span>{" "}
+            {g.members
+              .filter((m) => m !== person.userId)
+              .map(label)
+              .join(", ")}
+          </span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(() => leaveLearningGroup(g, person.userId))}
+            className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+            aria-label={`Take ${label(person.userId)} out of the ${g.topic} learning group`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <select
+            className={selectCls}
+            value={skill}
+            onChange={(e) => {
+              setSkill(e.target.value);
+              setOther("");
+            }}
+            aria-label="Skill to learn together"
+          >
+            <option value="">Skill…</option>
+            {person.skills.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className={selectCls}
+            value={other}
+            disabled={!skill}
+            onChange={(e) => setOther(e.target.value)}
+            aria-label="Person to learn with"
+          >
+            <option value="">{skill && !candidates.length ? "Nobody else has it" : "With…"}</option>
+            {candidates.map((x) => (
+              <option key={x.userId} value={x.userId}>
+                {x.name || x.email || "Unnamed"}
+              </option>
+            ))}
+          </select>
+          <Button size="sm" onClick={add} disabled={busy || !skill || !other}>
+            Add
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            onClick={() => setAdding(false)}
+            aria-label="Cancel"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : person.skills.length ? (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          <Plus className="h-3 w-3" /> Learn with…
+        </button>
+      ) : (
+        !mine.length && <span className="text-xs text-muted-foreground">Add a skill first</span>
       )}
     </div>
   );

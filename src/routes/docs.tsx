@@ -423,7 +423,7 @@ function Docs() {
                   icon: Users,
                   text: (
                     <>
-                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles and skills, find people by name, email, skill or level, remove people, add someone who already has an account, or invite a new email address — see also <a href="#skills">Skills & learning</a>.
+                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles, skills and learning groups, find people by name, email, skill or level, remove people, add someone who already has an account, or invite a new email address — see also <a href="#skills">Skills & learning</a>.
                       An organisation always keeps at least one person who can manage titles.
                     </>
                   ),
@@ -480,7 +480,7 @@ function Docs() {
                       another name in the same skill card. The two form a{" "}
                       <strong>Learning with</strong> group, listed at the bottom of the card and
                       numbered next to their names. Drop someone on a person already in a group and
-                      they join that group.
+                      they join that group. The same groups can be edited in the <strong>Learning with</strong> column of the People page.
                     </>
                   ),
                 },
