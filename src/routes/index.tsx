@@ -16,17 +16,17 @@ import heroImage from "@/assets/kawaii-hero-illustration.svg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Talentloom — Hiring that feels better for everyone" },
+      { title: "Talentloom — Better PeopleOps for everyone" },
       {
         name: "description",
         content:
-          "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster.",
+          "Free PeopleOps for everyone: map and grow your people's skills, help them learn from each other, run satisfaction surveys, and match people to new opportunities.",
       },
-      { property: "og:title", content: "Talentloom — Hiring that feels better for everyone" },
+      { property: "og:title", content: "Talentloom — Better PeopleOps for everyone" },
       {
         property: "og:description",
         content:
-          "A smoother way for recruiters to build a great company image and for candidates to find and apply to the right roles faster.",
+          "Free PeopleOps for everyone: map and grow your people's skills, help them learn from each other, run satisfaction surveys, and match people to new opportunities.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -70,8 +70,8 @@ function Landing() {
               PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way foster adaptiveness by multilearning, conducting
-              satisfaction surveys, and matching people to new opportunities.  
+              A faster, cleaner and free way to foster adaptiveness through multilearning, run
+              satisfaction surveys, and match people to new opportunities.
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
@@ -85,8 +85,8 @@ function Landing() {
                   Hiring &amp; Multilearning
                 </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Give candidates a standout hiring experience  Foster your organization's
-                  adaptiveness through multilearning and organziational transfer of learning
+                  Give candidates a standout hiring experience. Foster your organization's
+                  adaptiveness through multilearning and organizational transfer of learning.
                 </span>
                 <span
                   className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
