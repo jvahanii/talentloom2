@@ -235,6 +235,12 @@ interface OrgContextValue {
   loading: boolean;
   /** Memberships loaded successfully (false while loading or after an error). */
   loaded: boolean;
+  /**
+   * True right after sign-in when the person belongs to several organisations
+   * and none is remembered yet (no choice in this browser, none saved on the
+   * profile). The app then asks them to pick one.
+   */
+  needsOrgChoice: boolean;
   setOrgId: (id: string) => void;
   refresh: () => void;
 }
@@ -248,6 +254,7 @@ const OrgContext = createContext<OrgContextValue>({
   can: () => false,
   loading: true,
   loaded: false,
+  needsOrgChoice: false,
   setOrgId: () => {},
   refresh: () => {},
 });
