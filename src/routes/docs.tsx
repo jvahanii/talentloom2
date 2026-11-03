@@ -422,7 +422,7 @@ function Docs() {
                   icon: Users,
                   text: (
                     <>
-                      Under <strong>Users</strong> you can change someone's title or remove them.
+                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names and titles, remove people, add someone who already has an account, or invite a new email address.
                       An organisation always keeps at least one person who can manage titles.
                     </>
                   ),

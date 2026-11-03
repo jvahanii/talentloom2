@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import {
@@ -12,21 +13,12 @@ import {
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { RequiredIndicator } from "@/components/ui/label";
-import { Copy, Mail, Plus, Trash2, UserPlus } from "lucide-react";
+import { Copy, Mail, Plus, Trash2, UserPlus, UsersRound } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { sendInviteEmail } from "@/lib/invite.functions";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
-
-interface MemberRow {
-  id: string;
-  user_id: string;
-  title_id: string | null;
-  title_name: string | null;
-  name: string | null;
-  isSelf: boolean;
-}
 
 interface InviteRow {
   id: string;
@@ -81,35 +73,6 @@ export function OrgSettings() {
       setInviteTitle(member!.id);
     }
   }, [titles.data, inviteTitle]);
-
-  const members = useQuery({
-    queryKey: ["org-members", orgId],
-    enabled: !!orgId,
-    queryFn: async (): Promise<MemberRow[]> => {
-      const uid = await getMyProfileId();
-      const { data: rows, error } = await supabase
-        .from("organization_members")
-        .select("id, user_id, title_id, organization_titles(name)")
-        .eq("org_id", orgId!)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      const ids = (rows ?? []).map((r) => r.user_id);
-      const { data: profiles } = ids.length
-        ? await supabase.from("profiles").select("id, full_name").in("id", ids)
-        : { data: [] };
-      const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
-      return (rows ?? []).map((r) => ({
-        id: r.id,
-        user_id: r.user_id,
-        title_id: r.title_id,
-        title_name:
-          (r as unknown as { organization_titles: { name: string } | null }).organization_titles
-            ?.name ?? null,
-        name: nameById.get(r.user_id) ?? null,
-        isSelf: r.user_id === uid,
-      }));
-    },
-  });
 
   const invites = useQuery({
     queryKey: ["org-invites", orgId],
@@ -185,31 +148,6 @@ export function OrgSettings() {
     }
   };
 
-  const changeTitle = async (memberId: string, titleId: string) => {
-    const { error } = await supabase
-      .from("organization_members")
-      .update({ title_id: titleId })
-      .eq("id", memberId);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Title updated");
-      qc.invalidateQueries({ queryKey: ["org-members", orgId] });
-      refresh();
-    }
-  };
-
-  const removeMember = async (m: MemberRow) => {
-    const label = m.isSelf ? "Leave this organisation?" : `Remove ${m.name ?? "this user"}?`;
-    if (!window.confirm(label)) return;
-    const { error } = await supabase.from("organization_members").delete().eq("id", m.id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success(m.isSelf ? "You left the organisation" : "User removed");
-      if (m.isSelf) refresh();
-      qc.invalidateQueries({ queryKey: ["org-members", orgId] });
-    }
-  };
-
   const resendInvite = async (id: string, email: string) => {
     try {
       await sendInviteEmail({ data: { inviteId: id } });
@@ -251,9 +189,6 @@ export function OrgSettings() {
         <div className="mt-4 flex flex-wrap items-end gap-2">
           <label className="block min-w-52 flex-1">
             <span className="mb-1 block text-xs font-medium text-muted-foreground">
-              Organisation name
-            </span>
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">
               Organisation name <RequiredIndicator />
             </span>
             <input
@@ -273,50 +208,14 @@ export function OrgSettings() {
         </div>
       )}
 
-      <div className="mt-6">
-        <h4 className="text-sm font-semibold">Users</h4>
-        <ul className="mt-2 divide-y divide-border">
-          {(members.data ?? []).map((m) => (
-            <li key={m.id} className="flex items-center gap-3 py-2.5">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {m.name ?? "Unnamed teammate"}
-                  {m.isSelf && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
-                </p>
-              </div>
-              {can("change_titles") && (isOwner || !isProtectedTitle(m.title_name)) ? (
-                <select
-                  value={m.title_id ?? ""}
-                  onChange={(e) => changeTitle(m.id, e.target.value)}
-                  className="rounded-lg border border-input bg-white/70 px-2 py-1 text-xs dark:bg-white/5"
-                >
-                  {!m.title_id && <option value="">No title</option>}
-                  {(titles.data ?? [])
-                    .filter((t) => isOwner || !isProtectedTitle(t.name) || t.id === m.title_id)
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                </select>
-              ) : (
-                <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs">
-                  {m.title_name ?? "No title"}
-                </span>
-              )}
-              {((can("remove_users") && (isOwner || !isProtectedTitle(m.title_name))) ||
-                m.isSelf) && (
-                <button
-                  onClick={() => removeMember(m)}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  aria-label={m.isSelf ? "Leave organisation" : "Remove user"}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+      <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
+        <UsersRound className="h-5 w-5 shrink-0 text-primary" />
+        <p className="min-w-0 flex-1 text-sm">
+          Members, their titles and invitations are managed on the People page.
+        </p>
+        <Link to="/people" className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold">
+          Go to People
+        </Link>
       </div>
 
       {can("invite_users") && (
