@@ -127,6 +127,7 @@ const CONTENTS = [
   { id: "candidates", label: "For candidates" },
   { id: "recruiting", label: "For recruiting teams" },
   { id: "organisations", label: "Organisations & teams" },
+  { id: "skills", label: "Skills & learning" },
   { id: "pulse", label: "Talentloom Pulse" },
   { id: "settings", label: "Settings" },
   { id: "good-to-know", label: "Good to know" },
@@ -422,7 +423,7 @@ function Docs() {
                   icon: Users,
                   text: (
                     <>
-                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles and skills with their levels (Novice, Basic, Advanced and Master unless the organisation has renamed them under Settings → Skill levels), find people by skill or level, remove people, add someone who already has an account, or invite a new email address.
+                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles and skills, find people by name, email, skill or level, remove people, add someone who already has an account, or invite a new email address — see also <a href="#skills">Skills & learning</a>.
                       An organisation always keeps at least one person who can manage titles.
                     </>
                   ),
@@ -435,6 +436,90 @@ function Docs() {
                       confirm. This permanently removes its candidates, positions, history,
                       organisation surveys and invites. Members keep their accounts and their other
                       organisations.
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </Section>
+
+          <Section
+            id="skills"
+            icon={Sparkles}
+            title="Skills & learning"
+            blurb="Who knows what, and who learns together."
+          >
+            <StepList
+              steps={[
+                {
+                  icon: Star,
+                  text: (
+                    <>
+                      Everyone can list their <strong>skills</strong> in Settings → Profile: type a
+                      skill and press Enter, or paste a comma-separated list. Each skill can have a
+                      level — by default <strong>Novice, Basic, Advanced or Master</strong>. Your
+                      skills belong to you and show in every organisation you're in.
+                    </>
+                  ),
+                },
+                {
+                  icon: Sparkles,
+                  text: (
+                    <>
+                      The <strong>Skills</strong> page in the side menu shows every skill in the
+                      organisation, who has it and at what level. Add a skill to someone, change a
+                      level, or remove a skill there; search finds both skills and people.
+                    </>
+                  ),
+                },
+                {
+                  icon: Link2,
+                  text: (
+                    <>
+                      To have people <strong>learn a skill together</strong>, drag a name onto
+                      another name in the same skill card. The two form a{" "}
+                      <strong>Learning with</strong> group, listed at the bottom of the card and
+                      numbered next to their names. Drop someone on a person already in a group and
+                      they join that group.
+                    </>
+                  ),
+                },
+                {
+                  icon: Smartphone,
+                  text: (
+                    <>
+                      On a phone, or without a mouse, tap one name and then the other. Tap the same
+                      name again to cancel.
+                    </>
+                  ),
+                },
+                {
+                  icon: Users,
+                  text: (
+                    <>
+                      A person is in one learning group per skill, but can learn different skills
+                      with different people. Moving someone to another group takes them out of the
+                      old one, and anyone in the organisation can arrange the groups.
+                    </>
+                  ),
+                },
+                {
+                  icon: Trash2,
+                  text: (
+                    <>
+                      Take someone out of a group with the × next to their name. A group left with
+                      one person disappears, and so does a person's place in a group when the skill
+                      is removed from them or they leave the organisation.
+                    </>
+                  ),
+                },
+                {
+                  icon: Settings2,
+                  text: (
+                    <>
+                      Anyone who can rename the organisation can also rename its four levels under{" "}
+                      <strong>Settings → Skill levels</strong>, for example to Finnish. Each
+                      organisation shows the same levels in its own words.
                     </>
                   ),
                 },
@@ -793,7 +878,7 @@ function Docs() {
                   icon: Settings2,
                   text: (
                     <>
-                      Update your name and choose a light or dark appearance in{" "}
+                      Update your name and skills and choose a light or dark appearance in{" "}
                       <strong>Settings</strong>. Settings is available even before you have an
                       organisation.
                     </>
@@ -804,7 +889,8 @@ function Docs() {
                   text: (
                     <>
                       The <strong>Organisation</strong> panel is where you rename the organisation,
-                      manage users and invites, and set titles and permissions — see{" "}
+                      set titles and permissions, and name the skill levels. People and invites are
+                      managed on the People page — see{" "}
                       <a href="#organisations">Organisations & teams</a>.
                     </>
                   ),
