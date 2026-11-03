@@ -126,6 +126,8 @@ function Landing() {
         </div>
       </section>
 
+      <SkillsShowcase hasOrganisation={hasOrganisation} loading={orgsLoading} />
+
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <Link
           to="/pulse"
@@ -148,8 +150,6 @@ function Landing() {
           </div>
         </Link>
       </section>
-
-      <SkillsShowcase hasOrganisation={hasOrganisation} loading={orgsLoading} />
 
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center">
