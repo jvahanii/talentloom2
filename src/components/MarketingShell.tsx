@@ -71,7 +71,7 @@ export function MarketingShell({ children, badge }: { children: ReactNode; badge
       <main>{children}</main>
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
         <p>
-          Talentloom — Better hiring experiences for everyone ·{" "}
+          Talentloom — Better PeopleOps for everyone ·{" "}
           <Link to="/pulse" className="underline hover:text-foreground">
             Talentloom Pulse
           </Link>{" "}
