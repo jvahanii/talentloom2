@@ -468,7 +468,10 @@ function Docs() {
                     <>
                       The <strong>Skills</strong> page in the side menu shows every skill in the
                       organisation, who has it and at what level. Add a skill to someone, change a
-                      level, or remove a skill there; search finds both skills and people.
+                      level, or remove a skill there; search finds both skills and people. At the
+                      top, people who can change titles see skills that look like the same thing
+                      written differently (for example <em>Workshop</em> and <em>Workshops</em>)
+                      and can merge them into one name.
                     </>
                   ),
                 },
