@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MarketingShell } from "@/components/MarketingShell";
+import { toast } from "sonner";
 import loomLogo from "@/assets/kawaii-loom-logo.png";
 import {
   Search,
@@ -34,6 +35,12 @@ import {
   EyeOff,
   Inbox,
   Layers,
+  Network,
+  Merge,
+  Palette,
+  Plus,
+  RefreshCw,
+  Hash,
   type LucideIcon,
 } from "lucide-react";
 
@@ -72,6 +79,27 @@ function StepList({ steps, delay = 0 }: { steps: Step[]; delay?: number }) {
   );
 }
 
+/** A "#" next to a heading: links to it, and copies the full address when clicked. */
+function AnchorLink({ id, label }: { id: string; label: string }) {
+  return (
+    <a
+      href={`#${id}`}
+      onClick={() => {
+        const url = `${window.location.origin}${window.location.pathname}#${id}`;
+        void navigator.clipboard?.writeText(url).then(
+          () => toast.success("Link copied"),
+          () => undefined,
+        );
+      }}
+      className="shrink-0 rounded-md p-1 text-muted-foreground opacity-60 hover:bg-secondary hover:text-primary hover:opacity-100 focus-visible:opacity-100"
+      aria-label={`Link to ${label}`}
+      title="Copy a link to this part of the guide"
+    >
+      <Hash className="h-4 w-4" />
+    </a>
+  );
+}
+
 function Section({
   id,
   icon: Icon,
@@ -91,21 +119,25 @@ function Section({
         <span className="wiggle-hover grid h-11 w-11 shrink-0 place-items-center rounded-2xl border-2 border-primary bg-muted text-brand-berry shadow-[0_3px_0_var(--brand-mint)]">
           <Icon className="h-5 w-5" />
         </span>
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="font-display text-xl font-bold">{title}</h2>
           <p className="text-sm text-muted-foreground">{blurb}</p>
         </div>
+        <AnchorLink id={id} label={title} />
       </div>
       {children}
     </section>
   );
 }
 
-/** A titled group of steps inside a section. */
-function Topic({ title, children }: { title: string; children: React.ReactNode }) {
+/** A titled group of steps inside a section; with an id it can be linked to. */
+function Topic({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-6">
-      <h3 className="font-display text-base font-semibold">{title}</h3>
+    <div id={id} className="mt-6 scroll-mt-24">
+      <div className="flex items-center gap-1">
+        <h3 className="font-display text-base font-semibold">{title}</h3>
+        {id && <AnchorLink id={id} label={title} />}
+      </div>
       {children}
     </div>
   );
@@ -126,8 +158,10 @@ const CONTENTS = [
   { id: "getting-started", label: "Getting started" },
   { id: "candidates", label: "For candidates" },
   { id: "recruiting", label: "For recruiting teams" },
-  { id: "organisations", label: "Organisations & teams" },
-  { id: "skills", label: "Skills & learning" },
+  { id: "organisations", label: "Organisations & people" },
+  { id: "teams", label: "Teams" },
+  { id: "skills", label: "Skills" },
+  { id: "learning", label: "Learning together" },
   { id: "pulse", label: "Talentloom Pulse" },
   { id: "settings", label: "Settings" },
   { id: "good-to-know", label: "Good to know" },
@@ -202,8 +236,8 @@ function Docs() {
                   icon: Mail,
                   text: (
                     <>
-                      Invited to a team? Open the link in your invitation and sign in with the
-                      email it was sent to. You join that organisation directly.
+                      Invited to a team? Open the link in your invitation and sign in with the email
+                      it was sent to. You join that organisation directly.
                     </>
                   ),
                 },
@@ -382,7 +416,7 @@ function Docs() {
           <Section
             id="organisations"
             icon={Users}
-            title="Organisations & teams"
+            title="Organisations & people"
             blurb="Who is in, and what each person can do."
           >
             <StepList
@@ -398,13 +432,27 @@ function Docs() {
                   ),
                 },
                 {
+                  icon: Users,
+                  text: (
+                    <>
+                      The <strong>People</strong> page lists everyone in the organisation: name,
+                      email, when they joined, their title and <a href="#teams">teams</a>, their{" "}
+                      <a href="#skills">skills</a> and who they're{" "}
+                      <a href="#learning">learning with</a>. Search finds people by name, email,
+                      skill or level. On a phone each person shows as a card.
+                    </>
+                  ),
+                },
+                {
                   icon: Mail,
                   text: (
                     <>
-                      On the <strong>People</strong> page, enter an email and a title. Someone who
-                      already has an account is added straight away; anyone else gets an invitation
-                      email that only they can use, once. Or create an invite link anyone can use.
-                      Invites expire after 7 days; you can email one again, copy its link, or revoke it.
+                      To bring someone in, enter their email and a title on the People page. Someone
+                      who already has an account is added straight away; anyone else gets an
+                      invitation email that only they can use, once. Or create an invite link anyone
+                      can use — it never grants Owner, and grants Admin only when an owner makes it.
+                      Invites expire after 7 days; you can email one again, copy its link, or revoke
+                      it.
                     </>
                   ),
                 },
@@ -413,30 +461,20 @@ function Docs() {
                   text: (
                     <>
                       Every member has a title — Owner, Admin, Member, or one you define. Under{" "}
-                      <strong>Titles & permissions</strong> you decide exactly what each title can
-                      do: view, edit and delete candidates and positions, invite and remove people,
-                      import, export, rename the organisation, and more.
+                      <strong>Settings → Titles & permissions</strong> you decide exactly what each
+                      title can do: view, edit and delete candidates and positions, invite, edit and
+                      remove people, import, export, rename the organisation, and more.
                     </>
                   ),
                 },
                 {
-                  icon: Users,
+                  icon: UserRound,
                   text: (
                     <>
-                      The <strong>People</strong> page lists everyone in the organisation. There you can edit names, titles, skills and learning groups, find people by name, email, skill or level, remove people, add someone who already has an account, or invite a new email address — see also <a href="#skills">Skills & learning</a>.
-                      An organisation always keeps at least one person who can manage titles.
-                    </>
-                  ),
-                },
-                {
-                  icon: Building2,
-                  text: (
-                    <>
-                      The <strong>Teams</strong> page shows the organisation's teams and who is in
-                      each; a person can be in several. People whose title lets them change titles
-                      can create, rename, describe and delete teams and add or remove people, there
-                      or under each person's title on the People page. Everyone else sees the
-                      teams. Leaving the organisation takes a person out of its teams.
+                      You can always edit your own name and skills. Editing other people — their
+                      names, titles, skills and teams — needs a title that may change titles; only
+                      owners can make Owners and Admins. Anyone can leave an organisation, and an
+                      organisation always keeps at least one person who can manage titles.
                     </>
                   ),
                 },
@@ -446,8 +484,8 @@ function Docs() {
                     <>
                       An owner can <strong>delete the organisation</strong> by typing its name to
                       confirm. This permanently removes its candidates, positions, history,
-                      organisation surveys and invites. Members keep their accounts and their other
-                      organisations.
+                      organisation surveys, teams and invites. Members keep their accounts and their
+                      other organisations.
                     </>
                   ),
                 },
@@ -456,21 +494,40 @@ function Docs() {
           </Section>
 
           <Section
-            id="skills"
-            icon={Sparkles}
-            title="Skills & learning"
-            blurb="Who knows what, and who learns together."
+            id="teams"
+            icon={Network}
+            title="Teams"
+            blurb="Who works together, and what the team knows."
           >
             <StepList
               steps={[
                 {
-                  icon: Star,
+                  icon: Network,
                   text: (
                     <>
-                      Everyone can list their <strong>skills</strong> in Settings → Profile: type a
-                      skill and press Enter, or paste a comma-separated list. Each skill can have a
-                      level — by default <strong>Novice, Basic, Advanced or Master</strong>. Your
-                      skills belong to you and show in every organisation you're in.
+                      The <strong>Teams</strong> page in the side menu shows the organisation's
+                      teams and who is in each. A person can be in several teams; people in no team
+                      are listed at the bottom.
+                    </>
+                  ),
+                },
+                {
+                  icon: Plus,
+                  text: (
+                    <>
+                      People whose title may change titles create a team with a name and an optional
+                      description, rename or describe it right on its card, add people with{" "}
+                      <strong>+ Add person</strong>, take them out with ×, or delete the team. Its
+                      people stay in the organisation.
+                    </>
+                  ),
+                },
+                {
+                  icon: Users,
+                  text: (
+                    <>
+                      On the <strong>People</strong> page, each person's teams show under their
+                      title, with <strong>+ Team</strong> and × to change them.
                     </>
                   ),
                 },
@@ -478,24 +535,230 @@ function Docs() {
                   icon: Sparkles,
                   text: (
                     <>
-                      The <strong>Skills</strong> page in the side menu shows every skill in the
-                      organisation, who has it and at what level. Add a skill to someone, change a
-                      level, or remove a skill there; search finds both skills and people. At the
-                      top, people who can change titles see skills that look like the same thing
-                      written differently (for example <em>Workshop</em> and <em>Workshops</em>)
-                      and can merge them into one name.
+                      Each team card lists the <strong>skills in the team</strong> — see{" "}
+                      <a href="#skills-in-teams">Skills in teams</a>.
                     </>
                   ),
                 },
                 {
+                  icon: ShieldCheck,
+                  text: (
+                    <>
+                      Everyone in the organisation can see the teams; only titles that may change
+                      titles can change them. Leaving the organisation takes a person out of its
+                      teams.
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </Section>
+
+          <Section id="skills" icon={Sparkles} title="Skills" blurb="Who knows what, and how well.">
+            <Topic id="skills-add" title="Add your skills">
+              <StepList
+                steps={[
+                  {
+                    icon: Star,
+                    text: (
+                      <>
+                        List your skills in <strong>Settings → Profile</strong>: type a skill and
+                        press Enter, or paste a comma-separated list, then{" "}
+                        <strong>Save profile</strong>. Remove one with × or Backspace.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: UserRound,
+                    text: (
+                      <>
+                        Your skills belong to you, so they show in every organisation you're in.
+                        People who may change titles can also edit your skills on the People and
+                        Skills pages.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-levels" title="Levels and colours">
+              <StepList
+                steps={[
+                  {
+                    icon: Layers,
+                    text: (
+                      <>
+                        Each skill can have one of four levels, picked on its chip. By default they
+                        are <strong>Novice, Basic, Advanced and Master</strong>; a new skill starts
+                        with no level.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Palette,
+                    text: (
+                      <>
+                        Skills are coloured by level everywhere: Novice yellow, Basic mint, Advanced
+                        lavender, Master pink, and grey without a level.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Settings2,
+                    text: (
+                      <>
+                        Anyone who can rename the organisation can rename its four levels under{" "}
+                        <strong>Settings → Skill levels</strong>, for example to Finnish, or reset
+                        them. Each organisation shows the same levels in its own words.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-suggestions" title="Suggestions while you type">
+              <StepList
+                steps={[
+                  {
+                    icon: Search,
+                    text: (
+                      <>
+                        As you type a new skill, a list shows the organisation's existing skills
+                        that match — those starting with what you typed first, then the most common
+                        — with how many people have each. Pick one with the arrow keys and Enter, or
+                        click it; Escape closes the list.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Copy,
+                    text: (
+                      <>
+                        Typing an existing skill in different letters, such as <em>react</em> when{" "}
+                        <em>React</em> exists, uses the existing spelling, so one skill isn't
+                        written two ways.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-page" title="The Skills page">
+              <StepList
+                steps={[
+                  {
+                    icon: Sparkles,
+                    text: (
+                      <>
+                        The <strong>Skills</strong> page in the side menu has a card for every skill
+                        in the organisation, with who has it and at what level, most widely held
+                        first. Search finds both skills and people.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Plus,
+                    text: (
+                      <>
+                        Add a skill to someone with <strong>Add a skill to a person</strong> at the
+                        top, or <strong>+ Add person</strong> on a skill's card. Change a level or
+                        remove a skill right on the card.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Link2,
+                    text: (
+                      <>
+                        Drag a name onto another in the same card to have them{" "}
+                        <a href="#learning">learn that skill together</a>.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-merge" title="Merge skills that mean the same">
+              <StepList
+                steps={[
+                  {
+                    icon: Merge,
+                    text: (
+                      <>
+                        At the top of the Skills page, people who may change titles see skills that
+                        look like one thing written differently. It recognises other spellings and
+                        punctuation (<em>Project-management</em>), singular and plural (
+                        <em>Workshop</em> / <em>Workshops</em>), the same word in another form (
+                        <em>Ratsastaminen</em> / <em>Ratsastus</em>, <em>Mentoring</em> /{" "}
+                        <em>Mentorointi</em>), small typos, abbreviations (<em>PM</em> /{" "}
+                        <em>Project management</em>) and <em>.js</em> variants. It doesn't know
+                        synonyms or translations.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Layers,
+                    text: (
+                      <>
+                        Choose the name to <strong>Keep</strong> — the most common by default — and
+                        select <strong>Merge</strong>. Everyone who has any of them gets the kept
+                        name once, at the highest level they had, and their learning groups move
+                        along. The new name shows in their other organisations too.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: EyeOff,
+                    text: (
+                      <>
+                        <strong>Not the same</strong> hides a suggestion. It's remembered in your
+                        browser only.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-in-teams" title="Skills in teams">
+              <StepList
+                steps={[
+                  {
+                    icon: Network,
+                    text: (
+                      <>
+                        Each card on the <a href="#teams">Teams</a> page lists every skill its
+                        members have, most widely held first, with how many have it. The colour is
+                        the best level in the team; point at a skill to see who has it and at what
+                        level.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+          </Section>
+
+          <Section
+            id="learning"
+            icon={Link2}
+            title="Learning together"
+            blurb="Pair people up to learn a skill."
+          >
+            <StepList
+              steps={[
+                {
                   icon: Link2,
                   text: (
                     <>
-                      To have people <strong>learn a skill together</strong>, drag a name onto
-                      another name in the same skill card. The two form a{" "}
-                      <strong>Learning with</strong> group, listed at the bottom of the card and
-                      numbered next to their names. Drop someone on a person already in a group and
-                      they join that group. The same groups can be edited in the <strong>Learning with</strong> column of the People page.
+                      On the <a href="#skills-page">Skills page</a>, drag a name onto another name
+                      in the same skill card. The two form a <strong>Learning with</strong> group,
+                      listed at the bottom of the card and numbered next to their names. Drop
+                      someone on a person already in a group and they join that group.
                     </>
                   ),
                 },
@@ -512,9 +775,19 @@ function Docs() {
                   icon: Users,
                   text: (
                     <>
+                      The <strong>Learning with</strong> column on the People page shows each
+                      person's groups. <strong>Learn with…</strong> picks one of their skills and
+                      someone else who has it; × takes them out of a group.
+                    </>
+                  ),
+                },
+                {
+                  icon: Layers,
+                  text: (
+                    <>
                       A person is in one learning group per skill, but can learn different skills
                       with different people. Moving someone to another group takes them out of the
-                      old one, and anyone in the organisation can arrange the groups.
+                      old one. Anyone in the organisation can arrange the groups.
                     </>
                   ),
                 },
@@ -522,19 +795,8 @@ function Docs() {
                   icon: Trash2,
                   text: (
                     <>
-                      Take someone out of a group with the × next to their name. A group left with
-                      one person disappears, and so does a person's place in a group when the skill
-                      is removed from them or they leave the organisation.
-                    </>
-                  ),
-                },
-                {
-                  icon: Settings2,
-                  text: (
-                    <>
-                      Anyone who can rename the organisation can also rename its four levels under{" "}
-                      <strong>Settings → Skill levels</strong>, for example to Finnish. Each
-                      organisation shows the same levels in its own words.
+                      A group left with one person disappears, and a person leaves a group when the
+                      skill is removed from them or they leave the organisation.
                     </>
                   ),
                 },
@@ -612,8 +874,8 @@ function Docs() {
                     text: (
                       <>
                         Add questions in the <strong>Questions</strong> tab. Types: rating 1–5,
-                        rating 1–5 with a reason, multiple choice (one or many), free text, and
-                        yes / no. Mark a question required, reorder, or delete it.
+                        rating 1–5 with a reason, multiple choice (one or many), free text, and yes
+                        / no. Mark a question required, reorder, or delete it.
                       </>
                     ),
                   },
@@ -621,10 +883,9 @@ function Docs() {
                     icon: Layers,
                     text: (
                       <>
-                        Give a statement a <strong>measured thing</strong> — for example
-                        "Wellbeing" — to group it with the other statements that measure the same
-                        thing. Results then show one average per measured thing as well as each
-                        statement.
+                        Give a statement a <strong>measured thing</strong> — for example "Wellbeing"
+                        — to group it with the other statements that measure the same thing. Results
+                        then show one average per measured thing as well as each statement.
                       </>
                     ),
                   },
@@ -692,10 +953,10 @@ function Docs() {
                     icon: Send,
                     text: (
                       <>
-                        When you start a round, Pulse emails each invited person their personal
-                        link — switch this off before starting if you'd rather send the links
-                        yourself. While a round is open, <strong>Email a reminder</strong> in
-                        Invited people emails only those who haven't answered yet.
+                        When you start a round, Pulse emails each invited person their personal link
+                        — switch this off before starting if you'd rather send the links yourself.
+                        While a round is open, <strong>Email a reminder</strong> in Invited people
+                        emails only those who haven't answered yet.
                       </>
                     ),
                   },
@@ -873,8 +1134,8 @@ function Docs() {
                   icon={History}
                   text={
                     <>
-                      Earlier answers are shown only to the person who gave them, through their
-                      own personal link.
+                      Earlier answers are shown only to the person who gave them, through their own
+                      personal link.
                     </>
                   }
                 />
@@ -893,9 +1154,9 @@ function Docs() {
                   icon: Settings2,
                   text: (
                     <>
-                      Update your name and skills and choose a light or dark appearance in{" "}
-                      <strong>Settings</strong>. Settings is available even before you have an
-                      organisation.
+                      In <strong>Settings</strong>, update your name and{" "}
+                      <a href="#skills-add">skills</a> and choose a light or dark appearance.
+                      Settings is available even before you have an organisation.
                     </>
                   ),
                 },
@@ -904,9 +1165,10 @@ function Docs() {
                   text: (
                     <>
                       The <strong>Organisation</strong> panel is where you rename the organisation,
-                      set titles and permissions, and name the skill levels. People and invites are
-                      managed on the People page — see{" "}
-                      <a href="#organisations">Organisations & teams</a>.
+                      set titles and permissions, name the <a href="#skills-levels">skill levels</a>
+                      , and delete the organisation. People, invites and teams are managed on their
+                      own pages — see <a href="#organisations">Organisations & people</a> and{" "}
+                      <a href="#teams">Teams</a>.
                     </>
                   ),
                 },
@@ -974,6 +1236,16 @@ function Docs() {
                 text={
                   <>
                     Each organisation's data is kept separate and protected by row-level security.
+                  </>
+                }
+              />
+              <Fact
+                icon={RefreshCw}
+                text={
+                  <>
+                    When a new version of Talentloom is published, a bar at the bottom offers{" "}
+                    <strong>Reload</strong> — it never reloads by itself, so nothing you're typing
+                    is lost. If a page can't load right after an update, it retries on its own.
                   </>
                 }
               />
