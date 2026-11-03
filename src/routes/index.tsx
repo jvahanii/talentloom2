@@ -66,11 +66,10 @@ function Landing() {
           <div className="absolute inset-0 bg-gradient-to-br from-[rgba(55,40,65,0.92)] via-[rgba(110,50,85,0.88)] to-[rgba(30,90,75,0.86)]" />
           <div className="relative">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
-              Free HR suite
-              for the people
+              PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way to match people to new opportunities, conduct satisfaction studies, and foster adaptiveness by multilearning
+              A faster, cleaner and free way foster adaptiveness by multilearning, conduct satisfaction studies, and match people to new opportunities.  
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
