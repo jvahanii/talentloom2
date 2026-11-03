@@ -19,6 +19,7 @@ import { useOrg } from "@/lib/org";
 import {
   readSkills,
   skillLevelLabel,
+  skillLevelColor,
   SKILL_LEVEL_VALUES,
   type Skill,
   type SkillLevel,
@@ -42,17 +43,6 @@ type SkillGroup = {
   name: string;
   people: { userId: string; label: string; level: SkillLevel | null }[];
 };
-
-const levelBadge = (level: SkillLevel | null) =>
-  level === null
-    ? "bg-secondary text-muted-foreground"
-    : [
-        "",
-        "bg-[#FFE9A8] text-[#7A5C00]", // 1 butter
-        "bg-[#BDF5E0] text-[#0B6B4F]", // 2 mint
-        "bg-[#CDBCF5] text-[#4A3A7A]", // 3 lavender
-        "bg-[#FF9EC7] text-[#7A1F4B]", // 4 bubblegum
-      ][level];
 
 function SkillsPage() {
   const { orgId, orgs } = useOrg();
@@ -398,7 +388,7 @@ function SkillsPage() {
                     </button>
                     <span className="flex shrink-0 items-center gap-1">
                       <select
-                        className={`rounded-full border-0 px-2.5 py-0.5 text-xs font-medium ${levelBadge(p.level)}`}
+                        className={`rounded-full border-0 px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level)}`}
                         value={p.level ?? ""}
                         disabled={busy}
                         onChange={(e) => setLevel(p.userId, g.name, toLevel(e.target.value))}

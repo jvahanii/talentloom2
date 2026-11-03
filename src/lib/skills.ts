@@ -33,6 +33,22 @@ export function skillLevelLabel(
   return level === null ? null : (names[level - 1] ?? null);
 }
 
+/** Background and text colours for a level, the same wherever skills are shown. */
+export function skillLevelColor(level: SkillLevel | null): string {
+  switch (level) {
+    case 1:
+      return "bg-[#FFE9A8] text-[#7A5C00]"; // butter
+    case 2:
+      return "bg-[#BDF5E0] text-[#0B6B4F]"; // mint
+    case 3:
+      return "bg-[#CDBCF5] text-[#4A3A7A]"; // lavender
+    case 4:
+      return "bg-[#FF9EC7] text-[#7A1F4B]"; // bubblegum
+    default:
+      return "bg-secondary text-muted-foreground";
+  }
+}
+
 function asLevel(v: unknown): SkillLevel | null {
   return SKILL_LEVEL_VALUES.some((l) => l === v) ? (v as SkillLevel) : null;
 }

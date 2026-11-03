@@ -6,13 +6,15 @@ import {
   SKILL_LEVEL_VALUES,
   cleanSkills,
   skillLevelLabel,
+  skillLevelColor,
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 
-const chipCls =
-  "inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary";
+// Coloured by level, as on the Skills page.
+const chipCls = (level: SkillLevel | null) =>
+  `inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(level)}`;
 
 /** Read-only skills, each with its level (in the organisation's words) when one is set. */
 export function SkillChips({ skills }: { skills: Skill[] }) {
@@ -21,7 +23,7 @@ export function SkillChips({ skills }: { skills: Skill[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {skills.map((s) => (
-        <span key={s.name} className={chipCls}>
+        <span key={s.name} className={chipCls(s.level)}>
           {s.name}
           {s.level !== null && (
             <span className="font-normal opacity-75">· {skillLevelLabel(s.level, levelNames)}</span>
@@ -63,7 +65,7 @@ export function SkillsInput({
   return (
     <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border border-input bg-white/70 px-2 py-1.5 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/30 dark:bg-white/5">
       {value.map((s) => (
-        <span key={s.name} className={chipCls}>
+        <span key={s.name} className={chipCls(s.level)}>
           {s.name}
           <select
             value={s.level ?? ""}
