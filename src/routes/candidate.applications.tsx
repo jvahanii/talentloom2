@@ -91,7 +91,7 @@ function CandidatePortalPage() {
   return (
     <MarketingShell>
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">My applications</h1>
             <p className="mt-1 text-sm text-muted-foreground">

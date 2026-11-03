@@ -76,14 +76,14 @@ function SurveyPage() {
         <ArrowLeft className="h-4 w-4" /> All surveys
       </Link>
       <div>
-        <h1 className="text-2xl font-bold">{survey.title}</h1>
+        <h1 className="break-words text-xl font-bold sm:text-2xl">{survey.title}</h1>
         <p className="text-sm text-muted-foreground">
           {isInterview ? "Structured interview" : "Survey"} · {ownershipLabel(survey)} ·{" "}
           {rounds.length} round{rounds.length === 1 ? "" : "s"}
         </p>
       </div>
       <Tabs defaultValue={q.data.questions.length ? "results" : "questions"}>
-        <TabsList className="flex-wrap">
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>
           <TabsTrigger value="rounds">Rounds{!isInterview && " & sharing"}</TabsTrigger>
@@ -549,7 +549,7 @@ function Interview({ data, onChange }: { data: SurveyData; onChange: () => void 
         <div className="space-y-1">
           <Label>Interviewee (round {openRound.number})</Label>
           <Select value={person} onValueChange={setPerson}>
-            <SelectTrigger className="w-72"><SelectValue placeholder="Choose a person" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Choose a person" /></SelectTrigger>
             <SelectContent>
               {data.respondents.map((p) => (
                 <SelectItem key={p.id} value={p.id}>

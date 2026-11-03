@@ -88,7 +88,7 @@ function PeoplePage() {
         : { data: [] };
       const byId = new Map(
         (
-          (profiles ?? []) as {
+          (profiles ?? []) as unknown as {
             id: string;
             full_name: string | null;
             email: string | null;

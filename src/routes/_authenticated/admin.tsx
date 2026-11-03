@@ -334,7 +334,7 @@ function AdminPage() {
       )}
 
       <Tabs defaultValue="organisations">
-        <TabsList className="flex-wrap">
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="organisations">Organisations ({organisations.length})</TabsTrigger>
           <TabsTrigger value="accounts">Accounts ({accounts.length})</TabsTrigger>
           <TabsTrigger value="surveys">Surveys ({surveys.length})</TabsTrigger>
