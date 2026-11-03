@@ -341,6 +341,60 @@ export const adminRemoveAccount = createServerFn({ method: "POST" })
     return { email: (profile.email as string | null) ?? null, signInRemoved };
   });
 
+/**
+ * Adds an account: a profile with a name and email, optionally joined to an
+ * organisation as a Member. The person signs in with that email (Google or
+ * email) and the account links to them automatically on first sign-in.
+ */
+export const adminAddAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { email: string; name?: string; orgId?: string }) =>
+    z
+      .object({
+        email: z.string().trim().email().max(255),
+        name: z.string().trim().max(200).optional(),
+        orgId: z.string().uuid().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const admin = await requireSuperuser(context);
+    const email = data.email.toLowerCase();
+
+    const { data: existing, error: existingError } = await admin
+      .from("profiles")
+      .select("id")
+      .ilike("email", email)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+    if (existing) throw new Error("An account with this email already exists");
+
+    const { data: created, error } = await admin
+      .from("profiles")
+      .insert({ id: crypto.randomUUID(), email, full_name: data.name || null, onboarding_step: 1 })
+      .select("id")
+      .single();
+    if (error) throw new Error(`Could not add the account: ${error.message}`);
+
+    if (data.orgId) {
+      const { data: title, error: titleError } = await admin
+        .from("organization_titles")
+        .select("id")
+        .eq("org_id", data.orgId)
+        .eq("name", "Member")
+        .maybeSingle();
+      if (titleError) throw new Error(titleError.message);
+      if (!title) throw new Error("That organisation has no Member title");
+      must(
+        await admin
+          .from("organization_members")
+          .insert({ org_id: data.orgId, user_id: created.id, role: "member", title_id: title.id }),
+        "Organisation membership",
+      );
+    }
+    return { id: created.id as string };
+  });
+
 /** Deletes a survey with its questions, rounds, invited people and answers. */
 export const adminDeleteSurvey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
