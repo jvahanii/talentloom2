@@ -70,8 +70,7 @@ function Landing() {
               PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way foster adaptiveness by multilearning, conduct
-              satisfaction studies, and match people to new opportunities.  
+              A faster, cleaner and free way foster adaptiveness by multilearning, conducting satisfaction surveys, and matching people to new opportunities.  
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
