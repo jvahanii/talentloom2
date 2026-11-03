@@ -103,6 +103,25 @@ type MemberRow = {
   organization_titles: (Record<string, unknown> & { name: string }) | null;
 };
 
+/** Remembers the organisation last used, on the person's profile (all devices). */
+async function saveLastOrg(orgId: string) {
+  const { data: uid } = await (
+    supabase.rpc as unknown as (fn: string) => Promise<{ data: string | null; error: unknown }>
+  )("current_profile_id");
+  if (!uid) return;
+  await (supabase.from("profiles") as any).update({ last_org_id: orgId }).eq("id", uid);
+}
+
+async function fetchLastOrg(uid: string): Promise<string | null> {
+  const { data } = await (supabase.from("profiles") as any)
+    .select("last_org_id")
+    .eq("id", uid)
+    .maybeSingle();
+  return (data?.last_org_id as string | null) ?? null;
+}
+
+let lastOrgFromProfile: string | null = null;
+
 async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
   const { data: uid, error: uidError } = await (
     supabase.rpc as unknown as (fn: string) => Promise<{ data: string | null; error: unknown }>
@@ -116,10 +135,14 @@ async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
     if (signedIn) throw new Error("Could not load your organisation membership yet");
     return [];
   }
-  const { data, error } = await supabase
-    .from("organization_members")
-    .select("org_id, role, title_id, organizations(name), organization_titles(*)")
-    .eq("user_id", uid as string);
+  const [{ data, error }, lastOrg] = await Promise.all([
+    supabase
+      .from("organization_members")
+      .select("org_id, role, title_id, organizations(name), organization_titles(*)")
+      .eq("user_id", uid as string),
+    fetchLastOrg(uid as string).catch(() => null),
+  ]);
+  lastOrgFromProfile = lastOrg;
   if (error) throw error;
   const memberships: OrgMembership[] = ((data ?? []) as unknown as MemberRow[]).map((m) => ({
     org_id: m.org_id,
@@ -247,7 +270,14 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   });
 
   const orgs = q.data ?? [];
-  const current = orgs.find((o) => o.org_id === selected) ?? orgs[0] ?? null;
+  // Priority: this browser's choice → last used (saved on profile) → own
+  // membership (only one = that one) → anything listed.
+  const current =
+    orgs.find((o) => o.org_id === selected) ??
+    orgs.find((o) => o.org_id === lastOrgFromProfile) ??
+    orgs.find((o) => !o.viaSuperuser) ??
+    orgs[0] ??
+    null;
   const permissions = current?.permissions ?? EMPTY_PERMS;
 
   const setOrgId = (id: string) => {
@@ -256,7 +286,9 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
+    lastOrgFromProfile = id;
     setSelected(id);
+    void saveLastOrg(id).catch(() => {});
     qc.invalidateQueries();
   };
 
