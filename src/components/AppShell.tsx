@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut } from "@/lib/clerk";
 import { useSession, type AppUser } from "@/lib/auth";
 import { ACCOUNT_ROLES, OrgProvider, applyAccountRole, useOrg, type AccountRole } from "@/lib/org";
+import { OrgPicker } from "@/components/OrgPicker";
 import { amISuperuser } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -422,7 +423,7 @@ function NoOrganisation() {
 function ShellInner({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { orgs, loaded } = useOrg();
+  const { orgs, loaded, needsOrgChoice } = useOrg();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Pulse surveys can be personal, so they stay usable without an organisation.
   const noOrganisation = loaded && orgs.length === 0 && !pathname.startsWith("/surveys");
@@ -498,6 +499,7 @@ function ShellInner({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 p-4 md:p-6">{noOrganisation ? <NoOrganisation /> : children}</main>
       </div>
+      {needsOrgChoice && <OrgPicker />}
     </div>
   );
 }

@@ -235,6 +235,12 @@ interface OrgContextValue {
   loading: boolean;
   /** Memberships loaded successfully (false while loading or after an error). */
   loaded: boolean;
+  /**
+   * True right after sign-in when the person belongs to several organisations
+   * and none is remembered yet (no choice in this browser, none saved on the
+   * profile). The app then asks them to pick one.
+   */
+  needsOrgChoice: boolean;
   setOrgId: (id: string) => void;
   refresh: () => void;
 }
@@ -248,6 +254,7 @@ const OrgContext = createContext<OrgContextValue>({
   can: () => false,
   loading: true,
   loaded: false,
+  needsOrgChoice: false,
   setOrgId: () => {},
   refresh: () => {},
 });
@@ -280,6 +287,14 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     null;
   const permissions = current?.permissions ?? EMPTY_PERMS;
 
+  // Ask the person to choose an organisation when they have several of their
+  // own and nothing remembers a previous choice (this browser or the profile).
+  const ownOrgs = orgs.filter((o) => !o.viaSuperuser);
+  const hasRemembered =
+    (selected != null && orgs.some((o) => o.org_id === selected)) ||
+    (lastOrgFromProfile != null && orgs.some((o) => o.org_id === lastOrgFromProfile));
+  const needsOrgChoice = signedIn && q.isSuccess && !hasRemembered && ownOrgs.length >= 2;
+
   const setOrgId = (id: string) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, id);
@@ -307,6 +322,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         can: (p: Permission) => permissions[p],
         loading: q.isLoading,
         loaded: q.isSuccess,
+        needsOrgChoice,
         setOrgId,
         refresh,
       }}
