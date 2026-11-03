@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut } from "@/lib/clerk";
 import { useSession, type AppUser } from "@/lib/auth";
 import { ACCOUNT_ROLES, OrgProvider, applyAccountRole, useOrg, type AccountRole } from "@/lib/org";
+import { OrgPicker } from "@/components/OrgPicker";
 import { amISuperuser } from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

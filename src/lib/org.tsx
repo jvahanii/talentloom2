@@ -322,6 +322,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         can: (p: Permission) => permissions[p],
         loading: q.isLoading,
         loaded: q.isSuccess,
+        needsOrgChoice,
         setOrgId,
         refresh,
       }}
