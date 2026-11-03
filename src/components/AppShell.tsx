@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   UsersRound,
   Sparkles,
+  Network,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -51,6 +52,7 @@ const NAV = [
   { to: "/requisitions", label: "Positions", icon: Briefcase, org: true },
   { to: "/analytics", label: "Analytics", icon: BarChart3, org: true },
   { to: "/people", label: "People", icon: UsersRound, org: true },
+  { to: "/teams", label: "Teams", icon: Network, org: true },
   { to: "/skills", label: "Skills", icon: Sparkles, org: true },
   { to: "/surveys", label: "My surveys", icon: Activity, org: false },
   { to: "/import", label: "Import", icon: Upload, org: true },
@@ -197,7 +199,9 @@ function OrgSwitcher() {
           {orgs.map((o) => (
             <SelectItem key={o.org_id} value={o.org_id}>
               {o.name}
-              {o.viaSuperuser && <span className="ml-1.5 text-[10px] text-muted-foreground">superuser</span>}
+              {o.viaSuperuser && (
+                <span className="ml-1.5 text-[10px] text-muted-foreground">superuser</span>
+              )}
             </SelectItem>
           ))}
           <SelectItem value="__new__">
@@ -342,7 +346,12 @@ function OrgSwitcher() {
                 </>
               ) : (
                 <>
-                  <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={creating}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStep(1)}
+                    disabled={creating}
+                  >
                     Back
                   </Button>
                   <Button type="submit" disabled={creating || !companyName.trim()}>
@@ -368,7 +377,9 @@ function NoOrganisation() {
       <Building2 className="h-6 w-6 text-primary" />
       <h1 className="mt-2 text-xl font-bold">You don't have an organization yet</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        All of these settings and candidates, positions and the candidate flow live inside an organisation. Create your own, or join a team through an invite link from one of an organization's owners or admins.
+        All of these settings and candidates, positions and the candidate flow live inside an
+        organisation. Create your own, or join a team through an invite link from one of an
+        organization's owners or admins.
       </p>
       <form
         className="mt-5 space-y-2"
@@ -412,7 +423,8 @@ function NoOrganisation() {
         </div>
       </form>
       <p className="mt-5 text-xs text-muted-foreground">
-        Joining an organization? Ask an owner or admin to invite you, then open the link from the invite. Pulse surveys work without an organisation. Or looking for jobs instead?{" "}
+        Joining an organization? Ask an owner or admin to invite you, then open the link from the
+        invite. Pulse surveys work without an organisation. Or looking for jobs instead?{" "}
         <Link to="/candidate/applications" className="font-medium text-primary hover:underline">
           Go to my applications
         </Link>

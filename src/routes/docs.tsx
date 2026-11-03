@@ -429,6 +429,18 @@ function Docs() {
                   ),
                 },
                 {
+                  icon: Building2,
+                  text: (
+                    <>
+                      The <strong>Teams</strong> page shows the organisation's teams and who is in
+                      each; a person can be in several. People whose title lets them change titles
+                      can create, rename, describe and delete teams and add or remove people, there
+                      or under each person's title on the People page. Everyone else sees the
+                      teams. Leaving the organisation takes a person out of its teams.
+                    </>
+                  ),
+                },
+                {
                   icon: Trash2,
                   text: (
                     <>

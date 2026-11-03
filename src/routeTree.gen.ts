@@ -27,6 +27,7 @@ import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRequisitionsRouteImport } from './routes/_authenticated/requisitions'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSkillsRouteImport } from './routes/_authenticated/skills'
+import { Route as AuthenticatedTeamsRouteImport } from './routes/_authenticated/teams'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as ApplyIndexRouteImport } from './routes/apply.index'
 import { Route as ApplyOrgIdRouteImport } from './routes/apply.$orgId'
@@ -130,6 +131,11 @@ const AuthenticatedSkillsRoute = AuthenticatedSkillsRouteImport.update({
   path: '/skills',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTeamsRoute = AuthenticatedTeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedWorkspaceRoute = AuthenticatedWorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/requisitions': typeof AuthenticatedRequisitionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/skills': typeof AuthenticatedSkillsRoute
+  '/teams': typeof AuthenticatedTeamsRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/candidate/applications': typeof CandidateApplicationsRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/requisitions': typeof AuthenticatedRequisitionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/skills': typeof AuthenticatedSkillsRoute
+  '/teams': typeof AuthenticatedTeamsRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/candidate/applications': typeof CandidateApplicationsRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/_authenticated/requisitions': typeof AuthenticatedRequisitionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/skills': typeof AuthenticatedSkillsRoute
+  '/_authenticated/teams': typeof AuthenticatedTeamsRoute
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/candidate/applications': typeof CandidateApplicationsRoute
@@ -308,6 +317,7 @@ export interface FileRouteTypes {
     | '/requisitions'
     | '/settings'
     | '/skills'
+    | '/teams'
     | '/workspace'
     | '/apply/$orgId'
     | '/candidate/applications'
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/requisitions'
     | '/settings'
     | '/skills'
+    | '/teams'
     | '/workspace'
     | '/apply/$orgId'
     | '/candidate/applications'
@@ -370,6 +381,7 @@ export interface FileRouteTypes {
     | '/_authenticated/requisitions'
     | '/_authenticated/settings'
     | '/_authenticated/skills'
+    | '/_authenticated/teams'
     | '/_authenticated/workspace'
     | '/apply/$orgId'
     | '/candidate/applications'
@@ -528,6 +540,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSkillsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/teams': {
+      id: '/_authenticated/teams'
+      path: '/teams'
+      fullPath: '/teams'
+      preLoaderRoute: typeof AuthenticatedTeamsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/workspace': {
       id: '/_authenticated/workspace'
       path: '/workspace'
@@ -625,6 +644,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRequisitionsRoute: typeof AuthenticatedRequisitionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSkillsRoute: typeof AuthenticatedSkillsRoute
+  AuthenticatedTeamsRoute: typeof AuthenticatedTeamsRoute
   AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
   AuthenticatedCandidatesIdRoute: typeof AuthenticatedCandidatesIdRoute
   AuthenticatedSurveysIdRoute: typeof AuthenticatedSurveysIdRoute
@@ -642,6 +662,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRequisitionsRoute: AuthenticatedRequisitionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSkillsRoute: AuthenticatedSkillsRoute,
+  AuthenticatedTeamsRoute: AuthenticatedTeamsRoute,
   AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
   AuthenticatedCandidatesIdRoute: AuthenticatedCandidatesIdRoute,
   AuthenticatedSurveysIdRoute: AuthenticatedSurveysIdRoute,

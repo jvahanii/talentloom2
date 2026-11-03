@@ -12,6 +12,7 @@ import { SkillChips, SkillsInput } from "@/components/SkillsInput";
 import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey } from "@/hooks/useOrgSkillNames";
+import { addToTeam, fetchTeams, removeFromTeam, teamsKey, type Team } from "@/lib/teams";
 import {
   fetchLearningGroups,
   groupOf,
@@ -67,6 +68,11 @@ function PeoplePage() {
   const { orgId, orgs, title, role, can, refresh } = useOrg();
   const isOwner = title === "Owner" || role === "owner";
   const levelNames = useSkillLevelNames();
+  const teams = useQuery({
+    queryKey: teamsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchTeams(orgId!),
+  });
   // The same "Learning with" groups as on the Skills page.
   const learning = useQuery({
     queryKey: learningGroupsKey(orgId),
@@ -441,7 +447,7 @@ function PeoplePage() {
 
       <div className="rounded-2xl border-2 border-border bg-card">
         <div className={`hidden border-b border-border px-3 lg:grid ${rowGrid}`}>
-          {["Person", "Title", "Skills", "Learning with"].map((h) => (
+          {["Person", "Title & teams", "Skills", "Learning with"].map((h) => (
             <p key={h} className={th}>
               {h}
             </p>
@@ -525,7 +531,7 @@ function PeoplePage() {
                     </p>
                   </div>
                   <div className="min-w-0">
-                    <p className={cellLabel}>Title</p>
+                    <p className={cellLabel}>Title & teams</p>
                     {canEditTitle ? (
                       <select
                         className={`${selectCls} w-full`}
@@ -550,6 +556,12 @@ function PeoplePage() {
                     ) : (
                       <p className="text-sm">{p.titleName ?? "—"}</p>
                     )}
+                    <PersonTeams
+                      orgId={orgId}
+                      person={p}
+                      teams={teams.data ?? []}
+                      canEdit={can("change_titles")}
+                    />
                   </div>
                   <div className="min-w-0">
                     <p className={cellLabel}>Skills</p>
@@ -772,6 +784,80 @@ function LearningWithCell({
         </button>
       ) : (
         !mine.length && <span className="text-xs text-muted-foreground">Add a skill first</span>
+      )}
+    </div>
+  );
+}
+
+/** The teams a person is in, with a way to add and remove them for people who can manage teams. */
+function PersonTeams({
+  orgId,
+  person,
+  teams,
+  canEdit,
+}: {
+  orgId: string;
+  person: Person;
+  teams: Team[];
+  canEdit: boolean;
+}) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const mine = teams.filter((t) => t.members.includes(person.userId));
+  const others = teams.filter((t) => !t.members.includes(person.userId));
+  if (!mine.length && !(canEdit && others.length)) return null;
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await action();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update the teams");
+    } finally {
+      await qc.invalidateQueries({ queryKey: teamsKey(orgId) });
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1">
+      {mine.map((t) => (
+        <span
+          key={t.id}
+          className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs"
+        >
+          <span className="truncate">{t.name}</span>
+          {canEdit && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(() => removeFromTeam(t.id, person.userId))}
+              className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+              aria-label={`Take ${person.name ?? person.email ?? "this person"} out of ${t.name}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </span>
+      ))}
+      {canEdit && others.length > 0 && (
+        <select
+          value=""
+          disabled={busy}
+          onChange={(e) => {
+            const teamId = e.target.value;
+            if (teamId) void run(() => addToTeam(orgId, teamId, person.userId));
+          }}
+          className="h-6 max-w-36 rounded-full border border-dashed border-border bg-transparent px-1.5 text-xs text-primary outline-none"
+          aria-label={`Add ${person.name ?? person.email ?? "this person"} to a team`}
+        >
+          <option value="">+ Team</option>
+          {others.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );
