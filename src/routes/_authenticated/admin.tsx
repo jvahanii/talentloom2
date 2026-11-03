@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ShieldCheck, Trash2 } from "lucide-react";
+import { ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
+  adminAddAccount,
   adminDeleteOrganisation,
   adminDeleteSurvey,
   adminRemoveAccount,
@@ -15,6 +16,9 @@ import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -54,12 +58,104 @@ function Table({ head, children }: { head: string[]; children: React.ReactNode }
   );
 }
 
+function AddUserDialog({
+  open,
+  onOpenChange,
+  organisations,
+  onAdded,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  organisations: AdminOverview["organisations"];
+  onAdded: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [orgId, setOrgId] = useState<string>("none");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!email.trim()) return void toast.error("Email is required");
+    setSaving(true);
+    try {
+      await adminAddAccount({
+        data: { email: email.trim(), name: name.trim() || undefined, orgId: orgId === "none" ? undefined : orgId },
+      });
+      toast.success(`Added ${email.trim()}. They sign in with that email and the account links to them.`);
+      onOpenChange(false);
+      setName("");
+      setEmail("");
+      setOrgId("none");
+      onAdded();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add the account");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a user</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="add-user-name">Name</Label>
+            <Input id="add-user-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="First Last" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-user-email">Email*</Label>
+            <Input
+              id="add-user-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="person@example.com"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Organisation</Label>
+            <Select value={orgId} onValueChange={setOrgId}>
+              <SelectTrigger>
+                <SelectValue placeholder="No organisation yet" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No organisation yet</SelectItem>
+                {organisations.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name} (as Member)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            No email is sent. Tell the person to sign in with this email — their account and organisation membership
+            are waiting for them.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? "Adding…" : "Add user"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AdminPage() {
   const navigate = useNavigate();
   const { setOrgId, refresh } = useOrg();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const deleteOrganisation = async (o: AdminOverview["organisations"][number]) => {
     const typed = window.prompt(
@@ -162,7 +258,16 @@ function AdminPage() {
           className="ml-auto w-full max-w-xs"
           aria-label="Search"
         />
+        <Button onClick={() => setAddOpen(true)}>
+          <UserPlus className="h-4 w-4" /> Add user
+        </Button>
       </div>
+      <AddUserDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        organisations={data.organisations}
+        onAdded={() => qc.invalidateQueries({ queryKey: ["admin-overview"] })}
+      />
 
       <Tabs defaultValue="organisations">
         <TabsList className="flex-wrap">
