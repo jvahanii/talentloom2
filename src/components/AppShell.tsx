@@ -423,7 +423,7 @@ function NoOrganisation() {
 function ShellInner({ children }: { children: ReactNode }) {
   const { user } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { orgs, loaded } = useOrg();
+  const { orgs, loaded, needsOrgChoice } = useOrg();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Pulse surveys can be personal, so they stay usable without an organisation.
   const noOrganisation = loaded && orgs.length === 0 && !pathname.startsWith("/surveys");
