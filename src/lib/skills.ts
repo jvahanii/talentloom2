@@ -2,27 +2,39 @@
  * A person's skills live on their profile in two columns: `skills` (the names,
  * in the person's order) and `skill_levels` (name → level 1–4). A skill without
  * an entry in `skill_levels` simply has no level yet.
+ *
+ * The levels themselves are just 1–4; each organisation names them in
+ * `organizations.skill_level_names` (null means the defaults below).
  */
 
-export const SKILL_LEVELS = [
-  { value: 1, label: "Novice" },
-  { value: 2, label: "Basic" },
-  { value: 3, label: "Advanced" },
-  { value: 4, label: "Master" },
-] as const;
+export const SKILL_LEVEL_VALUES = [1, 2, 3, 4] as const;
+export const DEFAULT_SKILL_LEVEL_NAMES = ["Novice", "Basic", "Advanced", "Master"];
+export const MAX_SKILL_LEVEL_NAME_LENGTH = 30;
 
-export type SkillLevel = (typeof SKILL_LEVELS)[number]["value"];
+export type SkillLevel = (typeof SKILL_LEVEL_VALUES)[number];
 export type Skill = { name: string; level: SkillLevel | null };
 
 export const MAX_SKILLS = 30;
 export const MAX_SKILL_LENGTH = 60;
 
-export function skillLevelLabel(level: SkillLevel | null): string | null {
-  return SKILL_LEVELS.find((l) => l.value === level)?.label ?? null;
+/** An organisation's level names, falling back to the defaults when unset or malformed. */
+export function skillLevelNames(custom: unknown): string[] {
+  return Array.isArray(custom) &&
+    custom.length === SKILL_LEVEL_VALUES.length &&
+    custom.every((n) => typeof n === "string" && n.trim())
+    ? (custom as string[])
+    : DEFAULT_SKILL_LEVEL_NAMES;
+}
+
+export function skillLevelLabel(
+  level: SkillLevel | null,
+  names: string[] = DEFAULT_SKILL_LEVEL_NAMES,
+): string | null {
+  return level === null ? null : (names[level - 1] ?? null);
 }
 
 function asLevel(v: unknown): SkillLevel | null {
-  return SKILL_LEVELS.some((l) => l.value === v) ? (v as SkillLevel) : null;
+  return SKILL_LEVEL_VALUES.some((l) => l === v) ? (v as SkillLevel) : null;
 }
 
 /** Trims, drops empties and case-insensitive duplicates (the first one wins), and caps the list. */

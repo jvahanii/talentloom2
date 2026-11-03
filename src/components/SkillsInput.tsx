@@ -3,18 +3,20 @@ import { X } from "lucide-react";
 import {
   MAX_SKILLS,
   MAX_SKILL_LENGTH,
-  SKILL_LEVELS,
+  SKILL_LEVEL_VALUES,
   cleanSkills,
   skillLevelLabel,
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
+import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 
 const chipCls =
   "inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary";
 
-/** Read-only skills, each with its level when one is set. */
+/** Read-only skills, each with its level (in the organisation's words) when one is set. */
 export function SkillChips({ skills }: { skills: Skill[] }) {
+  const levelNames = useSkillLevelNames();
   if (!skills.length) return <>—</>;
   return (
     <div className="flex flex-wrap gap-1">
@@ -22,7 +24,7 @@ export function SkillChips({ skills }: { skills: Skill[] }) {
         <span key={s.name} className={chipCls}>
           {s.name}
           {s.level !== null && (
-            <span className="font-normal opacity-75">· {skillLevelLabel(s.level)}</span>
+            <span className="font-normal opacity-75">· {skillLevelLabel(s.level, levelNames)}</span>
           )}
         </span>
       ))}
@@ -46,6 +48,7 @@ export function SkillsInput({
   placeholder?: string;
 }) {
   const [draft, setDraft] = useState("");
+  const levelNames = useSkillLevelNames();
 
   const add = (text: string) => {
     const parts = text.split(/[,;\n]/).map((name) => ({ name, level: null }));
@@ -72,9 +75,9 @@ export function SkillsInput({
             aria-label={`Level of ${s.name}`}
           >
             <option value="">no level</option>
-            {SKILL_LEVELS.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
+            {SKILL_LEVEL_VALUES.map((l) => (
+              <option key={l} value={l}>
+                {skillLevelLabel(l, levelNames)}
               </option>
             ))}
           </select>

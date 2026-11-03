@@ -13,6 +13,12 @@ import {
 import { toast } from "sonner";
 import { RequiredIndicator } from "@/components/ui/label";
 import { Plus, Trash2, UsersRound } from "lucide-react";
+import { useSkillLevelNames, skillLevelNamesKey } from "@/hooks/useSkillLevelNames";
+import {
+  DEFAULT_SKILL_LEVEL_NAMES,
+  MAX_SKILL_LEVEL_NAME_LENGTH,
+  SKILL_LEVEL_VALUES,
+} from "@/lib/skills";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
@@ -73,7 +79,9 @@ export function OrgSettings() {
       <p className="mt-1 text-sm text-muted-foreground">
         Manage this organisation and who can access it. Your title here:{" "}
         <span className="font-medium">
-          {orgs.find((o) => o.org_id === orgId)?.viaSuperuser ? "Superuser (not a member)" : (title ?? "—")}
+          {orgs.find((o) => o.org_id === orgId)?.viaSuperuser
+            ? "Superuser (not a member)"
+            : (title ?? "—")}
         </span>
         .
       </p>
@@ -112,6 +120,8 @@ export function OrgSettings() {
       </div>
 
       {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
+
+      {can("rename_org") && <SkillLevelsPanel orgId={orgId} />}
 
       {canDeleteOrg && <DeleteOrgPanel orgId={orgId} orgName={orgName} />}
     </div>
@@ -176,6 +186,84 @@ function DeleteOrgPanel({ orgId, orgName }: { orgId: string; orgName: string }) 
         >
           {deleting ? "Deleting…" : "Delete organisation"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** Names for skill levels 1–4 in this organisation. Skills and their levels belong to each person. */
+function SkillLevelsPanel({ orgId }: { orgId: string }) {
+  const qc = useQueryClient();
+  const current = useSkillLevelNames();
+  const [names, setNames] = useState(current);
+  useEffect(() => setNames(current), [current]);
+  const [saving, setSaving] = useState(false);
+
+  const trimmed = names.map((n) => n.trim());
+  const changed = trimmed.some((n, i) => n !== current[i]);
+  const valid = trimmed.every(Boolean);
+  const isDefault = current.every((n, i) => n === DEFAULT_SKILL_LEVEL_NAMES[i]);
+
+  const save = async (next: string[] | null) => {
+    setSaving(true);
+    try {
+      // The column lives in the external database; Lovable regenerates types.ts without it.
+      const { data, error } = await supabase
+        .from("organizations")
+        .update({ skill_level_names: next } as never)
+        .eq("id", orgId)
+        .select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("Your title doesn't allow changing organisation settings");
+      toast.success(next ? "Skill levels saved" : "Skill levels reset");
+      await qc.invalidateQueries({ queryKey: skillLevelNamesKey(orgId) });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save the skill levels");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-8">
+      <h4 className="text-sm font-semibold">Skill levels</h4>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        What the four skill levels are called in this organisation, from lowest to highest. People
+        pick a level for each skill on their profile and on the People page.
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {SKILL_LEVEL_VALUES.map((level, i) => (
+          <label key={level} className="block">
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Level {level} <RequiredIndicator />
+            </span>
+            <input
+              required
+              value={names[i] ?? ""}
+              maxLength={MAX_SKILL_LEVEL_NAME_LENGTH}
+              onChange={(e) => setNames(names.map((n, j) => (j === i ? e.target.value : n)))}
+              className={inputCls}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={() => save(trimmed)}
+          disabled={saving || !changed || !valid}
+          className="btn-teal rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
+        >
+          Save levels
+        </button>
+        {!isDefault && (
+          <button
+            onClick={() => save(null)}
+            disabled={saving}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-60"
+          >
+            Reset to {DEFAULT_SKILL_LEVEL_NAMES.join(", ")}
+          </button>
+        )}
       </div>
     </div>
   );

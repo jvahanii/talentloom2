@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
 import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
+import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { sendInviteEmail } from "@/lib/invite.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ function PeoplePage() {
   const qc = useQueryClient();
   const { orgId, orgs, title, role, can, refresh } = useOrg();
   const isOwner = title === "Owner" || role === "owner";
+  const levelNames = useSkillLevelNames();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
 
   const titles = useQuery({
@@ -436,7 +438,7 @@ function PeoplePage() {
                 return [
                   p.name ?? "",
                   p.email ?? "",
-                  ...p.skills.map((s) => `${s.name} ${skillLevelLabel(s.level) ?? ""}`),
+                  ...p.skills.map((s) => `${s.name} ${skillLevelLabel(s.level, levelNames) ?? ""}`),
                 ].some((v) => v.toLowerCase().includes(q));
               })
               .map((p) => {
