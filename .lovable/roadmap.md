@@ -1,14 +1,7 @@
 # Roadmap
 
-## Open
-
-### Organisation picker on sign-in (new, 2026-11-03)
-- [ ] Persist last-used org per user (DB column on external Supabase `profiles`: `last_org_id`)
-- [ ] Server functions: read last org, list my orgs, set last org
-- [ ] Route: org picker page (kawaii style) shown when signed in, has ≥2 orgs, no remembered org
-- [ ] Wire into sign-in flow: auto-enter when 1 org or remembered org; picker when multiple; unchanged when 0 orgs
-- [ ] Save choice on org switch too (keep memory fresh)
-- [ ] Verify: typecheck/build; signed-in flow untestable in sandbox (Clerk origin restriction)
+## Done
+- Organisation picker on sign-in (2026-11-03): `needsOrgChoice` in `src/lib/org.tsx` (signed in, ≥2 own orgs, nothing remembered in browser or on profile), full-screen `src/components/OrgPicker.tsx` rendered from `AppShell.tsx`; picking saves `last_org_id` so next sign-in goes straight there. 0 orgs → unchanged (create/join screen); 1 org → auto-enter. Build OK; signed-in flow untestable in sandbox (Clerk origin restriction).
 
 ## Deferred / blocked
 - Invitation email domain setup — deferred by user ("lets skip this for now")
