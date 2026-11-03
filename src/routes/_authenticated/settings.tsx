@@ -177,7 +177,7 @@ function Settings() {
         </div>
 
         <div className="glass rounded-2xl p-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="font-display font-semibold">Connect your tools</h3>
             <span className="rounded-full bg-[rgb(103_232_249_/_0.2)] border border-[rgb(103_232_249_/_0.35)] px-2 py-0.5 text-xs font-medium text-[#a5f3fc]">
               Coming soon
