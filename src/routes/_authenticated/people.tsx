@@ -46,7 +46,7 @@ type Person = {
 
 const selectCls =
   "h-9 rounded-xl border border-input bg-white/70 px-2 text-sm outline-none focus:border-teal-500 dark:bg-white/5";
-const th = "px-3 py-2 text-left text-xs font-semibold text-muted-foreground";
+const th = "py-2 text-xs font-semibold text-muted-foreground";
 
 async function copyText(text: string) {
   try {
@@ -56,7 +56,10 @@ async function copyText(text: string) {
     toast.error("Couldn't copy — select and copy manually");
   }
 }
-const td = "px-3 py-2 align-middle text-sm";
+// One row per person: four columns on wide screens, two on medium, stacked on phones.
+const rowGrid =
+  "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,1.5fr)_minmax(0,1.3fr)] lg:gap-4";
+const cellLabel = "mb-1 text-xs font-semibold text-muted-foreground lg:hidden";
 
 function PeoplePage() {
   const qc = useQueryClient();
@@ -434,57 +437,40 @@ function PeoplePage() {
         aria-label="Find people"
       />
 
-      <div className="overflow-x-auto rounded-2xl border-2 border-border bg-card">
-        <table className="w-full min-w-[1180px] border-collapse">
-          <thead className="border-b border-border">
-            <tr>
-              {[
-                "Name",
-                "Email",
-                "Title",
-                "Skills",
-                "Learning with",
-                "Joined",
-                "Account created",
-                "",
-              ].map((h) => (
-                <th key={h} className={th}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {people.isLoading && (
-              <tr>
-                <td className={td} colSpan={8}>
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {(people.data ?? [])
-              .filter((p) => {
-                const q = filter.trim().toLowerCase();
-                if (!q) return true;
-                return [
-                  p.name ?? "",
-                  p.email ?? "",
-                  ...p.skills.map((s) => `${s.name} ${skillLevelLabel(s.level, levelNames) ?? ""}`),
-                ].some((v) => v.toLowerCase().includes(q));
-              })
-              .map((p) => {
-                const canEditName = p.isSelf || can("change_titles");
-                const canEditTitle = can("change_titles") && (isOwner || !isProtected(p.titleName));
-                const canRemove =
-                  p.isSelf || (can("remove_users") && (isOwner || !isProtected(p.titleName)));
-                const draft = names[p.userId];
-                const changed =
-                  draft !== undefined && draft.trim() !== (p.name ?? "") && draft.trim() !== "";
-                return (
-                  <tr key={p.memberId}>
-                    <td className={td}>
+      <div className="rounded-2xl border-2 border-border bg-card">
+        <div className={`hidden border-b border-border px-3 lg:grid ${rowGrid}`}>
+          {["Person", "Title", "Skills", "Learning with"].map((h) => (
+            <p key={h} className={th}>
+              {h}
+            </p>
+          ))}
+        </div>
+        <ul className="divide-y divide-border">
+          {people.isLoading && <li className="p-3 text-sm">Loading…</li>}
+          {(people.data ?? [])
+            .filter((p) => {
+              const q = filter.trim().toLowerCase();
+              if (!q) return true;
+              return [
+                p.name ?? "",
+                p.email ?? "",
+                ...p.skills.map((s) => `${s.name} ${skillLevelLabel(s.level, levelNames) ?? ""}`),
+              ].some((v) => v.toLowerCase().includes(q));
+            })
+            .map((p) => {
+              const canEditName = p.isSelf || can("change_titles");
+              const canEditTitle = can("change_titles") && (isOwner || !isProtected(p.titleName));
+              const canRemove =
+                p.isSelf || (can("remove_users") && (isOwner || !isProtected(p.titleName)));
+              const draft = names[p.userId];
+              const changed =
+                draft !== undefined && draft.trim() !== (p.name ?? "") && draft.trim() !== "";
+              return (
+                <li key={p.memberId} className={`grid gap-3 p-3 sm:grid-cols-2 ${rowGrid}`}>
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-1.5">
                       {canEditName ? (
-                        <div className="flex items-center gap-1.5">
+                        <>
                           <Input
                             value={draft ?? p.name ?? ""}
                             placeholder="No name"
@@ -492,7 +478,7 @@ function PeoplePage() {
                               setNames((n) => ({ ...n, [p.userId]: e.target.value }))
                             }
                             onKeyDown={(e) => e.key === "Enter" && void saveName(p)}
-                            className="h-9 min-w-40"
+                            className="h-9 min-w-0 flex-1"
                             aria-label={`Name of ${p.email ?? "member"}`}
                             maxLength={200}
                           />
@@ -505,68 +491,15 @@ function PeoplePage() {
                               Save
                             </Button>
                           )}
-                        </div>
+                        </>
                       ) : (
-                        <span className="font-medium">{p.name || "—"}</span>
+                        <span className="min-w-0 flex-1 truncate font-medium">{p.name || "—"}</span>
                       )}
-                      {p.isSelf && <span className="text-xs text-muted-foreground">you</span>}
-                    </td>
-                    <td className={td}>{p.email || "—"}</td>
-                    <td className={td}>
-                      {canEditTitle ? (
-                        <select
-                          className={selectCls}
-                          value={p.titleId ?? ""}
-                          disabled={busy === p.memberId}
-                          onChange={(e) => changeTitle(p, e.target.value)}
-                          aria-label={`Title of ${p.name ?? p.email ?? "member"}`}
-                        >
-                          {!p.titleId && <option value="">No title</option>}
-                          {assignable
-                            .concat(
-                              p.titleId && !assignable.some((t) => t.id === p.titleId)
-                                ? [{ id: p.titleId, name: p.titleName ?? "Title" }]
-                                : [],
-                            )
-                            .map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                        </select>
-                      ) : (
-                        (p.titleName ?? "—")
-                      )}
-                    </td>
-                    <td className={`${td} min-w-56`}>
-                      {canEditName ? (
-                        <SkillsInput
-                          value={skillDrafts[p.userId] ?? p.skills}
-                          onChange={(next) => saveSkills(p, next)}
-                          placeholder="Add a skill"
-                        />
-                      ) : (
-                        <SkillChips skills={p.skills} />
-                      )}
-                    </td>
-                    <td className={`${td} min-w-56`}>
-                      <LearningWithCell
-                        orgId={orgId}
-                        person={p}
-                        people={people.data ?? []}
-                        groups={learning.data ?? []}
-                      />
-                    </td>
-                    <td className={`${td} whitespace-nowrap`}>{formatDate(p.joinedAt)}</td>
-                    <td className={`${td} whitespace-nowrap`}>
-                      {p.accountCreatedAt ? formatDate(p.accountCreatedAt) : "—"}
-                    </td>
-                    <td className={td}>
                       {canRemove && (
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
                           disabled={busy === p.memberId}
                           onClick={() => remove(p)}
                           aria-label={
@@ -579,12 +512,68 @@ function PeoplePage() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
+                    </div>
+                    <p className="break-all text-sm text-muted-foreground">
+                      {p.email || "—"}
+                      {p.isSelf && <span className="ml-1 text-xs">(you)</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Joined {formatDate(p.joinedAt)}
+                      {p.accountCreatedAt && <> · account {formatDate(p.accountCreatedAt)}</>}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cellLabel}>Title</p>
+                    {canEditTitle ? (
+                      <select
+                        className={`${selectCls} w-full`}
+                        value={p.titleId ?? ""}
+                        disabled={busy === p.memberId}
+                        onChange={(e) => changeTitle(p, e.target.value)}
+                        aria-label={`Title of ${p.name ?? p.email ?? "member"}`}
+                      >
+                        {!p.titleId && <option value="">No title</option>}
+                        {assignable
+                          .concat(
+                            p.titleId && !assignable.some((t) => t.id === p.titleId)
+                              ? [{ id: p.titleId, name: p.titleName ?? "Title" }]
+                              : [],
+                          )
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      <p className="text-sm">{p.titleName ?? "—"}</p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cellLabel}>Skills</p>
+                    {canEditName ? (
+                      <SkillsInput
+                        value={skillDrafts[p.userId] ?? p.skills}
+                        onChange={(next) => saveSkills(p, next)}
+                        placeholder="Add a skill"
+                      />
+                    ) : (
+                      <SkillChips skills={p.skills} />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cellLabel}>Learning with</p>
+                    <LearningWithCell
+                      orgId={orgId}
+                      person={p}
+                      people={people.data ?? []}
+                      groups={learning.data ?? []}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+        </ul>
       </div>
 
       {can("invite_users") && (invites.data ?? []).length > 0 && (
