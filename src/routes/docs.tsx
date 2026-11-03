@@ -400,10 +400,10 @@ function Docs() {
                   icon: Mail,
                   text: (
                     <>
-                      In <strong>Settings → Invite a teammate</strong>, enter an email and a title.
-                      The person gets an invitation email, and only they can use it, once. Leave the
-                      email empty to get a link anyone can use. Invites expire after 7 days; you can
-                      email one again, copy its link, or revoke it.
+                      On the <strong>People</strong> page, enter an email and a title. Someone who
+                      already has an account is added straight away; anyone else gets an invitation
+                      email that only they can use, once. Or create an invite link anyone can use.
+                      Invites expire after 7 days; you can email one again, copy its link, or revoke it.
                     </>
                   ),
                 },

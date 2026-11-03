@@ -10,23 +10,12 @@ import {
   type OrgTitle,
   type Permission,
 } from "@/lib/org";
-import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { RequiredIndicator } from "@/components/ui/label";
-import { Copy, Mail, Plus, Trash2, UserPlus, UsersRound } from "lucide-react";
-import { formatDate } from "@/lib/utils";
-import { sendInviteEmail } from "@/lib/invite.functions";
+import { Plus, Trash2, UsersRound } from "lucide-react";
 
 const inputCls =
   "w-full rounded-xl border border-input bg-white/70 dark:bg-white/5 px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30";
-
-interface InviteRow {
-  id: string;
-  email: string | null;
-  title_id: string | null;
-  token: string;
-  expires_at: string;
-}
 
 function useTitles(orgId: string | null) {
   return useQuery({
@@ -45,11 +34,7 @@ function useTitles(orgId: string | null) {
   });
 }
 
-const PROTECTED_TITLES = ["Owner", "Admin"];
-const isProtectedTitle = (n?: string | null) => !!n && PROTECTED_TITLES.includes(n);
-
 export function OrgSettings() {
-  const qc = useQueryClient();
   const { orgId, title, role, orgs, refresh, can } = useOrg();
   const isOwner = title === "Owner";
   const canDeleteOrg = isOwner || role === "owner";
@@ -58,37 +43,9 @@ export function OrgSettings() {
   const [name, setName] = useState(orgName);
   useEffect(() => setName(orgName), [orgName]);
 
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteTitle, setInviteTitle] = useState<string>("");
-  const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const titles = useTitles(orgId);
-  const titleById = new Map((titles.data ?? []).map((t) => [t.id, t]));
-
-  useEffect(() => {
-    if (!inviteTitle && titles.data?.length) {
-      const member =
-        titles.data.find((t) => t.name === "Member") ?? titles.data[titles.data.length - 1];
-      setInviteTitle(member!.id);
-    }
-  }, [titles.data, inviteTitle]);
-
-  const invites = useQuery({
-    queryKey: ["org-invites", orgId],
-    enabled: !!orgId && can("invite_users"),
-    queryFn: async (): Promise<InviteRow[]> => {
-      const { data, error } = await supabase
-        .from("organization_invites")
-        .select("id, email, title_id, token, expires_at")
-        .eq("org_id", orgId!)
-        .is("accepted_at", null)
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as InviteRow[];
-    },
-  });
 
   const renameOrg = async () => {
     if (!orgId || !name.trim() || name.trim() === orgName) return;
@@ -105,70 +62,6 @@ export function OrgSettings() {
       toast.error(e instanceof Error ? e.message : "Failed to rename");
     } finally {
       setBusy(false);
-    }
-  };
-
-  const createInvite = async () => {
-    if (!orgId || !inviteTitle) return;
-    setBusy(true);
-    try {
-      const uid = await getMyProfileId();
-      if (!uid) throw new Error("Not authenticated");
-      const { data, error } = await supabase
-        .from("organization_invites")
-        .insert({
-          org_id: orgId,
-          email: (inviteEmail.trim() || null) as string,
-          title_id: inviteTitle,
-          invited_by: uid,
-        })
-        .select("id, email, token")
-        .single();
-      if (error) throw error;
-      const link = `${window.location.origin}/invite/${data.token}`;
-      setLastInviteLink(link);
-      setInviteEmail("");
-      qc.invalidateQueries({ queryKey: ["org-invites", orgId] });
-      if (data.email) {
-        try {
-          await sendInviteEmail({ data: { inviteId: data.id } });
-          toast.success(`Invite emailed to ${data.email}`);
-        } catch (e) {
-          toast.error(
-            `Invite created, but the email couldn't be sent — share the link below. (${e instanceof Error ? e.message : String(e)})`,
-          );
-        }
-      } else {
-        toast.success("Invite created — share the link below");
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create invite");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const resendInvite = async (id: string, email: string) => {
-    try {
-      await sendInviteEmail({ data: { inviteId: id } });
-      toast.success(`Invite emailed to ${email}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to send the invite email");
-    }
-  };
-
-  const revokeInvite = async (id: string) => {
-    const { error } = await supabase.from("organization_invites").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else qc.invalidateQueries({ queryKey: ["org-invites", orgId] });
-  };
-
-  const copy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Link copied");
-    } catch {
-      toast.error("Couldn't copy — select and copy manually");
     }
   };
 
@@ -217,107 +110,6 @@ export function OrgSettings() {
           Go to People
         </Link>
       </div>
-
-      {can("invite_users") && (
-        <div className="mt-6">
-          <h4 className="text-sm font-semibold">Invite a teammate</h4>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Leave email empty to get a shareable link anyone can use to join. With an email, only
-            that person can use it, once. Links expire after 7 days.
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <label className="min-w-52 flex-1">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Email (optional)
-              </span>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="teammate@company.com"
-                className={inputCls + " w-full"}
-              />
-            </label>
-            <label>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                Role <RequiredIndicator />
-              </span>
-              <select
-                required
-                value={inviteTitle}
-                onChange={(e) => setInviteTitle(e.target.value)}
-                className="rounded-xl border border-input bg-white/70 px-3 py-2 text-sm dark:bg-white/5"
-              >
-                {(titles.data ?? [])
-                  .filter((t) => (isOwner ? t.name !== "Owner" : !isProtectedTitle(t.name)))
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              onClick={createInvite}
-              disabled={busy || !inviteEmail.trim() || !inviteTitle}
-              className="btn-teal inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
-            >
-              <UserPlus className="h-4 w-4" /> Create invite
-            </button>
-          </div>
-
-          {lastInviteLink && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
-              <p className="min-w-0 flex-1 truncate text-xs">{lastInviteLink}</p>
-              <button
-                onClick={() => copy(lastInviteLink)}
-                className="shrink-0 rounded-md p-1.5 hover:bg-primary/15"
-                aria-label="Copy invite link"
-              >
-                <Copy className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          {(invites.data ?? []).length > 0 && (
-            <ul className="mt-3 space-y-1.5">
-              {(invites.data ?? []).map((inv) => (
-                <li key={inv.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="min-w-0 flex-1 truncate">
-                    {inv.email} ·{" "}
-                    {inv.title_id ? (titleById.get(inv.title_id)?.name ?? "Title") : "No title"} ·
-                    expires {formatDate(inv.expires_at)}
-                  </span>
-                  {inv.email && (
-                    <button
-                      onClick={() => resendInvite(inv.id, inv.email!)}
-                      className="rounded-md p-1 hover:bg-muted"
-                      aria-label="Email invite again"
-                      title="Email invite again"
-                    >
-                      <Mail className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => copy(`${window.location.origin}/invite/${inv.token}`)}
-                    className="rounded-md p-1 hover:bg-muted"
-                    aria-label="Copy invite link"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => revokeInvite(inv.id)}
-                    className="rounded-md p-1 hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Revoke invite"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Copy, Mail, Trash2, UserPlus } from "lucide-react";
+import { Copy, Link2, Mail, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg } from "@/lib/org";
@@ -35,6 +35,15 @@ type Person = {
 const selectCls =
   "h-9 rounded-xl border border-input bg-white/70 px-2 text-sm outline-none focus:border-teal-500 dark:bg-white/5";
 const th = "px-3 py-2 text-left text-xs font-semibold text-muted-foreground";
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("Link copied");
+  } catch {
+    toast.error("Couldn't copy — select and copy manually");
+  }
+}
 const td = "px-3 py-2 align-middle text-sm";
 
 function PeoplePage() {
@@ -120,6 +129,16 @@ function PeoplePage() {
     }
   }, [titles.data, titleId]);
 
+  // Shareable invite link
+  const [linkTitleId, setLinkTitleId] = useState("");
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [lastLink, setLastLink] = useState<string | null>(null);
+  useEffect(() => {
+    if (!linkTitleId && titles.data?.length) {
+      setLinkTitleId((titles.data.find((t) => t.name === "Member") ?? titles.data[titles.data.length - 1]).id);
+    }
+  }, [titles.data, linkTitleId]);
+
   // Name editing
   const [names, setNames] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -133,6 +152,31 @@ function PeoplePage() {
   if (!orgId) return null;
   const titleName = new Map((titles.data ?? []).map((t) => [t.id, t.name]));
   const assignable = (titles.data ?? []).filter((t) => isOwner || !isProtected(t.name));
+  // A link anyone can use never grants Owner, and grants Admin only when an owner makes it.
+  const linkable = assignable.filter((t) => t.name !== "Owner");
+
+  const createLink = async () => {
+    if (!linkTitleId) return;
+    setCreatingLink(true);
+    try {
+      const me = await getMyProfileId();
+      if (!me) throw new Error("Not signed in");
+      const { data, error } = await supabase
+        .from("organization_invites")
+        .insert({ org_id: orgId, email: null as unknown as string, title_id: linkTitleId, invited_by: me })
+        .select("token")
+        .single();
+      if (error) throw error;
+      const link = `${window.location.origin}/invite/${data.token}`;
+      setLastLink(link);
+      await copyText(link);
+      reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create the link");
+    } finally {
+      setCreatingLink(false);
+    }
+  };
 
   const addPerson = async () => {
     if (!email.trim() || !titleId) return;
@@ -214,14 +258,7 @@ function PeoplePage() {
     if (error) return void toast.error(error.message);
     reload();
   };
-  const copyLink = async (token: string) => {
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/invite/${token}`);
-      toast.success("Link copied");
-    } catch {
-      toast.error("Couldn't copy — select and copy manually");
-    }
-  };
+  const copyLink = (token: string) => copyText(`${window.location.origin}/invite/${token}`);
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -257,6 +294,38 @@ function PeoplePage() {
             <Button onClick={addPerson} disabled={adding || !email.trim() || !titleId}>
               <UserPlus className="mr-1 h-4 w-4" /> {adding ? "Adding…" : "Add"}
             </Button>
+          </div>
+          <div className="border-t border-border pt-3">
+            <p className="text-sm font-medium">Or share an invite link</p>
+            <p className="text-xs text-muted-foreground">
+              Anyone with the link can join with the chosen title until it expires in 7 days. Share it only with
+              people you trust.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <select
+                className={selectCls}
+                value={linkTitleId}
+                onChange={(e) => setLinkTitleId(e.target.value)}
+                aria-label="Title for people joining with the link"
+              >
+                {linkable.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <Button variant="outline" onClick={createLink} disabled={creatingLink || !linkTitleId}>
+                <Link2 className="mr-1 h-4 w-4" /> {creatingLink ? "Creating…" : "Create link"}
+              </Button>
+            </div>
+            {lastLink && (
+              <div className="mt-2 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
+                <p className="min-w-0 flex-1 truncate text-xs">{lastLink}</p>
+                <Button size="icon" variant="ghost" onClick={() => copyText(lastLink)} aria-label="Copy invite link">
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
