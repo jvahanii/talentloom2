@@ -17,6 +17,7 @@ import { Route as DocsRouteImport } from './routes/docs'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as VersionDotjsonRouteImport } from './routes/version[.]json'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
@@ -75,6 +76,11 @@ const PulseRoute = PulseRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VersionDotjsonRoute = VersionDotjsonRouteImport.update({
+  id: '/version.json',
+  path: '/version.json',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/version.json': typeof VersionDotjsonRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/version.json': typeof VersionDotjsonRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/pulse': typeof PulseRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/version.json': typeof VersionDotjsonRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/pulse'
     | '/sitemap.xml'
+    | '/version.json'
     | '/admin'
     | '/analytics'
     | '/export'
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/pulse'
     | '/sitemap.xml'
+    | '/version.json'
     | '/admin'
     | '/analytics'
     | '/export'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/pulse'
     | '/sitemap.xml'
+    | '/version.json'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
     | '/_authenticated/export'
@@ -369,6 +381,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   PulseRoute: typeof PulseRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  VersionDotjsonRoute: typeof VersionDotjsonRoute
   CandidateApplicationsRoute: typeof CandidateApplicationsRoute
   CandidateAuthRoute: typeof CandidateAuthRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -431,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/version.json': {
+      id: '/version.json'
+      path: '/version.json'
+      fullPath: '/version.json'
+      preLoaderRoute: typeof VersionDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin': {
@@ -636,6 +656,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   PulseRoute: PulseRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  VersionDotjsonRoute: VersionDotjsonRoute,
   CandidateApplicationsRoute: CandidateApplicationsRoute,
   CandidateAuthRoute: CandidateAuthRoute,
   InviteTokenRoute: InviteTokenRoute,

@@ -16,6 +16,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk";
 import { Toaster } from "@/components/ui/sonner";
 import { AppThemeProvider } from "@/hooks/useAppTheme";
+import { UpdateBanner } from "@/components/UpdateBanner";
 
 function NotFoundComponent() {
   return (
@@ -145,6 +146,7 @@ function RootComponent() {
           <AuthChangeInvalidator />
           <Outlet />
           <Toaster />
+          <UpdateBanner />
         </AppThemeProvider>
       </ClerkProvider>
     </QueryClientProvider>
