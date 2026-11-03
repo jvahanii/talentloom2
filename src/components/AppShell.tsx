@@ -499,6 +499,7 @@ function ShellInner({ children }: { children: ReactNode }) {
         </header>
         <main className="flex-1 p-4 md:p-6">{noOrganisation ? <NoOrganisation /> : children}</main>
       </div>
+      {needsOrgChoice && <OrgPicker />}
     </div>
   );
 }
