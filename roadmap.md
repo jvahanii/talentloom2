@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Add existing users to multiple organisations from Superuser account management.
+- [x] Add existing users to multiple organisations from Superuser account management (logic tests pass; signed-in end-to-end check unavailable).
 
 - [x] Signed-in candidates: skip the "Application received" screen and go straight to My applications after submitting.
 - [x] Talentloom Pulse landing page at /pulse with cross-links to and from the home page.
