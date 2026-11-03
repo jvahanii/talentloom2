@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { OrgSettings } from "@/components/OrgSettings";
+import { SkillsInput } from "@/components/SkillsInput";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Talentloom" }] }),
@@ -22,8 +23,9 @@ function Settings() {
   const { theme, setTheme } = useAppTheme();
 
   const [email, setEmail] = useState("");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{ full_name: string; skills: string[] }>({
     full_name: "",
+    skills: [],
   });
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -34,18 +36,20 @@ function Settings() {
       if (!uid) return;
       const { data: p } = (await supabase
         .from("profiles")
-        .select("full_name, email")
+        .select("full_name, email, skills")
         .eq("id", uid)
         .maybeSingle()) as unknown as {
         data: {
           full_name: string | null;
           email: string | null;
+          skills: string[] | null;
         } | null;
       };
       setEmail(p?.email ?? "");
       if (p)
         setForm({
           full_name: p.full_name ?? "",
+          skills: p.skills ?? [],
         });
     })();
   }, []);
@@ -139,6 +143,13 @@ function Settings() {
                 className={inputCls}
               />
             </label>
+            <div className="block sm:col-span-2">
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">Skills</span>
+              <SkillsInput value={form.skills} onChange={(skills) => patch({ skills })} />
+              <span className="mt-1 block text-xs text-muted-foreground">
+                Shown to people in your organisations on the People page.
+              </span>
+            </div>
           </div>
           <button
             onClick={saveProfile}

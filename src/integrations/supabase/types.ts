@@ -378,6 +378,7 @@ export type Database = {
           job_title_other: string | null
           onboarding_completed_at: string | null
           onboarding_step: number
+          skills: string[]
           updated_at: string
         }
         Insert: {
@@ -394,6 +395,7 @@ export type Database = {
           job_title_other?: string | null
           onboarding_completed_at?: string | null
           onboarding_step?: number
+          skills?: string[]
           updated_at?: string
         }
         Update: {
@@ -410,6 +412,7 @@ export type Database = {
           job_title_other?: string | null
           onboarding_completed_at?: string | null
           onboarding_step?: number
+          skills?: string[]
           updated_at?: string
         }
         Relationships: []
