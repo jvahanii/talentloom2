@@ -70,7 +70,8 @@ function Landing() {
               PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way foster adaptiveness by multilearning, conducting satisfaction surveys, and matching people to new opportunities.  
+              A faster, cleaner and free way foster adaptiveness by multilearning, conducting
+              satisfaction surveys, and matching people to new opportunities.  
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
@@ -141,7 +142,8 @@ function Landing() {
               </span>
               <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">Talentloom Pulse</h2>
               <p className="text-soft mt-1 text-sm sm:text-base">
-                Run longitudinal surveys and structured interviews to gauge the well-being of your employees and assess other surveyable issues.
+                Run longitudinal surveys and structured interviews to gauge the well-being of your
+                employees and assess other surveyable issues.
               </p>
             </div>
             <span className="btn-mint shrink-0 rounded-xl px-5 py-2.5 text-sm font-medium">
@@ -230,7 +232,7 @@ const SKILL_FEATURES = [
   {
     icon: Link2,
     t: "People who learn together",
-            d: "Drag one name onto another to pair people up to teach and learn a skill. The one who knows it best and the one who wants to grow, side by side.",
+    d: "Drag one name onto another to pair people up to teach and learn a skill. The one who knows it best and the one who wants to grow, side by side.",
   },
   {
     icon: Network,
@@ -245,12 +247,82 @@ const SKILL_FEATURES = [
 ];
 
 /** A small skill card as it looks in the app: who has the skill, at what level, and who learns together. */
-const SAMPLE: { name: string; level: SkillLevel; pair?: number }[] = [
-  { name: "Aino", level: 4, pair: 1 },
-  { name: "Mikko", level: 3 },
-  { name: "Sara", level: 2, pair: 1 },
-  { name: "Leo", level: 1 },
+const SAMPLE: { skill: string; people: { name: string; level: SkillLevel; pair?: number }[] }[] = [
+  {
+    skill: "Facilitation",
+    people: [
+      { name: "Aino", level: 4, pair: 1 },
+      { name: "Mikko", level: 3 },
+      { name: "Sara", level: 2, pair: 1 },
+      { name: "Leo", level: 1 },
+    ],
+  },
+  {
+    skill: "Coaching",
+    people: [
+      { name: "Mikko", level: 4, pair: 1 },
+      { name: "Elina", level: 3 },
+      { name: "Leo", level: 1, pair: 1 },
+    ],
+  },
+  {
+    skill: "Data analysis",
+    people: [
+      { name: "Sara", level: 4, pair: 1 },
+      { name: "Juho", level: 3, pair: 2 },
+      { name: "Aino", level: 2, pair: 1 },
+      { name: "Elina", level: 1, pair: 2 },
+    ],
+  },
 ];
+
+function SampleSkillCard({ skill, people }: (typeof SAMPLE)[number]) {
+  const pairs = [...new Set(people.map((p) => p.pair).filter((p): p is number => !!p))];
+  return (
+    <div className="flex h-full flex-col rounded-2xl border-2 border-border bg-card p-4 shadow-[0_4px_0_var(--brand-mint)]">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="truncate font-semibold">{skill}</p>
+        <span className="shrink-0 text-xs text-muted-foreground">{people.length} people</span>
+      </div>
+      <ul className="mt-3 flex-1 space-y-1.5">
+        {people.map((p) => (
+          <li key={p.name} className="flex items-center justify-between gap-2 text-sm">
+            <span className="flex items-center gap-1">
+              {p.name}
+              {p.pair && (
+                <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                  {p.pair}
+                </span>
+              )}
+            </span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level)}`}
+            >
+              {SAMPLE_LEVELS[p.level]}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 space-y-1 border-t-2 border-dashed border-border pt-3 text-xs">
+        <p className="font-semibold text-muted-foreground">Learning with</p>
+        {pairs.map((n) => (
+          <p key={n} className="flex flex-wrap items-center gap-1">
+            <span className="rounded-full bg-primary/15 px-1.5 font-semibold text-primary">
+              {n}
+            </span>
+            {people
+              .filter((p) => p.pair === n)
+              .map((p) => (
+                <span key={p.name} className="rounded-full bg-secondary px-2 py-0.5">
+                  {p.name}
+                </span>
+              ))}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
 const SAMPLE_LEVELS = ["", "Novice", "Basic", "Advanced", "Master"];
 
 function SkillsShowcase({
@@ -263,15 +335,19 @@ function SkillsShowcase({
   return (
     <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
       <div className="glass rounded-3xl p-6 sm:p-10">
-        <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
           <div>
             <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
               Skills &amp; multilearning
             </span>
-            <h2 className="font-display mt-3 text-3xl font-bold">See and spread what your people know.</h2>
+            <h2 className="font-display mt-3 text-3xl font-bold">
+              See and spread what your people know.
+            </h2>
             <p className="text-soft mt-3 max-w-xl text-sm sm:text-base">
               Talentloom turns the know-how scattered across your organisation into something you
-              can see and grow: who has which skill, how well, and who could - and should - learn it from whom. Fostering the creation of multi-skilled people and teams is the basis for true agility!
+              can see and grow: who has which skill, how well, and who could - and should - learn it
+              from whom. Fostering the creation of multi-skilled people and teams is the basis for
+              true agility!
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
@@ -291,45 +367,17 @@ function SkillsShowcase({
               </Link>
             </div>
           </div>
+        </div>
 
-          <div
-            className="rounded-2xl border-2 border-border bg-card p-4 shadow-[0_4px_0_var(--brand-mint)]"
-            aria-label="Example of a skill card"
-          >
-            <div className="flex items-baseline justify-between">
-              <p className="font-semibold">Facilitation</p>
-              <span className="text-xs text-muted-foreground">4 people</span>
+        <div
+          className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          aria-label="Examples of skill cards"
+        >
+          {SAMPLE.map((c, i) => (
+            <div key={c.skill} className={i === 2 ? "sm:col-span-2 lg:col-span-1" : ""}>
+              <SampleSkillCard {...c} />
             </div>
-            <ul className="mt-3 space-y-1.5">
-              {SAMPLE.map((p) => (
-                <li key={p.name} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex items-center gap-1">
-                    {p.name}
-                    {p.pair && (
-                      <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
-                        {p.pair}
-                      </span>
-                    )}
-                  </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level)}`}
-                  >
-                    {SAMPLE_LEVELS[p.level]}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-3 border-t-2 border-dashed border-border pt-3 text-xs">
-              <p className="font-semibold text-muted-foreground">Learning with</p>
-              <p className="mt-1 flex items-center gap-1">
-                <span className="rounded-full bg-primary/15 px-1.5 font-semibold text-primary">
-                  1
-                </span>
-                <span className="rounded-full bg-secondary px-2 py-0.5">Aino</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5">Sara</span>
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
