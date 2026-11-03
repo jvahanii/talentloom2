@@ -59,7 +59,8 @@ function Settings() {
     try {
       const uid = await getMyProfileId();
       if (!uid) throw new Error("Not authenticated");
-      const { error } = await supabase.from("profiles").update(form).eq("id", uid);
+      // `skills` lives in the external database; Lovable regenerates types.ts without it.
+      const { error } = await supabase.from("profiles").update(form as never).eq("id", uid);
       if (error) throw error;
       toast.success("Saved");
     } catch (e) {
