@@ -258,7 +258,16 @@ function AdminPage() {
           className="ml-auto w-full max-w-xs"
           aria-label="Search"
         />
+        <Button onClick={() => setAddOpen(true)}>
+          <UserPlus className="h-4 w-4" /> Add user
+        </Button>
       </div>
+      <AddUserDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        organisations={data.organisations}
+        onAdded={() => qc.invalidateQueries({ queryKey: ["admin-overview"] })}
+      />
 
       <Tabs defaultValue="organisations">
         <TabsList className="flex-wrap">
