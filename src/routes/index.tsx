@@ -66,10 +66,11 @@ function Landing() {
           <div className="absolute inset-0 bg-gradient-to-br from-[rgba(55,40,65,0.92)] via-[rgba(110,50,85,0.88)] to-[rgba(30,90,75,0.86)]" />
           <div className="relative">
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
-              Hiring should feel human — for everyone
+              Free HR suite
+              for the people
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way to match people to new opportunities
+              A faster, cleaner and free way to match people to new opportunities, conduct satisfaction studies, and foster adaptiveness by multilearning
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
@@ -80,11 +81,12 @@ function Landing() {
               >
                 <Briefcase className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">
-                  We're hiring
+                  Hiring &amp; Multilearning
                 </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Give candidates a standout experience while keeping all positions and processes
-                  flowing
+                  Give candidates a standout hiring experience 
+
+                  Foster your organization's adaptiveness through multilearning and organziational transfer of learning
                 </span>
                 <span
                   className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
