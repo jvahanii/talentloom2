@@ -140,7 +140,7 @@ function Landing() {
               </span>
               <h2 className="font-display mt-2 text-2xl font-bold sm:text-3xl">Talentloom Pulse</h2>
               <p className="text-soft mt-1 text-sm sm:text-base">
-                A free solution for running longitudinal surveys and structured interviews.
+                Run longitudinal surveys and structured interviews to gauge the well-being of your employees and assess other surveyable issues.
               </p>
             </div>
             <span className="btn-mint shrink-0 rounded-xl px-5 py-2.5 text-sm font-medium">
@@ -231,12 +231,12 @@ const SKILL_FEATURES = [
   {
     icon: Link2,
     t: "Learn together",
-    d: "Drag one name onto another to pair people up to learn a skill. The one who knows it best and the one who wants to grow, side by side.",
+            d: "Drag one name onto another to pair people up to teach and learn a skill. The one who knows it best and the one who wants to grow, side by side.",
   },
   {
     icon: Network,
     t: "Teams that know their strengths",
-    d: "Group people into teams and see at a glance which skills each team has, and how deep they go.",
+    d: "See at a glance which skills each team possesses, and how deep they go.",
   },
   {
     icon: Merge,
@@ -269,10 +269,10 @@ function SkillsShowcase({
             <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
               Skills &amp; multilearning
             </span>
-            <h2 className="font-display mt-3 text-3xl font-bold">Know what your people know.</h2>
+            <h2 className="font-display mt-3 text-3xl font-bold">See and spread what your people know.</h2>
             <p className="text-soft mt-3 max-w-xl text-sm sm:text-base">
               Talentloom turns the know-how scattered across your organisation into something you
-              can see and grow: who has which skill, how well, and who could learn it from whom.
+              can see and grow: who has which skill, how well, and who could - and should - learn it from whom. Fostering the creation of multi-skilled people and teams is the basis for true agility!
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
