@@ -133,23 +133,33 @@ export function isStaleBuildError(error: unknown): boolean {
   );
 }
 
-/** Auto-reload at most once per this window, per tab. */
-export const RELOAD_COOLDOWN_MS = 30_000;
-const RELOAD_KEY = "staleBuildReloadedAt";
+/**
+ * Pauses before each automatic reload. Right after a deployment a file of the
+ * new version can be missing for a moment, so one immediate reload isn't
+ * always enough: a few, further apart, ride it out.
+ */
+export const RELOAD_DELAYS_MS = [1_000, 3_000, 8_000];
+/** Attempts older than this don't count, so a later failure starts afresh. */
+export const RELOAD_WINDOW_MS = 120_000;
+const RELOAD_KEY = "staleBuildReloads";
 
 /**
- * Reloads onto a fresh page once, then leaves it to the person. The time is kept
- * in sessionStorage because it has to survive the reload it guards against;
- * without storage we never auto-reload, rather than risk a loop.
+ * Plans the next automatic reload after a stale-file error: returns how long
+ * to wait first, or null once the attempts in this window are used up. The
+ * attempts are kept in sessionStorage because they have to survive the reloads
+ * they count; without storage we never auto-reload, rather than risk a loop.
  */
-export function autoReloadOnce(nav: BuildNavigator = browserNavigator): boolean {
+export function nextAutoReload(now = Date.now()): number | null {
   try {
-    const last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0;
-    if (Date.now() - last < RELOAD_COOLDOWN_MS) return false;
-    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+    const saved = JSON.parse(sessionStorage.getItem(RELOAD_KEY) ?? "null") as {
+      first: number;
+      count: number;
+    } | null;
+    const state = saved && now - saved.first < RELOAD_WINDOW_MS ? saved : { first: now, count: 0 };
+    if (state.count >= RELOAD_DELAYS_MS.length) return null;
+    sessionStorage.setItem(RELOAD_KEY, JSON.stringify({ ...state, count: state.count + 1 }));
+    return RELOAD_DELAYS_MS[state.count];
   } catch {
-    return false;
+    return null;
   }
-  reloadFreshPage(nav);
-  return true;
 }

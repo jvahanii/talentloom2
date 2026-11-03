@@ -8,7 +8,7 @@ import {
   Scripts,
   type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ClerkProvider, useAuth } from "@clerk/clerk-react";
 
 import appCss from "../styles.css?url";
@@ -17,7 +17,7 @@ import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk";
 import { Toaster } from "@/components/ui/sonner";
 import { AppThemeProvider } from "@/hooks/useAppTheme";
 import { UpdateBanner } from "@/components/UpdateBanner";
-import { autoReloadOnce, isStaleBuildError, reloadFreshPage } from "@/lib/appVersion";
+import { isStaleBuildError, nextAutoReload, reloadFreshPage } from "@/lib/appVersion";
 
 function NotFoundComponent() {
   return (
@@ -38,13 +38,36 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
-  const err = error instanceof Error ? error : new Error(String(error));
+  // Stable across renders, so the effect below runs (and counts a reload) once per error.
+  const err = useMemo(() => (error instanceof Error ? error : new Error(String(error))), [error]);
   const stale = isStaleBuildError(err);
+  // A code file missing around a deployment: a fresh reload or a few usually fix it.
+  const [reloading, setReloading] = useState(stale);
   useEffect(() => {
-    // A code file missing after a deployment: one fresh reload usually fixes it.
-    if (stale && autoReloadOnce()) return;
+    if (stale) {
+      const wait = nextAutoReload();
+      if (wait !== null) {
+        setReloading(true);
+        const timer = window.setTimeout(() => reloadFreshPage(), wait);
+        return () => window.clearTimeout(timer);
+      }
+    }
+    setReloading(false);
     reportLovableError(err, { boundary: "tanstack_root_error_component" });
   }, [err, stale]);
+
+  if (reloading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="glass rounded-3xl p-10 max-w-md text-center" role="status">
+          <h1 className="text-xl font-semibold">Loading the latest version…</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Talentloom was just updated. This takes a few seconds.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="glass rounded-3xl p-10 max-w-md text-center">
