@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/app-auth-middleware";
 import { z } from "zod";
+import { addMembershipsSchema, assertSuperuser, planMemberships } from "./admin-memberships";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
@@ -26,7 +27,7 @@ export type AdminOverview = {
     email: string | null;
     createdAt: string;
     types: AccountType[];
-    organisations: { name: string; title: string | null }[];
+    organisations: { id: string; name: string; title: string | null }[];
     applications: number;
     surveysOwned: number;
     /** Surveys this account owns outright; they are deleted with the account. */
@@ -186,6 +187,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
             createdAt: p.created_at as string,
             types,
             organisations: mine.map((m) => ({
+              id: m.org_id as string,
               name: orgName.get(m.org_id) ?? "Unknown",
               title: titleName.get(m.title_id) ?? (m.role as string | null),
             })),
@@ -233,7 +235,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
 
 async function requireSuperuser(context: { supabase: unknown }) {
   const { data } = await (context.supabase as Loose).rpc("is_superuser");
-  if (data !== true) throw new Error("Only a superuser can do this");
+  assertSuperuser(data);
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   return supabaseAdmin as Loose;
 }
@@ -241,6 +243,31 @@ async function requireSuperuser(context: { supabase: unknown }) {
 const must = (res: { error: { message: string } | null }, what: string) => {
   if (res.error) throw new Error(`${what}: ${res.error.message}`);
 };
+
+/** Add memberships without changing or removing any existing role. */
+export const adminAddMemberships = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string; orgIds: string[] }) => addMembershipsSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const admin = await requireSuperuser(context);
+    const { data: profile, error: profileError } = await admin.from("profiles")
+      .select("id").eq("id", data.userId).maybeSingle();
+    must({ error: profileError }, "Account");
+    if (!profile) throw new Error("Account not found");
+    const orgIds = [...new Set(data.orgIds)];
+    const [memberships, titles] = await Promise.all([
+      admin.from("organization_members").select("org_id").eq("user_id", data.userId).in("org_id", orgIds),
+      admin.from("organization_titles").select("id, org_id").in("org_id", orgIds).eq("name", "Member").eq("is_system", true),
+    ]);
+    must(memberships, "Memberships");
+    must(titles, "Organisation titles");
+    const rows = planMemberships(data.userId, orgIds, memberships.data ?? [], titles.data ?? []);
+    if (!rows.length) return { added: 0 };
+    const result = await admin.from("organization_members")
+      .upsert(rows, { onConflict: "org_id,user_id", ignoreDuplicates: true }).select("org_id");
+    must(result, "Organisation memberships");
+    return { added: result.data?.length ?? 0 };
+  });
 
 /** Deletes an organisation with its candidates, positions, history, invites and survey links. */
 export const adminDeleteOrganisation = createServerFn({ method: "POST" })
