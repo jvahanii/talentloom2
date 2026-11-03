@@ -17,6 +17,14 @@ import {
   updateTeam,
   type Team,
 } from "@/lib/teams";
+import {
+  readSkills,
+  skillLevelColor,
+  skillLevelLabel,
+  type Skill,
+  type SkillLevel,
+} from "@/lib/skills";
+import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -25,7 +33,34 @@ export const Route = createFileRoute("/_authenticated/teams")({
   component: TeamsPage,
 });
 
-type Member = { userId: string; label: string };
+type Member = { userId: string; label: string; skills: Skill[] };
+
+/** A skill in a team: who has it, and the highest level among them. */
+type TeamSkill = {
+  name: string;
+  best: SkillLevel | null;
+  holders: { label: string; level: SkillLevel | null }[];
+};
+
+function teamSkills(memberIds: string[], people: Member[]): TeamSkill[] {
+  const byKey = new Map<string, TeamSkill>();
+  for (const p of people) {
+    if (!memberIds.includes(p.userId)) continue;
+    for (const s of p.skills) {
+      const key = s.name.toLowerCase();
+      const entry = byKey.get(key) ?? { name: s.name, best: null, holders: [] };
+      entry.holders.push({ label: p.label, level: s.level });
+      if (s.level !== null && (entry.best === null || s.level > entry.best)) entry.best = s.level;
+      byKey.set(key, entry);
+    }
+  }
+  return [...byKey.values()].sort(
+    (a, b) =>
+      b.holders.length - a.holders.length ||
+      (b.best ?? 0) - (a.best ?? 0) ||
+      a.name.localeCompare(b.name),
+  );
+}
 
 const selectCls =
   "h-9 min-w-0 rounded-xl border border-input bg-white/70 px-2 text-sm outline-none focus:border-teal-500 dark:bg-white/5";
@@ -55,11 +90,24 @@ function TeamsPage() {
       if (!ids.length) return [];
       const { data: profiles, error: pError } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        // The skill columns live in the external database; Lovable regenerates types.ts without them.
+        .select("id, full_name, email, skills, skill_levels" as "id, full_name, email")
         .in("id", ids);
       if (pError) throw pError;
-      return (profiles ?? [])
-        .map((p) => ({ userId: p.id, label: p.full_name || p.email || "Unnamed" }))
+      return (
+        (profiles ?? []) as unknown as {
+          id: string;
+          full_name: string | null;
+          email: string | null;
+          skills: string[] | null;
+          skill_levels: unknown;
+        }[]
+      )
+        .map((p) => ({
+          userId: p.id,
+          label: p.full_name || p.email || "Unnamed",
+          skills: readSkills(p.skills, p.skill_levels),
+        }))
         .sort((a, b) => a.label.localeCompare(b.label));
     },
   });
@@ -299,6 +347,8 @@ function TeamCard({
         {!members.length && <li className="text-sm text-muted-foreground">Nobody yet</li>}
       </ul>
 
+      {members.length > 0 && <TeamSkills skills={teamSkills(members, people)} />}
+
       {canManage && others.length > 0 && (
         <div className="mt-3 flex items-center gap-1.5 border-t-2 border-dashed border-border pt-3">
           <select
@@ -326,6 +376,41 @@ function TeamCard({
             Add
           </Button>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Every skill someone in the team has, coloured by the best level in the team. */
+function TeamSkills({ skills }: { skills: TeamSkill[] }) {
+  const levelNames = useSkillLevelNames();
+  return (
+    <div className="mt-3 border-t-2 border-dashed border-border pt-3">
+      <p className="text-xs font-semibold text-muted-foreground">Skills in the team</p>
+      {skills.length ? (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {skills.map((s) => (
+            <span
+              key={s.name}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(s.best)}`}
+              title={s.holders
+                .map(
+                  (h) =>
+                    `${h.label}${h.level !== null ? ` · ${skillLevelLabel(h.level, levelNames)}` : ""}`,
+                )
+                .join("\n")}
+            >
+              {s.name}
+              {s.holders.length > 1 && (
+                <span className="ml-1 opacity-70">· {s.holders.length}</span>
+              )}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Nobody in the team has added skills yet.
+        </p>
       )}
     </div>
   );
