@@ -229,13 +229,13 @@ const SKILL_FEATURES = [
   },
   {
     icon: Link2,
-    t: "Learn together",
+    t: "People who learn together",
             d: "Drag one name onto another to pair people up to teach and learn a skill. The one who knows it best and the one who wants to grow, side by side.",
   },
   {
     icon: Network,
-    t: "Teams that know their strengths",
-    d: "See at a glance which skills each team possesses, and how deep they go.",
+    t: "Teams that learn from each other",
+    d: "See at a glance which skills each team possesses, and how deep they go to create meaningful cross-team learning relationships",
   },
   {
     icon: Merge,
