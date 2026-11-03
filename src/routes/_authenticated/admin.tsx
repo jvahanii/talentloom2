@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ShieldCheck, Trash2, UserPlus } from "lucide-react";
+import { Building2, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
   adminAddAccount,
+  adminAddMemberships,
   adminDeleteOrganisation,
   adminDeleteSurvey,
   adminRemoveAccount,
@@ -17,13 +18,20 @@ import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
-    meta: [{ title: "Superuser — Talentloom" }, { name: "robots", content: "noindex" }],
+    meta: [
+      { title: "Superuser — Talentloom" }, { name: "robots", content: "noindex" },
+      { name: "description", content: "Manage Talentloom accounts, organisation memberships and surveys." },
+      { property: "og:title", content: "Superuser — Talentloom" },
+      { property: "og:description", content: "Manage Talentloom accounts, organisation memberships and surveys." },
+      { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" },
+    ],
   }),
   component: AdminPage,
 });
@@ -149,6 +157,53 @@ function AddUserDialog({
   );
 }
 
+function AddOrganisationsDialog({ account, organisations, onClose, onAdded }: {
+  account: AdminOverview["accounts"][number];
+  organisations: AdminOverview["organisations"];
+  onClose: () => void;
+  onAdded: () => Promise<void>;
+}) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const joined = new Set(account.organisations.map((o) => o.id));
+  const submit = async () => {
+    if (!selected.length || saving) return;
+    setSaving(true);
+    try {
+      const result = await adminAddMemberships({ data: { userId: account.id, orgIds: selected } });
+      toast.success(result.added ? `Added to ${result.added} organisation${result.added === 1 ? "" : "s"}` : "Already a member of the selected organisations");
+      await onAdded();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add organisation memberships");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose(); }}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Add to organisations</DialogTitle></DialogHeader>
+        <p className="break-words text-sm font-medium">{account.name || account.email || "Account"}</p>
+        <div className="max-h-72 space-y-2 overflow-y-auto">
+          {organisations.length === 0 && <p className="text-sm text-muted-foreground">No organisations available.</p>}
+          {organisations.map((o) => (
+            <Label key={o.id} className="flex items-center gap-3 rounded-lg border border-border p-3" htmlFor={`join-${o.id}`}>
+              <Checkbox id={`join-${o.id}`} checked={joined.has(o.id) || selected.includes(o.id)} disabled={saving || joined.has(o.id)}
+                onCheckedChange={(checked) => setSelected((ids) => checked === true ? [...ids, o.id] : ids.filter((id) => id !== o.id))} />
+              <span className="min-w-0 break-words">{o.name}<span className="block text-xs text-muted-foreground">{joined.has(o.id) ? "Already a member" : "Member"}</span></span>
+            </Label>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" disabled={saving} onClick={onClose}>Cancel</Button>
+          <Button disabled={saving || !selected.length} onClick={submit}>{saving ? "Adding…" : "Add to organisations"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AdminPage() {
   const navigate = useNavigate();
   const { setOrgId, refresh } = useOrg();
@@ -156,6 +211,7 @@ function AdminPage() {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [membershipAccount, setMembershipAccount] = useState<AdminOverview["accounts"][number] | null>(null);
 
   const deleteOrganisation = async (o: AdminOverview["organisations"][number]) => {
     const typed = window.prompt(
@@ -268,6 +324,14 @@ function AdminPage() {
         organisations={data.organisations}
         onAdded={() => qc.invalidateQueries({ queryKey: ["admin-overview"] })}
       />
+      {membershipAccount && (
+        <AddOrganisationsDialog account={membershipAccount} organisations={data.organisations}
+          onClose={() => setMembershipAccount(null)}
+          onAdded={async () => {
+            refresh();
+            await qc.invalidateQueries({ queryKey: ["admin-overview"] });
+          }} />
+      )}
 
       <Tabs defaultValue="organisations">
         <TabsList className="flex-wrap">
@@ -352,6 +416,11 @@ function AdminPage() {
                 </td>
                 <td className={`${td} whitespace-nowrap`}>{formatDate(a.createdAt)}</td>
                 <td className={td}>
+                  <Button size="sm" variant="ghost" disabled={busyId === a.id}
+                    onClick={() => setMembershipAccount(a)}
+                    aria-label={`Add ${a.email ?? a.name ?? "account"} to organisations`} title="Add to organisations">
+                    <Building2 className="h-4 w-4" />
+                  </Button>
                   {!a.types.includes("Superuser") && (
                     <Button
                       size="sm"
