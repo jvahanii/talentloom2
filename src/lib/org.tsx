@@ -280,8 +280,8 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   // Priority: this browser's choice → last used (saved on profile) → own
   // membership (only one = that one) → anything listed.
   const current =
-    orgs.find((o) => o.org_id === selected) ??
     orgs.find((o) => o.org_id === lastOrgFromProfile) ??
+    orgs.find((o) => o.org_id === selected) ??
     orgs.find((o) => !o.viaSuperuser) ??
     orgs[0] ??
     null;
@@ -290,8 +290,9 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   // Ask the person to choose an organisation when they have several of their
   // own and nothing remembers a previous choice (this browser or the profile).
   const ownOrgs = orgs.filter((o) => !o.viaSuperuser);
+  // Only the choice saved on the profile counts; an old choice left in this
+  // browser must not hide the picker.
   const hasRemembered =
-    (selected != null && orgs.some((o) => o.org_id === selected)) ||
     (lastOrgFromProfile != null && orgs.some((o) => o.org_id === lastOrgFromProfile));
   const needsOrgChoice = signedIn && q.isSuccess && !hasRemembered && ownOrgs.length >= 2;
 
