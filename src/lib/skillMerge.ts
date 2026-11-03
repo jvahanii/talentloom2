@@ -43,6 +43,83 @@ function distance(a: string, b: string): number {
   return prev[b.length];
 }
 
+/**
+ * Derivational endings that make a different word form of the same skill:
+ * Finnish (ratsasta-minen / ratsast-us, ohjelmoi-nti, mentor-ointi) and
+ * English (coach-ing, manage-ment). Longest first; one is removed.
+ */
+const WORD_ENDINGS = [
+  "aminen",
+  "äminen",
+  "minen",
+  "ation",
+  "ointi",
+  "öinti",
+  "ment",
+  "inti",
+  "uus",
+  "yys",
+  "ing",
+  "nta",
+  "ntä",
+  "us",
+  "ys",
+];
+
+/** The word without its ending, and without a final vowel (suunnittel-u / suunnittel-e-minen). */
+function stem(word: string): string {
+  // Endings before the English plural, or "johtajuus" would lose its s first.
+  const cut = (w: string) => WORD_ENDINGS.find((e) => w.endsWith(e) && w.length - e.length >= 3);
+  const ending = cut(word);
+  const w = ending ? word : singular(word);
+  const end = ending ?? cut(w);
+  const base = end ? w.slice(0, -end.length) : w;
+  return base.length > 4 ? base.replace(/[aeiouyäö]$/, "") : base;
+}
+
+/** Same stem, or one stem the other plus a letter or two (ratsast / ratsasta, opet / opett). */
+function sameStem(a: string, b: string): boolean {
+  if (a === b) return a.length >= 4;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length >= 4 && long.startsWith(short) && long.length - short.length <= 2;
+}
+
+/** Whether two names are the same words in other forms, word by word ("Ratsastaminen" / "Ratsastus"). */
+function sameWordForms(a: string, b: string): boolean {
+  const words = (s: string) =>
+    s
+      .split(/[\s\-_/]+/)
+      .map(normaliseSkill)
+      .filter(Boolean);
+  const wa = words(a);
+  const wb = words(b);
+  if (!wa.length || wa.length !== wb.length) return false;
+  // Words match as they are or by a stem long enough to mean something.
+  return wa.every((w, i) => w === wb[i] || sameStem(stem(w), stem(wb[i])));
+}
+
+/**
+ * A typo is one word off by a letter (words of 5+) or two (9+); the other
+ * words must match, so "Project management" isn't "Product management".
+ * Words run together or apart ("Data base" / "Database") compare as one.
+ */
+function isTypo(a: string, b: string): boolean {
+  const words = (s: string) =>
+    s
+      .split(/[\s\-_/]+/)
+      .map(normaliseSkill)
+      .filter(Boolean);
+  const wa = words(a);
+  const wb = words(b);
+  const [pa, pb] = wa.length === wb.length ? [wa, wb] : [[wa.join("")], [wb.join("")]];
+  const differing = pa.map((w, i) => [w, pb[i]]).filter(([x, y]) => x !== y);
+  if (differing.length !== 1) return false;
+  const [x, y] = differing[0];
+  const len = Math.min(x.length, y.length);
+  const allowed = len >= 9 ? 2 : len >= 5 ? 1 : 0;
+  return allowed > 0 && distance(x, y) <= allowed;
+}
+
 function initials(name: string): string {
   const words = name
     .toLowerCase()
@@ -65,10 +142,10 @@ export function similarity(a: string, b: string): string | null {
   if ((ia && ia === nb && nb.length >= 2) || (ib && ib === na && na.length >= 2)) {
     return "Abbreviation";
   }
-  // Typos: one letter off in names of 5+, two in names of 9+. Numbers must match ("Level 2" ≠ "Level 3").
+  // Numbers must match ("Level 2" ≠ "Level 3").
   if (short.replace(/\D/g, "") !== long.replace(/\D/g, "")) return null;
-  const allowed = short.length >= 9 ? 2 : short.length >= 5 ? 1 : 0;
-  if (allowed && distance(na, nb) <= allowed) return "Possible typo";
+  if (isTypo(a, b)) return "Possible typo";
+  if (sameWordForms(a, b)) return "Same word in another form";
   return null;
 }
 
