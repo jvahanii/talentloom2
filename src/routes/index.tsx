@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, UserRound } from "lucide-react";
+import { Briefcase, Link2, Merge, Network, Sparkles, UserRound } from "lucide-react";
+import { skillLevelColor, type SkillLevel } from "@/lib/skills";
 import { MarketingShell } from "@/components/MarketingShell";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useSession } from "@/lib/auth";
@@ -69,7 +70,8 @@ function Landing() {
               PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way foster adaptiveness by multilearning, conduct satisfaction studies, and match people to new opportunities.  
+              A faster, cleaner and free way foster adaptiveness by multilearning, conduct
+              satisfaction studies, and match people to new opportunities.  
             </p>
             <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
               <Link
@@ -83,9 +85,8 @@ function Landing() {
                   Hiring &amp; Multilearning
                 </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Give candidates a standout hiring experience 
-
-                  Foster your organization's adaptiveness through multilearning and organziational transfer of learning
+                  Give candidates a standout hiring experience  Foster your organization's
+                  adaptiveness through multilearning and organziational transfer of learning
                 </span>
                 <span
                   className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
@@ -149,6 +150,8 @@ function Landing() {
         </Link>
       </section>
 
+      <SkillsShowcase hasOrganisation={hasOrganisation} loading={orgsLoading} />
+
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <h2 className="font-display text-3xl font-bold text-center">
           Less busywork. Better hiring.
@@ -200,6 +203,14 @@ function Landing() {
                 does not — see the Docs page for details.
               </AccordionContent>
             </AccordionItem>
+            <AccordionItem value="skills">
+              <AccordionTrigger>Who can see my skills?</AccordionTrigger>
+              <AccordionContent>
+                The people in the organisations you belong to. You add and level your own skills; in
+                each organisation, only people whose title lets them manage others can change them
+                for you.
+              </AccordionContent>
+            </AccordionItem>
             <AccordionItem value="d" className="border-b-0">
               <AccordionTrigger>What sign-in methods are supported?</AccordionTrigger>
               <AccordionContent>Email + password and Continue with Google.</AccordionContent>
@@ -208,5 +219,130 @@ function Landing() {
         </div>
       </section>
     </MarketingShell>
+  );
+}
+
+const SKILL_FEATURES = [
+  {
+    icon: Sparkles,
+    t: "Map who knows what",
+    d: "Everyone lists their skills with a level from Novice to Master — in your organisation's own words. See every skill in one place, colour-coded by level.",
+  },
+  {
+    icon: Link2,
+    t: "Learn together",
+    d: "Drag one name onto another to pair people up to learn a skill. The one who knows it best and the one who wants to grow, side by side.",
+  },
+  {
+    icon: Network,
+    t: "Teams that know their strengths",
+    d: "Group people into teams and see at a glance which skills each team has, and how deep they go.",
+  },
+  {
+    icon: Merge,
+    t: "A skill list that stays tidy",
+    d: "Existing skills are suggested as you type, and look-alikes such as Workshop and Workshops, or Ratsastaminen and Ratsastus, are offered for merging.",
+  },
+];
+
+/** A small skill card as it looks in the app: who has the skill, at what level, and who learns together. */
+const SAMPLE: { name: string; level: SkillLevel; pair?: number }[] = [
+  { name: "Aino", level: 4, pair: 1 },
+  { name: "Mikko", level: 3 },
+  { name: "Sara", level: 2, pair: 1 },
+  { name: "Leo", level: 1 },
+];
+const SAMPLE_LEVELS = ["", "Novice", "Basic", "Advanced", "Master"];
+
+function SkillsShowcase({
+  hasOrganisation,
+  loading,
+}: {
+  hasOrganisation: boolean;
+  loading: boolean;
+}) {
+  return (
+    <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+      <div className="glass rounded-3xl p-6 sm:p-10">
+        <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
+              Skills &amp; multilearning
+            </span>
+            <h2 className="font-display mt-3 text-3xl font-bold">Know what your people know.</h2>
+            <p className="text-soft mt-3 max-w-xl text-sm sm:text-base">
+              Talentloom turns the know-how scattered across your organisation into something you
+              can see and grow: who has which skill, how well, and who could learn it from whom.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                {...(hasOrganisation
+                  ? { to: "/skills" as const }
+                  : { to: "/auth" as const, search: { mode: "signup" as const } })}
+                className={`btn-teal rounded-xl px-5 py-2.5 text-sm font-semibold ${loading ? "invisible" : ""}`}
+              >
+                {hasOrganisation ? "Open Skills" : "Start mapping skills"}
+              </Link>
+              <Link
+                to="/docs"
+                hash="skills"
+                className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+              >
+                How skills work →
+              </Link>
+            </div>
+          </div>
+
+          <div
+            className="rounded-2xl border-2 border-border bg-card p-4 shadow-[0_4px_0_var(--brand-mint)]"
+            aria-label="Example of a skill card"
+          >
+            <div className="flex items-baseline justify-between">
+              <p className="font-semibold">Facilitation</p>
+              <span className="text-xs text-muted-foreground">4 people</span>
+            </div>
+            <ul className="mt-3 space-y-1.5">
+              {SAMPLE.map((p) => (
+                <li key={p.name} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-1">
+                    {p.name}
+                    {p.pair && (
+                      <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                        {p.pair}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level)}`}
+                  >
+                    {SAMPLE_LEVELS[p.level]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 border-t-2 border-dashed border-border pt-3 text-xs">
+              <p className="font-semibold text-muted-foreground">Learning with</p>
+              <p className="mt-1 flex items-center gap-1">
+                <span className="rounded-full bg-primary/15 px-1.5 font-semibold text-primary">
+                  1
+                </span>
+                <span className="rounded-full bg-secondary px-2 py-0.5">Aino</span>
+                <span className="rounded-full bg-secondary px-2 py-0.5">Sara</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {SKILL_FEATURES.map((f) => (
+            <div key={f.t} className="rounded-2xl border-2 border-border bg-card/70 p-5">
+              <f.icon className="h-6 w-6 text-primary" />
+              <h3 className="font-display mt-3 font-semibold">{f.t}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{f.d}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
