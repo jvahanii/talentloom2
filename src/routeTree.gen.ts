@@ -21,6 +21,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
+import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedRequisitionsRouteImport } from './routes/_authenticated/requisitions'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -94,6 +95,11 @@ const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
 const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
   id: '/import',
   path: '/import',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
@@ -188,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
   '/import': typeof AuthenticatedImportRoute
+  '/people': typeof AuthenticatedPeopleRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/requisitions': typeof AuthenticatedRequisitionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/export': typeof AuthenticatedExportRoute
   '/import': typeof AuthenticatedImportRoute
+  '/people': typeof AuthenticatedPeopleRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/requisitions': typeof AuthenticatedRequisitionsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -245,6 +253,7 @@ export interface FileRoutesById {
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
+  '/_authenticated/people': typeof AuthenticatedPeopleRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/requisitions': typeof AuthenticatedRequisitionsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/export'
     | '/import'
+    | '/people'
     | '/pipeline'
     | '/requisitions'
     | '/settings'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/export'
     | '/import'
+    | '/people'
     | '/pipeline'
     | '/requisitions'
     | '/settings'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/_authenticated/analytics'
     | '/_authenticated/export'
     | '/_authenticated/import'
+    | '/_authenticated/people'
     | '/_authenticated/pipeline'
     | '/_authenticated/requisitions'
     | '/_authenticated/settings'
@@ -449,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/people': {
+      id: '/_authenticated/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof AuthenticatedPeopleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/pipeline': {
       id: '/_authenticated/pipeline'
       path: '/pipeline'
@@ -562,6 +581,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
+  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedRequisitionsRoute: typeof AuthenticatedRequisitionsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -577,6 +597,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
+  AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedRequisitionsRoute: AuthenticatedRequisitionsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
