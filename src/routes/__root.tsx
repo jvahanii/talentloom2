@@ -17,6 +17,7 @@ import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk";
 import { Toaster } from "@/components/ui/sonner";
 import { AppThemeProvider } from "@/hooks/useAppTheme";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { autoReloadOnce, isStaleBuildError, reloadFreshPage } from "@/lib/appVersion";
 
 function NotFoundComponent() {
   return (
@@ -38,29 +39,43 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   const err = error instanceof Error ? error : new Error(String(error));
+  const stale = isStaleBuildError(err);
   useEffect(() => {
+    // A code file missing after a deployment: one fresh reload usually fixes it.
+    if (stale && autoReloadOnce()) return;
     reportLovableError(err, { boundary: "tanstack_root_error_component" });
-  }, [err]);
+  }, [err, stale]);
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="glass rounded-3xl p-10 max-w-md text-center">
         <h1 className="text-xl font-semibold">Something went wrong</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          An unexpected error occurred. Please try again.
+          {stale
+            ? "A part of the app couldn't be loaded. A newer version is probably available."
+            : "An unexpected error occurred. Please try again."}
         </p>
         {err.message ? (
           <p className="mt-3 break-words text-xs text-muted-foreground/80">{err.message}</p>
         ) : null}
 
-        <button
-          onClick={() => {
-            router.invalidate();
-            reset();
-          }}
-          className="btn-teal mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
-        >
-          Try again
-        </button>
+        {stale ? (
+          <button
+            onClick={() => reloadFreshPage()}
+            className="btn-teal mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            Load fresh version
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="btn-teal mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
+          >
+            Try again
+          </button>
+        )}
       </div>
     </div>
   );

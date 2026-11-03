@@ -116,3 +116,40 @@ export function stripBuildMarker(): void {
     // An address we cannot rewrite is not worth failing over.
   }
 }
+
+/**
+ * Whether an error looks like this tab asking for a code file that a newer
+ * deployment has replaced. Reloading onto the live build usually fixes it.
+ */
+export function isStaleBuildError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const m = error.message ?? "";
+  return (
+    error.name === "ChunkLoadError" ||
+    m.includes("dynamically imported module") ||
+    m.includes("Importing a module script failed") ||
+    m.includes("Loading chunk") ||
+    m.includes("is not a valid JavaScript MIME type")
+  );
+}
+
+/** Auto-reload at most once per this window, per tab. */
+export const RELOAD_COOLDOWN_MS = 30_000;
+const RELOAD_KEY = "staleBuildReloadedAt";
+
+/**
+ * Reloads onto a fresh page once, then leaves it to the person. The time is kept
+ * in sessionStorage because it has to survive the reload it guards against;
+ * without storage we never auto-reload, rather than risk a loop.
+ */
+export function autoReloadOnce(nav: BuildNavigator = browserNavigator): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0;
+    if (Date.now() - last < RELOAD_COOLDOWN_MS) return false;
+    sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  } catch {
+    return false;
+  }
+  reloadFreshPage(nav);
+  return true;
+}
