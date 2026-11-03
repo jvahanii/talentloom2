@@ -15,11 +15,30 @@ export const ensureMyProfile = createServerFn({ method: "POST" }).handler(async 
     await import("@/integrations/supabase/clerk-sync.server");
   const clerkUserId = await verifyClerkToken(token);
   const profile = await provisionProfileForClerkUser(clerkUserId);
+  let onboardingCompleted = Boolean(profile.onboarding_completed_at);
+  if (!onboardingCompleted) {
+    // People already in an organisation (e.g. added by a superuser or via an
+    // invite) skip onboarding and go straight to their organisation.
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = supabaseAdmin as any;
+    const { count } = await admin
+      .from("organization_members")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", profile.id);
+    if ((count ?? 0) > 0) {
+      await admin
+        .from("profiles")
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq("id", profile.id);
+      onboardingCompleted = true;
+    }
+  }
   return {
     id: profile.id,
     email: profile.email ?? null,
     fullName: profile.full_name ?? null,
-    onboardingCompleted: Boolean(profile.onboarding_completed_at),
+    onboardingCompleted,
   };
 });
 
