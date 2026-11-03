@@ -549,7 +549,7 @@ function Interview({ data, onChange }: { data: SurveyData; onChange: () => void 
         <div className="space-y-1">
           <Label>Interviewee (round {openRound.number})</Label>
           <Select value={person} onValueChange={setPerson}>
-            <SelectTrigger className="w-72"><SelectValue placeholder="Choose a person" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-72"><SelectValue placeholder="Choose a person" /></SelectTrigger>
             <SelectContent>
               {data.respondents.map((p) => (
                 <SelectItem key={p.id} value={p.id}>

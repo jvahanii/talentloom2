@@ -151,7 +151,7 @@ export function NewCandidateDialog({
               </option>
             ))}
           </select>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <select
               value={source}
               onChange={(e) => setSource(e.target.value)}
@@ -175,7 +175,7 @@ export function NewCandidateDialog({
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FilePick label="CV" file={cv} onPick={(f) => pickFile(f, setCv)} />
             <FilePick label="Cover letter" file={cover} onPick={(f) => pickFile(f, setCover)} />
           </div>
