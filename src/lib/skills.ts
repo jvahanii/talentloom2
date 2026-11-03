@@ -33,6 +33,39 @@ export function skillLevelLabel(
   return level === null ? null : (names[level - 1] ?? null);
 }
 
+/** A skill name already used in the organisation, and how many people have it. */
+export type KnownSkill = { name: string; count: number };
+
+/**
+ * Existing skills matching what's being typed: names starting with it first,
+ * then names containing it, the most common first. Skips ones in `exclude`.
+ */
+export function suggestSkills(
+  known: KnownSkill[],
+  typed: string,
+  exclude: string[] = [],
+  limit = 6,
+): KnownSkill[] {
+  const q = typed.trim().toLowerCase();
+  if (!q) return [];
+  const skip = new Set(exclude.map((n) => n.toLowerCase()));
+  return known
+    .filter((k) => !skip.has(k.name.toLowerCase()) && k.name.toLowerCase().includes(q))
+    .sort(
+      (a, b) =>
+        Number(b.name.toLowerCase().startsWith(q)) - Number(a.name.toLowerCase().startsWith(q)) ||
+        b.count - a.count ||
+        a.name.localeCompare(b.name),
+    )
+    .slice(0, limit);
+}
+
+/** The organisation's spelling of a skill when it already exists in another case. */
+export function canonicalSkillName(known: KnownSkill[], name: string): string {
+  const trimmed = name.trim();
+  return known.find((k) => k.name.toLowerCase() === trimmed.toLowerCase())?.name ?? trimmed;
+}
+
 /** Background and text colours for a level, the same wherever skills are shown. */
 export function skillLevelColor(level: SkillLevel | null): string {
   switch (level) {

@@ -11,6 +11,7 @@ import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/peop
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
 import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
+import { orgSkillNamesKey } from "@/hooks/useOrgSkillNames";
 import {
   fetchLearningGroups,
   groupOf,
@@ -288,6 +289,7 @@ function PeoplePage() {
       }
       if (dropped.length) await qc.invalidateQueries({ queryKey: learningGroupsKey(orgId) });
       await qc.invalidateQueries({ queryKey: ["org-people", orgId] });
+      void qc.invalidateQueries({ queryKey: orgSkillNamesKey(orgId) });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update the skills");
     } finally {

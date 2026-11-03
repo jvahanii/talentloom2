@@ -25,6 +25,9 @@ import {
   type SkillLevel,
 } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
+import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
+import { SkillNameInput } from "@/components/SkillsInput";
+import { canonicalSkillName } from "@/lib/skills";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/skills")({
@@ -47,6 +50,7 @@ type SkillGroup = {
 function SkillsPage() {
   const { orgId, orgs } = useOrg();
   const levelNames = useSkillLevelNames();
+  const knownSkills = useOrgSkillNames();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
   const [filter, setFilter] = useState("");
   const qc = useQueryClient();
@@ -113,6 +117,7 @@ function SkillsPage() {
     try {
       await updatePersonSkills({ data: { orgId, userId, skills: change(person.skills) } });
       await qc.invalidateQueries({ queryKey: ["org-skills", orgId] });
+      void qc.invalidateQueries({ queryKey: orgSkillNamesKey(orgId) });
       if (ok) toast.success(ok);
       return true;
     } catch (e) {
@@ -232,7 +237,7 @@ function SkillsPage() {
         className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-center"
         onSubmit={async (e) => {
           e.preventDefault();
-          const name = newSkill.trim();
+          const name = canonicalSkillName(knownSkills, newSkill);
           if (!name || !newPerson) return;
           if (await addSkill(newPerson, name, toLevel(newLevel))) {
             setNewSkill("");
@@ -241,13 +246,11 @@ function SkillsPage() {
         }}
       >
         <span className="text-sm font-semibold">Add a skill to a person</span>
-        <Input
+        <SkillNameInput
           value={newSkill}
-          onChange={(e) => setNewSkill(e.target.value)}
+          onChange={setNewSkill}
           placeholder="Skill, e.g. Facilitation"
-          maxLength={60}
-          className="sm:max-w-xs"
-          aria-label="Skill name"
+          className="sm:w-72"
         />
         <select
           className={selectCls}
