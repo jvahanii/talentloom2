@@ -69,6 +69,32 @@ export const getAdminOverview = createServerFn({ method: "GET" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
+
+    // Sign-in accounts that never got an app record would be invisible here:
+    // create the missing records first so every account is listed.
+    try {
+      const { createClerkClient } = await import("@clerk/backend");
+      const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
+      const { data: known } = await admin.from("profiles").select("clerk_user_id").limit(10000);
+      const linked = new Set(((known ?? []) as Loose[]).map((p) => p.clerk_user_id).filter(Boolean));
+      const { provisionProfileForClerkUser } = await import("@/integrations/supabase/clerk-sync.server");
+      for (let offset = 0; ; offset += 100) {
+        const page = await clerk.users.getUserList({ limit: 100, offset });
+        for (const u of page.data) {
+          if (!linked.has(u.id)) {
+            try {
+              await provisionProfileForClerkUser(u.id);
+            } catch (e) {
+              console.error("[admin] could not create record for", u.id, e);
+            }
+          }
+        }
+        if (page.data.length < 100) break;
+      }
+    } catch (e) {
+      console.error("[admin] sign-in account sync failed", e);
+    }
+
     const all = async (table: string, columns: string) => {
       const { data, error } = await admin.from(table).select(columns).limit(10000);
       if (error) throw new Error(`${table}: ${error.message}`);
