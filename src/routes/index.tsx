@@ -82,11 +82,10 @@ function Landing() {
               >
                 <Briefcase className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">
-                  Hiring &amp; Multilearning
+                  Multilearning &amp; hiring
                 </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Give candidates a standout hiring experience. Foster your organization's
-                  adaptiveness through multilearning and organizational transfer of learning.
+                  Foster your organization's adaptiveness through multilearning and organizational transfer of learning.{"\u00a0"}Give candidates seeking a job a standout hiring experience.{"\u00a0"}
                 </span>
                 <span
                   className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
