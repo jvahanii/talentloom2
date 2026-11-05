@@ -25,7 +25,7 @@ import {
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
-import { fetchMemberSkills } from "@/lib/skillLevels";
+import { fetchMemberSkills, setMemberSkillLevel } from "@/lib/skillLevels";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
@@ -143,10 +143,28 @@ function SkillsPage() {
           : [...list, { name, level }],
       "Skill saved",
     );
-  const setLevel = (userId: string, name: string, level: SkillLevel | null) =>
-    save(userId, (list) =>
-      list.map((s) => (s.name.toLowerCase() === name.toLowerCase() ? { ...s, level } : s)),
+  // A level change shows at once and is saved with a single row update; the
+  // chart's history catches up in the background. A failure puts it back.
+  const setLevel = async (userId: string, name: string, level: SkillLevel | null) => {
+    if (!orgId) return;
+    const key = ["org-skills", orgId];
+    const before = qc.getQueryData<PersonSkills[]>(key);
+    const same = (s: { name: string }) => s.name.toLowerCase() === name.toLowerCase();
+    qc.setQueryData<PersonSkills[]>(key, (old) =>
+      (old ?? []).map((p) =>
+        p.userId === userId
+          ? { ...p, skills: p.skills.map((s) => (same(s) ? { ...s, level } : s)) }
+          : p,
+      ),
     );
+    try {
+      await setMemberSkillLevel(orgId, userId, name, level);
+      void qc.invalidateQueries({ queryKey: [...key, "history"] });
+    } catch (e) {
+      qc.setQueryData(key, before);
+      toast.error(e instanceof Error ? e.message : "Could not change the level");
+    }
+  };
   const removeSkill = async (userId: string, name: string) => {
     const ok = await save(
       userId,

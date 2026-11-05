@@ -9,7 +9,7 @@ import { getMyProfileId } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
-import { fetchMemberSkills } from "@/lib/skillLevels";
+import { fetchMemberSkills, setMemberSkillLevel } from "@/lib/skillLevels";
 import { skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey } from "@/hooks/useOrgSkillNames";
@@ -282,6 +282,26 @@ function PeoplePage() {
   };
 
   const saveSkills = async (p: Person, skills: Skill[]) => {
+    // Only a level changed: show it at once and save that one row.
+    const changed = skills.filter((s, i) => p.skills[i]?.level !== s.level);
+    if (
+      skills.length === p.skills.length &&
+      skills.every((s, i) => s.name === p.skills[i]?.name) &&
+      changed.length === 1
+    ) {
+      const key = ["org-people", orgId];
+      const before = qc.getQueryData<Person[]>(key);
+      qc.setQueryData<Person[]>(key, (old) =>
+        (old ?? []).map((x) => (x.userId === p.userId ? { ...x, skills } : x)),
+      );
+      try {
+        await setMemberSkillLevel(orgId, p.userId, changed[0].name, changed[0].level);
+      } catch (e) {
+        qc.setQueryData(key, before);
+        toast.error(e instanceof Error ? e.message : "Could not change the level");
+      }
+      return;
+    }
     setSkillDrafts((d) => ({ ...d, [p.userId]: skills }));
     try {
       await updatePersonSkills({ data: { orgId, userId: p.userId, skills } });

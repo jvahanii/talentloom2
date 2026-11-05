@@ -48,6 +48,32 @@ export function forgetSkillSpaces() {
   spaces.clear();
 }
 
+/**
+ * Sets one person's level in one skill: a single update of that row, straight
+ * to the database (no server round trip). Row-level security allows it for
+ * yourself or with "change titles", and the history trigger records it.
+ */
+export async function setMemberSkillLevel(
+  orgId: string,
+  userId: string,
+  skill: string,
+  level: number | null,
+): Promise<void> {
+  const { root } = await fetchSkillSpace(orgId);
+  const { data, error } = await db
+    .from("org_member_skills")
+    .update({ level, updated_at: new Date().toISOString() })
+    .eq("org_id", root)
+    .eq("user_id", userId)
+    .ilike(
+      "skill",
+      skill.replace(/[\\%_]/g, (c) => `\\${c}`),
+    )
+    .select("skill");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Your title doesn't allow changing this person's skills");
+}
+
 /** A recorded level of a person's skill at a moment (null: no level). */
 export type SkillHistoryPoint = { userId: string; skill: string; level: number | null; at: number };
 
