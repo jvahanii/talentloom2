@@ -9,4 +9,4 @@
 - [x] Show personal answer history beneath each survey question, newest first, with a rating trend.
 - [x] Block survey deletion by a creator who has left every linked organisation (only an org member who can manage titles may delete it then).
 - [x] Remove the Viewer role completely (external database + app).
-- [ ] Move the delete-organisation panel to the bottom of the Settings page.
+- [x] Move the delete-organisation panel to the bottom of the Settings page.
