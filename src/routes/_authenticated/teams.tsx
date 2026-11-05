@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Star, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg } from "@/lib/org";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/teams";
 import { skillLevelColor, skillLevelLabel, type Skill, type SkillLevel } from "@/lib/skills";
 import { fetchMemberSkills } from "@/lib/skillLevels";
+import { fetchOrgSkills, orgSkillListKey } from "@/lib/orgSkills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -374,9 +375,23 @@ function TeamCard({
   );
 }
 
-/** Every skill someone in the team has, coloured by the best level in the team. */
-function TeamSkills({ skills }: { skills: TeamSkill[] }) {
+/**
+ * Every skill someone in the team has, coloured by the best level in the team;
+ * the organisation's strategic skills first, starred.
+ */
+function TeamSkills({ skills: unsorted }: { skills: TeamSkill[] }) {
   const levelNames = useSkillLevelNames();
+  const { orgId } = useOrg();
+  const list = useQuery({
+    queryKey: orgSkillListKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchOrgSkills(orgId!),
+  });
+  const strategic = new Set(
+    (list.data ?? []).filter((o) => o.strategic).map((o) => o.name.toLowerCase()),
+  );
+  const isStrategic = (s: TeamSkill) => strategic.has(s.name.toLowerCase());
+  const skills = [...unsorted].sort((a, b) => Number(isStrategic(b)) - Number(isStrategic(a)));
   return (
     <div className="mt-3 border-t-2 border-dashed border-border pt-3">
       <p className="text-xs font-semibold text-muted-foreground">Skills in the team</p>
@@ -393,6 +408,12 @@ function TeamSkills({ skills }: { skills: TeamSkill[] }) {
                 )
                 .join("\n")}
             >
+              {isStrategic(s) && (
+                <Star
+                  className="mr-0.5 inline h-3 w-3 fill-current align-[-2px]"
+                  aria-label="Strategic"
+                />
+              )}
               {s.name}
               {s.holders.length > 1 && (
                 <span className="ml-1 opacity-70">· {s.holders.length}</span>

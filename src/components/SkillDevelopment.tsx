@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { fetchSkillHistory, type SkillHistoryPoint } from "@/lib/skillLevels";
 import { fetchTeams, teamsKey } from "@/lib/teams";
+import { fetchOrgSkills, orgSkillListKey } from "@/lib/orgSkills";
 import { displayLevel, skillLevelLabel } from "@/lib/skills";
 
 /**
@@ -266,6 +267,11 @@ export function SkillDevelopment({
         orgId,
         people.map((p) => p.userId),
       ),
+  });
+  // Strategic skills, for the quick choice in the skill list.
+  const orgSkillList = useQuery({
+    queryKey: orgSkillListKey(orgId),
+    queryFn: () => fetchOrgSkills(orgId),
   });
   const teams = useQuery({
     queryKey: teamsKey(orgId),
@@ -682,6 +688,15 @@ export function SkillDevelopment({
               onChange={setSkillPicks}
               multi
               allLabel="All skills"
+              presets={(() => {
+                const strategic = new Set(
+                  (orgSkillList.data ?? [])
+                    .filter((o) => o.strategic)
+                    .map((o) => o.name.toLowerCase()),
+                );
+                const keys = skills.filter((k) => strategic.has(k.key)).map((k) => k.key);
+                return keys.length ? [{ label: "★ Strategic skills", keys }] : [];
+              })()}
               search="Find a skill"
             />
             <ViewTab
@@ -913,6 +928,7 @@ function ViewTab({
   onChange,
   multi = false,
   allLabel,
+  presets = [],
   search,
   empty = "Nothing to choose yet",
 }: {
@@ -924,6 +940,8 @@ function ViewTab({
   onChange: (next: string[]) => void;
   multi?: boolean;
   allLabel?: string;
+  /** Quick choices that tick a set of options at once (e.g. strategic skills). */
+  presets?: { label: string; keys: string[] }[];
   search: string;
   empty?: string;
 }) {
@@ -1026,6 +1044,25 @@ function ViewTab({
                 {allLabel}
               </button>
             )}
+            {multi &&
+              !q &&
+              presets.map((p) => {
+                const on =
+                  p.keys.length === selected.length && p.keys.every((k) => selected.includes(k));
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    role="option"
+                    aria-selected={on}
+                    onClick={() => onChange(p.keys)}
+                    className={item(on) + " border-b border-border"}
+                  >
+                    <span className={tick(on)}>{on && <Check className="h-3 w-3" />}</span>
+                    {p.label}
+                  </button>
+                );
+              })}
             {listed.map((o) => {
               const on = selected.includes(o.key);
               return (

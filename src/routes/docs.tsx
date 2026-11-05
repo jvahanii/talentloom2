@@ -687,7 +687,11 @@ function Docs() {
                         skill right on the card. People who may change titles can also add a skill
                         nobody has yet — choose <strong>Nobody yet</strong> as the person — for
                         example a skill the organisation wants people to learn. It gets a card of
-                        its own, and an empty card can be removed with its bin icon.
+                        its own, and an empty card can be removed with its bin icon. The star on a
+                        card marks a skill <strong>strategic</strong> — one the organisation wants
+                        to build up. Strategic skills come first with a badge, the{" "}
+                        <strong>Strategic only</strong> filter shows just them, Development has a
+                        quick <strong>Strategic skills</strong> choice, and Teams stars them.
                       </>
                     ),
                   },
