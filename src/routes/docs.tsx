@@ -669,12 +669,15 @@ function Docs() {
                         period. By skill, pick <strong>All skills</strong> for one line over every
                         skill, or tick any number of skills for a line each. By team, pick a team or
                         a <strong>team of teams</strong> (set up on the Teams page) to see its
-                        teams' people together. It's <strong>cumulative</strong> by default: levels
-                        add up into level points (Novice 1, Basic 2, …), so the total grows as
-                        people learn and as new people gain a level. <strong>Average</strong> shows
-                        the average level of those who have one — then a person's view has a line
-                        per skill. <strong>Average (everyone)</strong> divides by everyone in the
-                        organisation or team, counting people without the skill or a level as 0.
+                        teams' people together. Under the chart,{" "}
+                        <strong>Learning engagement</strong> shows who in the view is actively
+                        learning — their level rose in the time frame, or they're in a Learning with
+                        group — and who isn't yet. It's <strong>cumulative</strong> by default:
+                        levels add up into level points (Novice 1, Basic 2, …), so the total grows
+                        as people learn and as new people gain a level. <strong>Average</strong>{" "}
+                        shows the average level of those who have one — then a person's view has a
+                        line per skill. <strong>Average (everyone)</strong> divides by everyone in
+                        the organisation or team, counting people without the skill or a level as 0.
                         Changes are recorded from 5 November 2026 on.
                       </>
                     ),

@@ -15,6 +15,7 @@ import {
 import { fetchSkillHistory, type SkillHistoryPoint } from "@/lib/skillLevels";
 import { fetchTeamGroups, fetchTeams, teamGroupsKey, teamsKey } from "@/lib/teams";
 import { fetchOrgSkills, orgSkillListKey } from "@/lib/orgSkills";
+import { fetchLearningGroups, learningGroupsKey } from "@/lib/learning";
 import { displayLevel, skillLevelLabel } from "@/lib/skills";
 
 /**
@@ -274,6 +275,11 @@ export function SkillDevelopment({
     queryFn: () => fetchOrgSkills(orgId),
   });
   // Teams of teams (defined on the Teams page): several teams looked at as one.
+  // Learning with groups, for who is actively learning.
+  const learningGroups = useQuery({
+    queryKey: learningGroupsKey(orgId),
+    queryFn: () => fetchLearningGroups(orgId),
+  });
   const teamGroups = useQuery({
     queryKey: teamGroupsKey(orgId),
     queryFn: () => fetchTeamGroups(orgId),
@@ -593,6 +599,44 @@ export function SkillDevelopment({
   rows = clipRows(rows, from, to);
   changes = changes.filter((c) => (from === null || c.at >= from) && (to === null || c.at <= to));
 
+  // Who is actively learning: their level rose in a skill during the time
+  // frame, or they're in a Learning with group. Only the people in this view
+  // count, and only the chosen skills when skills are picked.
+  const scopeSkills = mode === "skill" && picked.length ? new Set(picked.map((k) => k.key)) : null;
+  const inSkills = (skill: string) => !scopeSkills || scopeSkills.has(skill.toLowerCase());
+  const scopePeople =
+    mode === "person"
+      ? person
+        ? [person]
+        : []
+      : mode === "team"
+        ? team
+          ? people.filter((p) => team.members.includes(p.userId))
+          : []
+        : people;
+  const levelUps = new Map<string, number>();
+  const lastLevel = new Map<string, number | null>();
+  for (const e of events) {
+    if (!inSkills(e.skill)) continue;
+    const key = `${e.userId}|${e.skill.toLowerCase()}`;
+    const prev = lastLevel.get(key);
+    const rose = prev !== undefined && e.level !== null && (prev === null || e.level > prev);
+    if (rose && (from === null || e.at >= from) && (to === null || e.at <= to)) {
+      levelUps.set(e.userId, (levelUps.get(e.userId) ?? 0) + 1);
+    }
+    lastLevel.set(key, e.level);
+  }
+  const learningWith = new Map<string, string[]>();
+  for (const g of learningGroups.data ?? []) {
+    if (!inSkills(g.topic)) continue;
+    for (const m of g.members) learningWith.set(m, [...(learningWith.get(m) ?? []), g.topic]);
+  }
+  const engaged = scopePeople.filter((p) => levelUps.has(p.userId) || learningWith.has(p.userId));
+  const notYet = scopePeople.filter((p) => !levelUps.has(p.userId) && !learningWith.has(p.userId));
+  const engagedShare = scopePeople.length
+    ? Math.round((engaged.length / scopePeople.length) * 100)
+    : 0;
+
   // One person's level by name: the changes list is about people, not totals.
   const levelName = (v: number) => skillLevelLabel(v, levelNames) ?? String(v);
   const levelText = (v: number) =>
@@ -887,6 +931,84 @@ export function SkillDevelopment({
                   ))}
                 </LineChart>
               </ResponsiveContainer>
+            </div>
+          )}
+          {scopePeople.length > 0 && (
+            <div className="space-y-2 rounded-xl border border-border p-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold text-muted-foreground">Learning engagement</p>
+                <p className="text-sm">
+                  <span className="font-semibold">{engaged.length}</span> of {scopePeople.length}{" "}
+                  {scopePeople.length === 1 ? "person" : "people"} actively learning ({engagedShare}
+                  %)
+                </p>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-secondary"
+                role="img"
+                aria-label={`${engagedShare}% actively learning`}
+              >
+                <div
+                  className="h-full rounded-full bg-[#1baf7a]"
+                  style={{ width: `${engagedShare}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Actively learning: their level rose
+                {from === null && to === null ? "" : " in this time frame"}, or they&apos;re in a
+                Learning with group{scopeSkills ? " in the chosen skills" : ""}.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold">Actively learning ({engaged.length})</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {engaged.map((p) => {
+                      const ups = levelUps.get(p.userId) ?? 0;
+                      const topics = [...new Set(learningWith.get(p.userId) ?? [])];
+                      return (
+                        <span
+                          key={p.userId}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#BDF5E0] px-2.5 py-0.5 text-xs font-medium text-[#0B6B4F]"
+                          title={[
+                            ups ? `${ups} level${ups === 1 ? "" : "s"} raised` : "",
+                            topics.length ? `Learning with: ${topics.join(", ")}` : "",
+                          ]
+                            .filter(Boolean)
+                            .join("\n")}
+                        >
+                          {p.label}
+                          {ups > 0 && <span className="opacity-80">↑{ups}</span>}
+                          {topics.length > 0 && (
+                            <span className="opacity-80">
+                              · {topics.slice(0, 2).join(", ")}
+                              {topics.length > 2 ? "…" : ""}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
+                    {!engaged.length && (
+                      <span className="text-xs text-muted-foreground">Nobody yet</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">Not yet engaged ({notYet.length})</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {notYet.map((p) => (
+                      <span
+                        key={p.userId}
+                        className="rounded-full border border-dashed border-muted-foreground/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                      >
+                        {p.label}
+                      </span>
+                    ))}
+                    {!notYet.length && (
+                      <span className="text-xs text-muted-foreground">Everyone is learning</span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           {(mode === "skill" || mode === "person" || (mode === "team" && team)) && (
