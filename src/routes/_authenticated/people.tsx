@@ -9,6 +9,7 @@ import { getMyProfileId } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
+import { fetchOrgLevels } from "@/lib/skillLevels";
 import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey } from "@/hooks/useOrgSkillNames";
@@ -110,7 +111,7 @@ function PeoplePage() {
       const { data: profiles } = ids.length
         ? await supabase
             .from("profiles")
-            .select("id, full_name, email, skills, skill_levels, created_at")
+            .select("id, full_name, email, skills, created_at")
             .in("id", ids)
         : { data: [] };
       const byId = new Map(
@@ -120,11 +121,12 @@ function PeoplePage() {
             full_name: string | null;
             email: string | null;
             skills: string[] | null;
-            skill_levels: unknown;
             created_at: string;
           }[]
         ).map((p) => [p.id, p]),
       );
+      // Levels are this organisation's own; the same skill may have none elsewhere.
+      const levels = await fetchOrgLevels(orgId!, ids);
       return (rows ?? []).map((r) => {
         const p = byId.get(r.user_id);
         return {
@@ -132,7 +134,7 @@ function PeoplePage() {
           userId: r.user_id,
           name: p?.full_name ?? null,
           email: p?.email ?? null,
-          skills: readSkills(p?.skills, p?.skill_levels),
+          skills: readSkills(p?.skills, levels.get(r.user_id)),
           titleId: r.title_id,
           titleName:
             (r as unknown as { organization_titles: { name: string } | null }).organization_titles

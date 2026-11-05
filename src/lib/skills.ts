@@ -1,12 +1,14 @@
 /**
- * A person's skills live on their profile in two columns: `skills` (the names,
- * in the person's order) and `skill_levels` (name → level 1–7). A skill without
- * an entry in `skill_levels` simply has no level yet.
+ * A person's skill names live on their profile (`profiles.skills`, in the
+ * person's order) and show in all their organisations. Levels are kept per
+ * organisation in `org_skill_levels`, so a skill can have a level in one
+ * organisation and none in another. (`profiles.skill_levels` is no longer read;
+ * it holds the levels from before they moved, which went to the HRD workshop.)
  *
  * Levels are just numbers. Each organisation decides how many it uses (2–7)
  * and what they're called, in `organizations.skill_level_names` (null means the
- * four defaults below). A profile is shared by all of a person's organisations,
- * so a level above an organisation's count shows there as its highest level.
+ * four defaults below). A level above the current count — after the count was
+ * lowered — shows as the highest level until it's raised again.
  */
 
 export const MIN_SKILL_LEVELS = 2;
@@ -126,22 +128,37 @@ export function cleanSkills(list: Skill[]): Skill[] {
   return out.slice(0, MAX_SKILLS);
 }
 
-/** Builds the list from the two profile columns. */
-export function readSkills(names: string[] | null | undefined, levels: unknown): Skill[] {
-  const map = levels && typeof levels === "object" ? (levels as Record<string, unknown>) : {};
-  return (names ?? []).map((name) => ({ name, level: asLevel(map[name]) }));
+/** A person's levels in one organisation: lowercased skill name → level. */
+export type LevelMap = Record<string, number>;
+
+/** Builds the list from the profile's skill names and the person's levels in an organisation. */
+export function readSkills(names: string[] | null | undefined, levels?: LevelMap): Skill[] {
+  return (names ?? []).map((name) => ({ name, level: asLevel(levels?.[name.toLowerCase()]) }));
 }
 
-/** Splits the list back into the two profile columns. */
+/** Groups org_skill_levels rows by person. */
+export function levelMapsByUser(
+  rows: { user_id: string; skill: string; level: number }[],
+): Map<string, LevelMap> {
+  const out = new Map<string, LevelMap>();
+  for (const r of rows) {
+    const m = out.get(r.user_id) ?? {};
+    m[r.skill.toLowerCase()] = r.level;
+    out.set(r.user_id, m);
+  }
+  return out;
+}
+
+/** Splits the list into the profile's names and the organisation's levels. */
 export function writeSkills(list: Skill[]): {
   skills: string[];
-  skill_levels: Record<string, number>;
+  levels: { skill: string; level: number }[];
 } {
   const clean = cleanSkills(list);
   return {
     skills: clean.map((s) => s.name),
-    skill_levels: Object.fromEntries(
-      clean.filter((s) => s.level !== null).map((s) => [s.name, s.level as number]),
-    ),
+    levels: clean
+      .filter((s) => s.level !== null)
+      .map((s) => ({ skill: s.name, level: s.level as number })),
   };
 }

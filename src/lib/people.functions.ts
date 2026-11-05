@@ -5,10 +5,8 @@ import {
   MAX_SKILLS,
   MAX_SKILL_LENGTH,
   MAX_SKILL_LEVELS,
-  readSkills,
   writeSkills,
   type Skill,
-  type SkillLevel,
 } from "@/lib/skills";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -182,13 +180,34 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
       .eq("user_id", data.userId)
       .maybeSingle();
     if (!member) throw new Error("That person isn't a member of this organisation");
-    const { error } = await admin
-      .from("profiles")
-      .update(writeSkills(data.skills))
-      .eq("id", data.userId);
+    const { skills, levels } = writeSkills(data.skills);
+    const { error } = await admin.from("profiles").update({ skills }).eq("id", data.userId);
     if (error) throw new Error(error.message);
+    await replaceOrgLevels(admin, data.orgId, data.userId, levels);
     return { ok: true };
   });
+
+/** Sets a person's levels in one organisation; other organisations keep theirs. */
+async function replaceOrgLevels(
+  admin: Loose,
+  orgId: string,
+  userId: string,
+  levels: { skill: string; level: number }[],
+) {
+  const { error: dError } = await admin
+    .from("org_skill_levels")
+    .delete()
+    .eq("org_id", orgId)
+    .eq("user_id", userId);
+  if (dError) throw new Error(dError.message);
+  if (!levels.length) return;
+  const { error } = await admin
+    .from("org_skill_levels")
+    .insert(
+      levels.map((l) => ({ org_id: orgId, user_id: userId, skill: l.skill, level: l.level })),
+    );
+  if (error) throw new Error(error.message);
+}
 
 /**
  * Merges skills that mean the same into one name for everyone in the
@@ -225,27 +244,68 @@ export const mergeSkills = createServerFn({ method: "POST" })
     if (mError) throw new Error(mError.message);
     const ids = (members ?? []).map((m: { user_id: string }) => m.user_id);
     const { data: profiles, error: pError } = ids.length
-      ? await admin.from("profiles").select("id, skills, skill_levels").in("id", ids)
+      ? await admin.from("profiles").select("id, skills").in("id", ids)
       : { data: [], error: null };
     if (pError) throw new Error(pError.message);
 
     let people = 0;
-    for (const p of (profiles ?? []) as {
-      id: string;
-      skills: string[] | null;
-      skill_levels: unknown;
-    }[]) {
-      const list = readSkills(p.skills, p.skill_levels);
-      const hits = list.filter((s) => variants.has(s.name.toLowerCase()));
-      if (!hits.length || (hits.length === 1 && hits[0].name === data.into)) continue;
-      const levels = hits.map((s) => s.level).filter((l): l is SkillLevel => l !== null);
-      const level = levels.length ? (Math.max(...levels) as SkillLevel) : null;
-      const at = list.findIndex((s) => variants.has(s.name.toLowerCase()));
-      const next = list.filter((s) => !variants.has(s.name.toLowerCase()));
-      next.splice(at, 0, { name: data.into, level });
-      const { error } = await admin.from("profiles").update(writeSkills(next)).eq("id", p.id);
+    const merged: string[] = [];
+    for (const p of (profiles ?? []) as { id: string; skills: string[] | null }[]) {
+      const list = p.skills ?? [];
+      const hits = list.filter((s) => variants.has(s.toLowerCase()));
+      if (!hits.length || (hits.length === 1 && hits[0] === data.into)) continue;
+      const at = list.findIndex((s) => variants.has(s.toLowerCase()));
+      const next = list.filter((s) => !variants.has(s.toLowerCase()));
+      next.splice(at, 0, data.into);
+      const { error } = await admin.from("profiles").update({ skills: next }).eq("id", p.id);
       if (error) throw new Error(error.message);
+      merged.push(p.id);
       people += 1;
+    }
+
+    // Levels, in every organisation these people are in: the variants become the
+    // kept name once, at the highest level the person had among them there.
+    const { data: levelRows, error: lvError } = merged.length
+      ? await admin
+          .from("org_skill_levels")
+          .select("org_id, user_id, skill, level")
+          .in("user_id", merged)
+      : { data: [], error: null };
+    if (lvError) throw new Error(lvError.message);
+    const best = new Map<string, { org_id: string; user_id: string; level: number }>();
+    for (const r of (levelRows ?? []) as {
+      org_id: string;
+      user_id: string;
+      skill: string;
+      level: number;
+    }[]) {
+      if (!variants.has(r.skill.toLowerCase())) continue;
+      const key = `${r.org_id}|${r.user_id}`;
+      const prev = best.get(key);
+      if (!prev || r.level > prev.level)
+        best.set(key, { org_id: r.org_id, user_id: r.user_id, level: r.level });
+    }
+    for (const b of best.values()) {
+      const { data: rows, error: rError } = await admin
+        .from("org_skill_levels")
+        .select("skill")
+        .eq("org_id", b.org_id)
+        .eq("user_id", b.user_id);
+      if (rError) throw new Error(rError.message);
+      const stale = ((rows ?? []) as { skill: string }[])
+        .map((r) => r.skill)
+        .filter((s) => variants.has(s.toLowerCase()));
+      const { error: dError } = await admin
+        .from("org_skill_levels")
+        .delete()
+        .eq("org_id", b.org_id)
+        .eq("user_id", b.user_id)
+        .in("skill", stale);
+      if (dError) throw new Error(dError.message);
+      const { error: iError } = await admin
+        .from("org_skill_levels")
+        .insert({ org_id: b.org_id, user_id: b.user_id, skill: data.into, level: b.level });
+      if (iError) throw new Error(iError.message);
     }
 
     // The organisation's own skill list: the variants become the kept name, once.

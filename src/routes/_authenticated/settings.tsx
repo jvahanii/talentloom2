@@ -8,7 +8,10 @@ import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { OrgSettings } from "@/components/OrgSettings";
 import { SkillsInput } from "@/components/SkillsInput";
-import { readSkills, writeSkills, type Skill } from "@/lib/skills";
+import { readSkills, type Skill } from "@/lib/skills";
+import { fetchOrgLevels } from "@/lib/skillLevels";
+import { updatePersonSkills } from "@/lib/people.functions";
+import { useOrg } from "@/lib/org";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Settings — Talentloom" }] }),
@@ -21,6 +24,10 @@ const inputCls =
 function Settings() {
   const qc = useQueryClient();
   const { theme, setTheme } = useAppTheme();
+  const { orgId, orgs } = useOrg();
+  // Levels belong to an organisation: the current one, if you're a member of it.
+  const levelOrg = orgs.find((o) => o.org_id === orgId && !o.viaSuperuser) ?? null;
+  const levelOrgId = levelOrg?.org_id ?? null;
 
   const [email, setEmail] = useState("");
   const [form, setForm] = useState<{ full_name: string; skills: Skill[] }>({
@@ -36,36 +43,40 @@ function Settings() {
       if (!uid) return;
       const { data: p } = (await supabase
         .from("profiles")
-        .select("full_name, email, skills, skill_levels")
+        .select("full_name, email, skills")
         .eq("id", uid)
         .maybeSingle()) as unknown as {
         data: {
           full_name: string | null;
           email: string | null;
           skills: string[] | null;
-          skill_levels: unknown;
         } | null;
       };
+      const levels = levelOrgId ? await fetchOrgLevels(levelOrgId, [uid]) : new Map();
       setEmail(p?.email ?? "");
       if (p)
         setForm({
           full_name: p.full_name ?? "",
-          skills: readSkills(p.skills, p.skill_levels),
+          skills: readSkills(p.skills, levels.get(uid)),
         });
     })();
-  }, []);
+  }, [levelOrgId]);
 
   const saveProfile = async () => {
     setSaving(true);
     try {
       const uid = await getMyProfileId();
       if (!uid) throw new Error("Not authenticated");
-      // The skill columns live in the external database; Lovable regenerates types.ts without them.
+      // `skills` lives in the external database; Lovable regenerates types.ts without it.
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: form.full_name, ...writeSkills(form.skills) } as never)
+        .update({ full_name: form.full_name, skills: form.skills.map((s) => s.name) } as never)
         .eq("id", uid);
       if (error) throw error;
+      // Levels are saved for the current organisation only.
+      if (levelOrgId) {
+        await updatePersonSkills({ data: { orgId: levelOrgId, userId: uid, skills: form.skills } });
+      }
       toast.success("Saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -150,9 +161,16 @@ function Settings() {
             </label>
             <div className="block sm:col-span-2">
               <span className="mb-1 block text-xs font-medium text-muted-foreground">Skills</span>
-              <SkillsInput value={form.skills} onChange={(skills) => patch({ skills })} />
+              <SkillsInput
+                value={form.skills}
+                onChange={(skills) => patch({ skills })}
+                withLevels={!!levelOrgId}
+              />
               <span className="mt-1 block text-xs text-muted-foreground">
-                Shown to people in your organisations on the People page.
+                Your skills show in all your organisations.{" "}
+                {levelOrg
+                  ? `Levels are for ${levelOrg.name}; each organisation keeps its own.`
+                  : "Levels are set within an organisation."}
               </span>
             </div>
           </div>

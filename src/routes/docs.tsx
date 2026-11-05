@@ -573,8 +573,10 @@ function Docs() {
                     text: (
                       <>
                         Your skills belong to you, so they show in every organisation you're in.
-                        People who may change titles can also edit your skills on the People and
-                        Skills pages.
+                        Their levels don't: each organisation keeps its own, so a skill can be
+                        Advanced in one and have no level in another. In Settings you set levels for
+                        the organisation you have selected. People who may change titles can also
+                        edit your skills and levels on the People and Skills pages.
                       </>
                     ),
                   },
@@ -612,9 +614,8 @@ function Docs() {
                         Anyone who can rename the organisation can choose how many levels it uses —
                         from 2 to 7 — and what they're called under{" "}
                         <strong>Settings → Skill levels</strong>, for example in Finnish, or reset
-                        them. Each organisation shows levels in its own words. A person's skills are
-                        shared by all their organisations, so a level above an organisation's count
-                        shows there as its highest level.
+                        them. If the organisation lowers the number of levels, anyone above it shows
+                        at the highest level until it's raised again.
                       </>
                     ),
                   },

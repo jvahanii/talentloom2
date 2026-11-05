@@ -184,11 +184,14 @@ export function SkillsInput({
   onChange,
   disabled,
   placeholder = "Add a skill and press Enter",
+  withLevels = true,
 }: {
   value: Skill[];
   onChange: (next: Skill[]) => void;
   disabled?: boolean;
   placeholder?: string;
+  /** Off where there's no organisation to hold the levels. */
+  withLevels?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const levelNames = useSkillLevelNames();
@@ -215,22 +218,24 @@ export function SkillsInput({
       {value.map((s) => (
         <span key={s.name} className={chipCls(s.level, levelNames.length)}>
           {s.name}
-          <select
-            value={displayLevel(s.level, levelNames.length) ?? ""}
-            disabled={disabled}
-            onChange={(e) =>
-              setLevel(s.name, e.target.value ? (Number(e.target.value) as SkillLevel) : null)
-            }
-            className="cursor-pointer rounded-full bg-transparent text-xs font-normal outline-none hover:underline disabled:cursor-default"
-            aria-label={`Level of ${s.name}`}
-          >
-            <option value="">no level</option>
-            {skillLevelValues(levelNames).map((l) => (
-              <option key={l} value={l}>
-                {skillLevelLabel(l, levelNames)}
-              </option>
-            ))}
-          </select>
+          {withLevels && (
+            <select
+              value={displayLevel(s.level, levelNames.length) ?? ""}
+              disabled={disabled}
+              onChange={(e) =>
+                setLevel(s.name, e.target.value ? (Number(e.target.value) as SkillLevel) : null)
+              }
+              className="cursor-pointer rounded-full bg-transparent text-xs font-normal outline-none hover:underline disabled:cursor-default"
+              aria-label={`Level of ${s.name}`}
+            >
+              <option value="">no level</option>
+              {skillLevelValues(levelNames).map((l) => (
+                <option key={l} value={l}>
+                  {skillLevelLabel(l, levelNames)}
+                </option>
+              ))}
+            </select>
+          )}
           {!disabled && (
             <button
               type="button"

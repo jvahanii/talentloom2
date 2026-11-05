@@ -24,6 +24,7 @@ import {
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
+import { fetchOrgLevels } from "@/lib/skillLevels";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,22 +92,22 @@ function TeamsPage() {
       const { data: profiles, error: pError } = await supabase
         .from("profiles")
         // The skill columns live in the external database; Lovable regenerates types.ts without them.
-        .select("id, full_name, email, skills, skill_levels" as "id, full_name, email")
+        .select("id, full_name, email, skills" as "id, full_name, email")
         .in("id", ids);
       if (pError) throw pError;
+      const levels = await fetchOrgLevels(orgId!, ids);
       return (
         (profiles ?? []) as unknown as {
           id: string;
           full_name: string | null;
           email: string | null;
           skills: string[] | null;
-          skill_levels: unknown;
         }[]
       )
         .map((p) => ({
           userId: p.id,
           label: p.full_name || p.email || "Unnamed",
-          skills: readSkills(p.skills, p.skill_levels),
+          skills: readSkills(p.skills, levels.get(p.id)),
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
     },

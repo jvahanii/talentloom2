@@ -26,6 +26,7 @@ import {
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
+import { fetchOrgLevels } from "@/lib/skillLevels";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
@@ -172,22 +173,22 @@ function SkillsPage() {
       if (!ids.length) return [];
       const { data: profiles, error: pError } = await supabase
         .from("profiles")
-        .select("id, full_name, email, skills, skill_levels")
+        .select("id, full_name, email, skills")
         .in("id", ids);
       if (pError) throw pError;
+      const levels = await fetchOrgLevels(orgId!, ids);
       return (
         (profiles ?? []) as unknown as {
           id: string;
           full_name: string | null;
           email: string | null;
           skills: string[] | null;
-          skill_levels: unknown;
         }[]
       ).map((p) => ({
         userId: p.id,
         name: p.full_name,
         email: p.email,
-        skills: readSkills(p.skills, p.skill_levels),
+        skills: readSkills(p.skills, levels.get(p.id)),
       }));
     },
   });
