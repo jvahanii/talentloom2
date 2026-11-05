@@ -663,11 +663,13 @@ function Docs() {
                         in the organisation, with who has it and at what level, most widely held
                         first. Search finds both skills and people. At the top,{" "}
                         <strong>Skill development</strong> shows how levels have changed over time,
-                        by skill (with the latest changes), by person or by team. It's{" "}
-                        <strong>cumulative</strong> by default: levels add up into level points
-                        (Novice 1, Basic 2, …), so the total grows as people learn and as new people
-                        gain a level. <strong>Average</strong> shows the average level of those who
-                        have one — then a person's view has a line per skill.{" "}
+                        by skill (with the latest changes), by person or by team. By skill, pick{" "}
+                        <strong>All skills</strong> for one line over every skill, or tick any
+                        number of skills for a line each. It's <strong>cumulative</strong> by
+                        default: levels add up into level points (Novice 1, Basic 2, …), so the
+                        total grows as people learn and as new people gain a level.{" "}
+                        <strong>Average</strong> shows the average level of those who have one —
+                        then a person's view has a line per skill.{" "}
                         <strong>Average (everyone)</strong> divides by everyone in the organisation
                         or team, counting people without the skill or a level as 0. Changes are
                         recorded from 5 November 2026 on.

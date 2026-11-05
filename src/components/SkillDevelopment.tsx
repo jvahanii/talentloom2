@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { TrendingUp } from "lucide-react";
+import { Check, ChevronDown, TrendingUp } from "lucide-react";
 import {
   CartesianGrid,
   Legend,
@@ -168,7 +168,8 @@ export function SkillDevelopment({
     queryFn: () => fetchTeams(orgId),
   });
   const [mode, setMode] = useState<"skill" | "person" | "team">("skill");
-  const [skillPick, setSkillPick] = useState("");
+  // Picked skills (lowercased); empty means all skills.
+  const [skillPicks, setSkillPicks] = useState<string[]>([]);
   const [personPick, setPersonPick] = useState("");
   const [teamPick, setTeamPick] = useState("");
   const [measure, setMeasure] = useState<Measure>("cumulative");
@@ -181,20 +182,14 @@ export function SkillDevelopment({
   const count = levelNames.length;
   const shown = (v: number | null) => displayLevel(v, count);
 
-  // Skills by how much their levels have moved, then by how many have them.
+  // Every skill with history, alphabetically.
   const skills = useMemo(() => {
-    const by = new Map<string, { name: string; changes: number; people: Set<string> }>();
-    for (const e of events) {
-      const key = e.skill.toLowerCase();
-      const s = by.get(key) ?? { name: e.skill, changes: 0, people: new Set<string>() };
-      if (s.people.has(e.userId)) s.changes += 1;
-      s.people.add(e.userId);
-      by.set(key, s);
-    }
-    return [...by.values()].sort(
-      (a, b) =>
-        b.changes - a.changes || b.people.size - a.people.size || a.name.localeCompare(b.name),
-    );
+    const by = new Map<string, string>();
+    for (const e of events)
+      if (!by.has(e.skill.toLowerCase())) by.set(e.skill.toLowerCase(), e.skill);
+    return [...by.entries()]
+      .map(([key, name]) => ({ key, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   }, [events]);
   const withHistory = people.filter((p) => events.some((e) => e.userId === p.userId));
   // Teams with someone whose skills have history.
@@ -206,7 +201,7 @@ export function SkillDevelopment({
 
   const since = events.length ? day(events[0].at) : null;
   const now = Date.now();
-  const skill = skills.find((s) => s.name === skillPick) ?? skills[0];
+  const picked = skills.filter((k) => skillPicks.includes(k.key));
   const person = withHistory.find((p) => p.userId === personPick) ?? withHistory[0];
   const team = teamList.find((t) => t.id === teamPick) ?? teamList[0];
 
@@ -214,39 +209,92 @@ export function SkillDevelopment({
   // `short`: the name at the end of the line, when it differs from the legend.
   let series: { key: string; name: string; color: string; short?: string }[] = [];
   // `from: "new"` is a skill added after history began, rather than a level change.
-  let changes: { at: number; who: string; from: number | null | "new"; to: number | null }[] = [];
+  let changes: {
+    at: number;
+    who: string;
+    skill: string;
+    from: number | null | "new";
+    to: number | null;
+  }[] = [];
   let note: string | null = null;
   let showChart = false;
 
-  if (mode === "skill" && skill) {
-    const mine = events.filter((e) => e.skill.toLowerCase() === skill.name.toLowerCase());
+  if (mode === "skill" && skills.length) {
+    const all = !picked.length;
+    const inScope = all ? events : events.filter((e) => skillPicks.includes(e.skill.toLowerCase()));
+    // Latest changes in the chosen skills.
     const seen = new Map<string, number | null>();
-    for (const e of mine) {
-      const prev = seen.has(e.userId) ? seen.get(e.userId)! : undefined;
+    for (const e of inScope) {
+      const key = `${e.userId}|${e.skill.toLowerCase()}`;
+      const prev = seen.has(key) ? seen.get(key)! : undefined;
+      const who = label.get(e.userId) ?? "Someone";
       if (prev !== undefined && prev !== e.level) {
-        changes.push({ at: e.at, who: label.get(e.userId) ?? "Someone", from: prev, to: e.level });
+        changes.push({ at: e.at, who, skill: e.skill, from: prev, to: e.level });
       } else if (prev === undefined && events[0] && e.at > events[0].at + 60_000) {
         // Not one of the starting points recorded when history began.
-        changes.push({ at: e.at, who: label.get(e.userId) ?? "Someone", from: "new", to: e.level });
+        changes.push({ at: e.at, who, skill: e.skill, from: "new", to: e.level });
       }
-      seen.set(e.userId, e.level);
+      seen.set(key, e.level);
     }
-    const points = aggregateOver(mine, (e) => e.userId, shown, measure, people.length);
-    series = [
-      {
-        key: "avg",
-        name: cumulative
-          ? `Level points in ${skill.name}`
-          : measure === "everyone"
-            ? `Average in ${skill.name} over all ${people.length} people`
-            : `Average level in ${skill.name}`,
-        color: SERIES[0],
-      },
-    ];
-    rows = nudged(toRows([{ key: "avg", points }], now), ["avg"]);
     changes = changes.sort((a, b) => b.at - a.at).slice(0, 8);
-    showChart = points.some((p) => p.v !== null);
-    if (!showChart) note = `Nobody has a level in ${skill.name} yet.`;
+
+    if (all) {
+      // One line for every skill: each person's level in each skill counts once.
+      const points = aggregateOver(
+        events,
+        (e) => `${e.userId}|${e.skill.toLowerCase()}`,
+        shown,
+        measure,
+        people.length * skills.length,
+      );
+      series = [
+        {
+          key: "avg",
+          name: cumulative
+            ? "Level points in all skills"
+            : measure === "everyone"
+              ? `Average over all ${people.length} people and ${skills.length} skills`
+              : "Average level in all skills",
+          color: SERIES[0],
+        },
+      ];
+      rows = nudged(toRows([{ key: "avg", points }], now), ["avg"]);
+      showChart = points.some((p) => p.v !== null);
+      if (!showChart) note = "Nobody has a skill level yet.";
+    } else {
+      // A line per chosen skill, alphabetically.
+      const shownSkills = picked.slice(0, MAX_SERIES);
+      series = shownSkills.map((k, i) => ({
+        key: `s${i}`,
+        name:
+          measure === "everyone" && shownSkills.length === 1
+            ? `Average in ${k.name} over all ${people.length} people`
+            : k.name,
+        short: k.name,
+        color: SERIES[i],
+      }));
+      rows = nudged(
+        toRows(
+          shownSkills.map((k, i) => ({
+            key: `s${i}`,
+            points: aggregateOver(
+              events.filter((e) => e.skill.toLowerCase() === k.key),
+              (e) => e.userId,
+              shown,
+              measure,
+              people.length,
+            ),
+          })),
+          now,
+        ),
+        series.map((x) => x.key),
+        cumulative ? 0.15 : 0.06,
+      );
+      showChart = rows.some((r) => series.some((x) => r[x.key] !== null));
+      if (!showChart) note = "Nobody has a level in these skills yet.";
+      else if (picked.length > MAX_SERIES)
+        note = `Showing the first ${MAX_SERIES} of the ${picked.length} chosen skills.`;
+    }
   } else if (mode === "person" && person && measure !== "average") {
     const mine = events.filter((e) => e.userId === person.userId);
     const points = aggregateOver(mine, (e) => e.skill.toLowerCase(), shown, measure);
@@ -357,6 +405,8 @@ export function SkillDevelopment({
     ).length === 1 &&
     !!key;
   const anyLabel = series.some((x, i) => labelled(x.key, i));
+  // Ticks would all read the same day when history is this short.
+  const shortSpan = rows.length > 0 && rows[rows.length - 1].t - rows[0].t < 2 * 86_400_000;
 
   return (
     <section
@@ -404,18 +454,7 @@ export function SkillDevelopment({
             ))}
           </div>
           {mode === "skill" ? (
-            <select
-              className={selectCls}
-              value={skill?.name ?? ""}
-              onChange={(e) => setSkillPick(e.target.value)}
-              aria-label="Skill"
-            >
-              {skills.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <SkillMultiSelect skills={skills} picked={skillPicks} onChange={setSkillPicks} />
           ) : mode === "person" ? (
             <select
               className={selectCls}
@@ -473,7 +512,7 @@ export function SkillDevelopment({
                     type="number"
                     scale="time"
                     domain={["dataMin", "dataMax"]}
-                    tickFormatter={(t: number) => format(t, "d MMM")}
+                    tickFormatter={(t: number) => format(t, shortSpan ? "d MMM HH:mm" : "d MMM")}
                     tick={{ fontSize: 12, fill: "#52514e" }}
                     stroke="#d6d4ce"
                   />
@@ -592,7 +631,8 @@ export function SkillDevelopment({
                 <ul className="mt-1 space-y-0.5 text-sm">
                   {changes.map((c, i) => (
                     <li key={i}>
-                      <span className="font-medium">{c.who}</span>:{" "}
+                      <span className="font-medium">{c.who}</span>
+                      {(!picked.length || picked.length > 1) && <> · {c.skill}</>}:{" "}
                       {c.from === "new"
                         ? c.to === null
                           ? "added the skill"
@@ -612,5 +652,120 @@ export function SkillDevelopment({
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * Choose skills for the chart: "All skills" on top, then every skill
+ * alphabetically, several at a time. Picking a skill leaves "All skills";
+ * clearing every skill goes back to it.
+ */
+function SkillMultiSelect({
+  skills,
+  picked,
+  onChange,
+}: {
+  skills: { key: string; name: string }[];
+  picked: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  const chosen = skills.filter((k) => picked.includes(k.key));
+  const summary = !chosen.length
+    ? "All skills"
+    : chosen.length === 1
+      ? chosen[0].name
+      : `${chosen.length} skills`;
+  const q = filter.trim().toLowerCase();
+  const listed = q ? skills.filter((k) => k.name.toLowerCase().includes(q)) : skills;
+  const toggle = (key: string) =>
+    onChange(picked.includes(key) ? picked.filter((k) => k !== key) : [...picked, key]);
+
+  const item = (on: boolean) =>
+    `flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-secondary ${
+      on ? "font-medium" : ""
+    }`;
+  const tick = (on: boolean) =>
+    `grid h-4 w-4 shrink-0 place-items-center rounded border ${
+      on ? "border-primary bg-primary text-primary-foreground" : "border-input"
+    }`;
+
+  return (
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex h-9 max-w-56 items-center gap-1.5 rounded-xl border border-input bg-white/70 px-3 text-sm dark:bg-white/5"
+      >
+        <span className="truncate">{summary}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-72 rounded-xl border-2 border-border bg-card p-2 shadow-lg">
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Find a skill"
+            className="mb-1 h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus:border-teal-500"
+            aria-label="Find a skill"
+            autoFocus
+          />
+          <div role="listbox" aria-multiselectable="true" className="max-h-72 overflow-y-auto">
+            {!q && (
+              <button
+                type="button"
+                role="option"
+                aria-selected={!chosen.length}
+                onClick={() => onChange([])}
+                className={item(!chosen.length) + " border-b border-border"}
+              >
+                <span className={tick(!chosen.length)}>
+                  {!chosen.length && <Check className="h-3 w-3" />}
+                </span>
+                All skills
+              </button>
+            )}
+            {listed.map((k) => {
+              const on = picked.includes(k.key);
+              return (
+                <button
+                  key={k.key}
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  onClick={() => toggle(k.key)}
+                  className={item(on)}
+                >
+                  <span className={tick(on)}>{on && <Check className="h-3 w-3" />}</span>
+                  <span className="truncate">{k.name}</span>
+                </button>
+              );
+            })}
+            {!listed.length && (
+              <p className="px-2 py-1.5 text-sm text-muted-foreground">No skill matches.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
