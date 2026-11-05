@@ -342,7 +342,7 @@ function SkillsShowcase({
               Skills &amp; multilearning
             </span>
             <h2 className="font-display mt-3 text-3xl font-bold">
-              See and spread what your people know.
+              Let it grow what your people know
             </h2>
             <p className="text-soft mt-3 max-w-xl text-sm sm:text-base">
               Talentloom turns the know-how scattered across your organisation into something you
