@@ -662,11 +662,13 @@ function Docs() {
                         The <strong>Skills</strong> page in the side menu has a card for every skill
                         in the organisation, with who has it and at what level, most widely held
                         first. Search finds both skills and people. At the top,{" "}
-                        <strong>Skill development</strong> shows how levels have changed over time —
-                        by skill, the average level of the people who have it and the latest
-                        changes; by person, a line for each of their skills; by team, a line for
-                        each of the team's skills with its members' average level. Changes are
-                        recorded from 5 November 2026 on.
+                        <strong>Skill development</strong> shows how levels have changed over time,
+                        by skill (with the latest changes), by person or by team. It's{" "}
+                        <strong>cumulative</strong> by default: levels add up into level points
+                        (Novice 1, Basic 2, …), so the total grows as people learn and as new people
+                        gain a level. Switch to <strong>Average</strong> for the typical level —
+                        then a person's view has a line per skill. Changes are recorded from 5
+                        November 2026 on.
                       </>
                     ),
                   },

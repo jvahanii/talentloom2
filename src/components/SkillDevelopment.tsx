@@ -17,9 +17,11 @@ import { fetchTeams, teamsKey } from "@/lib/teams";
 import { displayLevel, skillLevelLabel } from "@/lib/skills";
 
 /**
- * How skill levels develop over time, from org_member_skill_history: by skill
- * (the average level of the people who have it) or by person (a line per
- * skill). Levels are recorded whenever they change, from 5 Nov 2026 on.
+ * How skill levels develop over time, from org_member_skill_history, by skill,
+ * person or team. Cumulative (the default) adds levels up into level points
+ * (Novice 1, Basic 2 …), so growth shows even when beginners join; average
+ * shows the typical level. Levels are recorded whenever they change, from
+ * 5 Nov 2026 on.
  */
 
 // Categorical slots in fixed order (validated reference palette, light surface).
@@ -47,21 +49,27 @@ function stepsOf(events: SkillHistoryPoint[]): { t: number; v: number | null }[]
   return events.map((e) => ({ t: e.at, v: e.level }));
 }
 
+type Measure = "cumulative" | "average";
+
 /**
- * The average level among people in a skill at each moment, from their
- * history (people without a level don't count). `shown` caps a level at the
- * organisation's number of levels.
+ * The total (level points) or average of the current levels at each moment,
+ * from history; `keyOf` says what a level belongs to (a person, or a skill).
+ * Missing levels don't count. `shown` caps a level at the organisation's
+ * number of levels.
  */
-function averageOver(
+function aggregateOver(
   events: SkillHistoryPoint[],
+  keyOf: (e: SkillHistoryPoint) => string,
   shown: (v: number | null) => number | null,
+  measure: Measure,
 ): { t: number; v: number | null }[] {
   const current = new Map<string, number | null>();
   const points: { t: number; v: number | null }[] = [];
   for (const e of events) {
-    current.set(e.userId, e.level);
+    current.set(keyOf(e), e.level);
     const levels = [...current.values()].map(shown).filter((l): l is number => l !== null);
-    const avg = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : null;
+    const total = levels.reduce((a, b) => a + b, 0);
+    const avg = !levels.length ? null : measure === "cumulative" ? total : total / levels.length;
     const last = points[points.length - 1];
     if (last && last.t === e.at) last.v = avg;
     else points.push({ t: e.at, v: avg });
@@ -74,8 +82,8 @@ function averageOver(
  * little (well under half a level); the true value stays in `<key>__raw` for
  * the tooltip and the line-end labels.
  */
-function nudged(rows: Row[], keys: string[]): Row[] {
-  const offset = (i: number) => (i - (keys.length - 1) / 2) * 0.06;
+function nudged(rows: Row[], keys: string[], step = 0.06): Row[] {
+  const offset = (i: number) => (i - (keys.length - 1) / 2) * step;
   return rows.map((r) => {
     const out: Row = { ...r };
     keys.forEach((k, i) => {
@@ -132,6 +140,8 @@ export function SkillDevelopment({
   const [skillPick, setSkillPick] = useState("");
   const [personPick, setPersonPick] = useState("");
   const [teamPick, setTeamPick] = useState("");
+  const [measure, setMeasure] = useState<Measure>("cumulative");
+  const cumulative = measure === "cumulative";
 
   const events = useMemo(
     () => (history.data ?? []).filter((e) => label.has(e.userId)),
@@ -190,12 +200,27 @@ export function SkillDevelopment({
       }
       seen.set(e.userId, e.level);
     }
-    const points = averageOver(mine, shown);
-    series = [{ key: "avg", name: `Average level in ${skill.name}`, color: SERIES[0] }];
+    const points = aggregateOver(mine, (e) => e.userId, shown, measure);
+    series = [
+      {
+        key: "avg",
+        name: cumulative ? `Level points in ${skill.name}` : `Average level in ${skill.name}`,
+        color: SERIES[0],
+      },
+    ];
     rows = nudged(toRows([{ key: "avg", points }], now), ["avg"]);
     changes = changes.sort((a, b) => b.at - a.at).slice(0, 8);
     showChart = points.some((p) => p.v !== null);
     if (!showChart) note = `Nobody has a level in ${skill.name} yet.`;
+  } else if (mode === "person" && person && cumulative) {
+    const mine = events.filter((e) => e.userId === person.userId);
+    const points = aggregateOver(mine, (e) => e.skill.toLowerCase(), shown, "cumulative");
+    series = [
+      { key: "avg", name: `${person.label}: level points in all skills`, color: SERIES[0] },
+    ];
+    rows = nudged(toRows([{ key: "avg", points }], now), ["avg"]);
+    showChart = points.some((p) => p.v !== null);
+    if (!showChart) note = `${person.label} has no skill levels yet.`;
   } else if (mode === "person" && person) {
     const mine = events.filter((e) => e.userId === person.userId);
     const names = [...new Set(mine.map((e) => e.skill))].filter((n) =>
@@ -222,7 +247,7 @@ export function SkillDevelopment({
       note = `Showing ${MAX_SERIES} of ${person.label}'s ${names.length} levelled skills.`;
   } else if (mode === "team" && team) {
     // The team's skills, most widely held first; a line per skill of the
-    // members' average level.
+    // members' level points or average level.
     const members = new Set(team.members);
     const mine = events.filter((e) => members.has(e.userId));
     const holders = new Map<string, { name: string; people: Set<string>; levelled: boolean }>();
@@ -247,14 +272,17 @@ export function SkillDevelopment({
       toRows(
         picked.map((h, i) => ({
           key: `s${i}`,
-          points: averageOver(
+          points: aggregateOver(
             mine.filter((e) => e.skill.toLowerCase() === h.name.toLowerCase()),
+            (e) => e.userId,
             shown,
+            measure,
           ),
         })),
         now,
       ),
       series.map((s) => s.key),
+      cumulative ? 0.15 : 0.06,
     );
     showChart = picked.length > 0;
     if (!showChart) note = `Nobody in ${team.name} has a skill level yet.`;
@@ -266,16 +294,23 @@ export function SkillDevelopment({
 
   const selectCls =
     "h-9 min-w-0 rounded-xl border border-input bg-white/70 px-2 text-sm outline-none focus:border-teal-500 dark:bg-white/5";
+  // One person's level by name: the changes list is about people, not totals.
+  const levelName = (v: number) => skillLevelLabel(v, levelNames) ?? String(v);
   const levelText = (v: number) =>
-    Number.isInteger(v) ? (skillLevelLabel(v, levelNames) ?? String(v)) : `${v.toFixed(1)}`;
+    cumulative
+      ? `${v} level point${v === 1 ? "" : "s"}`
+      : Number.isInteger(v)
+        ? (skillLevelLabel(v, levelNames) ?? String(v))
+        : `${v.toFixed(1)}`;
   // Name a line at its end when there are few and no other line ends near it.
   const ends = series.map((x) => rows[rows.length - 1]?.[`${x.key}__raw`] ?? null);
   const labelled = (key: string, i: number) =>
     series.length > 1 &&
     series.length <= 4 &&
     ends[i] !== null &&
-    ends.filter((e) => e !== null && Math.abs((e as number) - (ends[i] as number)) < 0.5).length ===
-      1 &&
+    ends.filter(
+      (e) => e !== null && Math.abs((e as number) - (ends[i] as number)) < (cumulative ? 1.5 : 0.5),
+    ).length === 1 &&
     !!key;
   const anyLabel = series.some((x, i) => labelled(x.key, i));
 
@@ -289,6 +324,30 @@ export function SkillDevelopment({
         <h2 className="font-semibold">Skill development</h2>
         {since && <span className="text-xs text-muted-foreground">since {since}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div
+            className="inline-flex rounded-xl border border-border p-0.5"
+            role="radiogroup"
+            aria-label="Measure"
+          >
+            {(["cumulative", "average"] as const).map((m) => (
+              <button
+                key={m}
+                role="radio"
+                aria-checked={measure === m}
+                onClick={() => setMeasure(m)}
+                title={
+                  m === "cumulative"
+                    ? "Levels added up into level points (Novice 1, Basic 2 …)"
+                    : "The typical level"
+                }
+                className={`rounded-lg px-3 py-1 text-sm font-medium capitalize ${
+                  measure === m ? "bg-secondary text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
           <div className="inline-flex rounded-xl border border-border p-0.5" role="tablist">
             {(["skill", "person", "team"] as const).map((m) => (
               <button
@@ -378,15 +437,31 @@ export function SkillDevelopment({
                     tick={{ fontSize: 12, fill: "#52514e" }}
                     stroke="#d6d4ce"
                   />
-                  <YAxis
-                    domain={[1, count]}
-                    ticks={Array.from({ length: count }, (_, i) => i + 1)}
-                    tickFormatter={(v: number) => skillLevelLabel(v, levelNames) ?? String(v)}
-                    tick={{ fontSize: 12, fill: "#52514e" }}
-                    width={88}
-                    stroke="#d6d4ce"
-                    allowDecimals={false}
-                  />
+                  {cumulative ? (
+                    <YAxis
+                      domain={[0, "auto"]}
+                      tick={{ fontSize: 12, fill: "#52514e" }}
+                      width={48}
+                      stroke="#d6d4ce"
+                      allowDecimals={false}
+                      label={{
+                        value: "level points",
+                        angle: -90,
+                        position: "insideLeft",
+                        style: { fontSize: 11, fill: "#52514e", textAnchor: "middle" },
+                      }}
+                    />
+                  ) : (
+                    <YAxis
+                      domain={[1, count]}
+                      ticks={Array.from({ length: count }, (_, i) => i + 1)}
+                      tickFormatter={(v: number) => skillLevelLabel(v, levelNames) ?? String(v)}
+                      tick={{ fontSize: 12, fill: "#52514e" }}
+                      width={88}
+                      stroke="#d6d4ce"
+                      allowDecimals={false}
+                    />
+                  )}
                   <Tooltip
                     labelFormatter={(t) => day(Number(t))}
                     formatter={(v, name, item) => {
@@ -476,9 +551,9 @@ export function SkillDevelopment({
                       {c.from === "new"
                         ? c.to === null
                           ? "added the skill"
-                          : `added at ${levelText(shown(c.to)!)}`
-                        : `${c.from === null ? "no level" : levelText(shown(c.from)!)} → ${
-                            c.to === null ? "no level" : levelText(shown(c.to)!)
+                          : `added at ${levelName(shown(c.to)!)}`
+                        : `${c.from === null ? "no level" : levelName(shown(c.from)!)} → ${
+                            c.to === null ? "no level" : levelName(shown(c.to)!)
                           }`}
                       <span className="text-muted-foreground"> · {day(c.at)}</span>
                     </li>
