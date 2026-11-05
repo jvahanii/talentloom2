@@ -89,7 +89,9 @@ function aggregateOver(
   const current = new Map<string, number | null>();
   const points: { t: number; v: number | null }[] = [];
   for (const e of events) {
-    current.set(keyOf(e), e.level);
+    // A removed skill no longer counts, not even towards "everyone".
+    if (e.removed) current.delete(keyOf(e));
+    else current.set(keyOf(e), e.level);
     const levels = [...current.values()].map(shown).filter((l): l is number => l !== null);
     const total = levels.reduce((a, b) => a + b, 0);
     const of = everyone ?? current.size;
@@ -135,6 +137,8 @@ type Change = {
   /** "new": a skill added after history began, rather than a level change. */
   from: number | null | "new";
   to: number | null;
+  /** The skill was taken off the person's list. */
+  removed?: boolean;
 };
 
 /** Every level change in these events, newest first (not the starting points). */
@@ -149,6 +153,13 @@ function changesIn(
     const key = `${e.userId}|${e.skill.toLowerCase()}`;
     const prev = seen.has(key) ? seen.get(key)! : undefined;
     const who = label.get(e.userId) ?? "Someone";
+    if (e.removed) {
+      if (prev !== undefined) {
+        out.push({ at: e.at, who, skill: e.skill, from: prev, to: null, removed: true });
+      }
+      seen.delete(key);
+      continue;
+    }
     if (prev !== undefined && prev !== e.level) {
       out.push({ at: e.at, who, skill: e.skill, from: prev, to: e.level });
     } else if (prev === undefined && historyStart !== undefined && e.at > historyStart + 60_000) {
@@ -614,15 +625,24 @@ export function SkillDevelopment({
           ? people.filter((p) => team.members.includes(p.userId))
           : []
         : people;
+  // A rise from one level to a higher one counts as learning. Giving a skill
+  // its first level (no level → Basic) is an assessment, not progress.
   const levelUps = new Map<string, number>();
+  let firstRatings = 0;
   const lastLevel = new Map<string, number | null>();
   for (const e of events) {
     if (!inSkills(e.skill)) continue;
     const key = `${e.userId}|${e.skill.toLowerCase()}`;
+    if (e.removed) {
+      lastLevel.delete(key);
+      continue;
+    }
     const prev = lastLevel.get(key);
-    const rose = prev !== undefined && e.level !== null && (prev === null || e.level > prev);
-    if (rose && (from === null || e.at >= from) && (to === null || e.at <= to)) {
+    const inFrame = (from === null || e.at >= from) && (to === null || e.at <= to);
+    if (prev !== undefined && prev !== null && e.level !== null && e.level > prev && inFrame) {
       levelUps.set(e.userId, (levelUps.get(e.userId) ?? 0) + 1);
+    } else if (prev === null && e.level !== null && inFrame) {
+      firstRatings += 1;
     }
     lastLevel.set(key, e.level);
   }
@@ -633,6 +653,8 @@ export function SkillDevelopment({
   }
   const engaged = scopePeople.filter((p) => levelUps.has(p.userId) || learningWith.has(p.userId));
   const notYet = scopePeople.filter((p) => !levelUps.has(p.userId) && !learningWith.has(p.userId));
+  const byLevelUps = scopePeople.filter((p) => levelUps.has(p.userId)).length;
+  const byGroups = scopePeople.filter((p) => learningWith.has(p.userId)).length;
   const engagedShare = scopePeople.length
     ? Math.round((engaged.length / scopePeople.length) * 100)
     : 0;
@@ -856,7 +878,9 @@ export function SkillDevelopment({
                     />
                   )}
                   <Tooltip
-                    labelFormatter={(t) => day(Number(t))}
+                    labelFormatter={(t) =>
+                      format(Number(t), shortSpan ? "d MMM yyyy HH:mm" : "d MMM yyyy")
+                    }
                     formatter={(v, name, item) => {
                       // The true value, not the nudged position of the line.
                       const raw = (item?.payload as Row | undefined)?.[
@@ -954,9 +978,11 @@ export function SkillDevelopment({
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Actively learning: their level rose
-                {from === null && to === null ? "" : " in this time frame"}, or they&apos;re in a
-                Learning with group{scopeSkills ? " in the chosen skills" : ""}.
+                {byLevelUps} raised a level
+                {from === null && to === null ? "" : " in this time frame"} · {byGroups} in a
+                Learning with group{scopeSkills ? " in the chosen skills" : ""}
+                {firstRatings > 0 &&
+                  ` · ${firstRatings} first level${firstRatings === 1 ? "" : "s"} set (not counted as learning)`}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -1033,13 +1059,15 @@ export function SkillDevelopment({
                         )
                       )}
                       :{" "}
-                      {c.from === "new"
-                        ? c.to === null
-                          ? "added the skill"
-                          : `added at ${levelName(shown(c.to)!)}`
-                        : `${c.from === null ? "no level" : levelName(shown(c.from)!)} → ${
-                            c.to === null ? "no level" : levelName(shown(c.to)!)
-                          }`}
+                      {c.removed
+                        ? "removed the skill"
+                        : c.from === "new"
+                          ? c.to === null
+                            ? "added the skill"
+                            : `added at ${levelName(shown(c.to)!)}`
+                          : `${c.from === null ? "no level" : levelName(shown(c.from)!)} → ${
+                              c.to === null ? "no level" : levelName(shown(c.to)!)
+                            }`}
                       <span className="text-muted-foreground"> · {day(c.at)}</span>
                     </li>
                   ))}
@@ -1059,6 +1087,37 @@ export function SkillDevelopment({
             </div>
           )}
         </>
+      )}
+      {events.length > 0 && (
+        <details className="rounded-xl border border-border p-3 text-sm">
+          <summary className="cursor-pointer font-medium">How is this calculated?</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+            <li>
+              Every change of a level is recorded when it happens: setting, raising or lowering a
+              level, adding a skill and removing one. History began on {since}.
+            </li>
+            <li>
+              Levels count as points: {levelNames.map((n, i) => `${n} ${i + 1}`).join(", ")}. A
+              skill without a level, or a removed one, counts as nothing.
+            </li>
+            <li>
+              <strong>Cumulative</strong> adds up everyone's levels at each moment, so it grows as
+              people learn and as people add levelled skills. <strong>Average</strong> is the mean
+              of the levels that are set. <strong>Average (everyone)</strong> divides the points by
+              everyone in view — people (and, for all skills, every skill) — counting missing levels
+              as 0.
+            </li>
+            <li>
+              The time frame decides where the chart starts and ends (starting from the levels that
+              held then) and which changes are listed.
+            </li>
+            <li>
+              <strong>Actively learning</strong>: someone whose level in a skill rose from one level
+              to a higher one in the time frame, or who is in a Learning with group. Giving a skill
+              its first level is an assessment, so it doesn't count.
+            </li>
+          </ul>
+        </details>
       )}
     </section>
   );

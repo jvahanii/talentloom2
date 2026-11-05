@@ -190,18 +190,55 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
     // This organisation's skill space only (shared by connected organisations);
     // the person's other organisations keep theirs.
     const root = await spaceRoot(admin, data.orgId);
-    const { error: dError } = await admin
+    // Only what changed is written, so the history records real changes:
+    // removed skills, new ones, and changed levels or order.
+    const { data: currentRows, error: cError } = await admin
       .from("org_member_skills")
-      .delete()
+      .select("skill, level, position")
       .eq("org_id", root)
       .eq("user_id", data.userId);
-    if (dError) throw new Error(dError.message);
+    if (cError) throw new Error(cError.message);
+    const current = new Map(
+      ((currentRows ?? []) as { skill: string; level: number | null; position: number }[]).map(
+        (r) => [r.skill.toLowerCase(), r],
+      ),
+    );
     const rows = writeSkills(data.skills);
-    if (rows.length) {
+    const wanted = new Set(rows.map((r) => r.skill.toLowerCase()));
+    const gone = [...current.values()].filter((r) => !wanted.has(r.skill.toLowerCase()));
+    if (gone.length) {
       const { error } = await admin
         .from("org_member_skills")
-        .insert(rows.map((r) => ({ ...r, org_id: root, user_id: data.userId })));
+        .delete()
+        .eq("org_id", root)
+        .eq("user_id", data.userId)
+        .in(
+          "skill",
+          gone.map((r) => r.skill),
+        );
       if (error) throw new Error(error.message);
+    }
+    for (const r of rows) {
+      const was = current.get(r.skill.toLowerCase());
+      if (!was) {
+        const { error } = await admin
+          .from("org_member_skills")
+          .insert({ ...r, org_id: root, user_id: data.userId });
+        if (error) throw new Error(error.message);
+      } else if (was.level !== r.level || was.position !== r.position || was.skill !== r.skill) {
+        const { error } = await admin
+          .from("org_member_skills")
+          .update({
+            skill: r.skill,
+            level: r.level,
+            position: r.position,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("org_id", root)
+          .eq("user_id", data.userId)
+          .eq("skill", was.skill);
+        if (error) throw new Error(error.message);
+      }
     }
     return { ok: true };
   });
@@ -274,6 +311,19 @@ export const mergeSkills = createServerFn({ method: "POST" })
           hits.map((h) => h.skill),
         );
       if (dError) throw new Error(dError.message);
+      // Deleting the variants just recorded them as removed; merging isn't a
+      // removal, so those records go.
+      const { error: rmError } = await admin
+        .from("org_member_skill_history")
+        .delete()
+        .eq("org_id", root)
+        .eq("user_id", userId)
+        .eq("removed", true)
+        .in(
+          "skill",
+          hits.map((h) => h.skill),
+        );
+      if (rmError) throw new Error(rmError.message);
       // The history follows the kept name, before the merged row is written.
       const { error: hError } = await admin
         .from("org_member_skill_history")

@@ -74,8 +74,17 @@ export async function setMemberSkillLevel(
   if (!data?.length) throw new Error("Your title doesn't allow changing this person's skills");
 }
 
-/** A recorded level of a person's skill at a moment (null: no level). */
-export type SkillHistoryPoint = { userId: string; skill: string; level: number | null; at: number };
+/**
+ * A recorded level of a person's skill at a moment (null: no level);
+ * `removed` marks the skill being taken off their list.
+ */
+export type SkillHistoryPoint = {
+  userId: string;
+  skill: string;
+  level: number | null;
+  removed: boolean;
+  at: number;
+};
 
 /** Level changes of these people's skills in the organisation's space, oldest first. */
 export async function fetchSkillHistory(
@@ -86,18 +95,25 @@ export async function fetchSkillHistory(
   const { root } = await fetchSkillSpace(orgId);
   const { data, error } = await db
     .from("org_member_skill_history")
-    .select("user_id, skill, level, changed_at")
+    .select("user_id, skill, level, removed, changed_at")
     .eq("org_id", root)
     .in("user_id", userIds)
     .order("changed_at", { ascending: true })
     .order("id", { ascending: true });
   if (error) throw error;
   return (
-    (data ?? []) as { user_id: string; skill: string; level: number | null; changed_at: string }[]
+    (data ?? []) as {
+      user_id: string;
+      skill: string;
+      level: number | null;
+      removed: boolean | null;
+      changed_at: string;
+    }[]
   ).map((r) => ({
     userId: r.user_id,
     skill: r.skill,
     level: r.level,
+    removed: !!r.removed,
     at: new Date(r.changed_at).getTime(),
   }));
 }
