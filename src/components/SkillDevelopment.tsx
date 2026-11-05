@@ -441,8 +441,6 @@ export function SkillDevelopment({
     note = "There are no teams with skills yet. Teams are set up on the Teams page.";
   }
 
-  const selectCls =
-    "h-9 min-w-0 rounded-xl border border-input bg-white/70 px-2 text-sm outline-none focus:border-teal-500 dark:bg-white/5";
   // One person's level by name: the changes list is about people, not totals.
   const levelName = (v: number) => skillLevelLabel(v, levelNames) ?? String(v);
   const levelText = (v: number) =>
@@ -497,52 +495,42 @@ export function SkillDevelopment({
               </button>
             ))}
           </div>
-          <div className="inline-flex rounded-xl border border-border p-0.5" role="tablist">
-            {(["skill", "person", "team"] as const).map((m) => (
-              <button
-                key={m}
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => setMode(m)}
-                className={`rounded-lg px-3 py-1 text-sm font-medium ${
-                  mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
-              >
-                By {m}
-              </button>
-            ))}
+          <div
+            className="inline-flex flex-wrap rounded-xl border border-border p-0.5"
+            role="tablist"
+          >
+            <ViewTab
+              label="By skill"
+              active={mode === "skill"}
+              onActivate={() => setMode("skill")}
+              options={skills}
+              selected={skillPicks}
+              onChange={setSkillPicks}
+              multi
+              allLabel="All skills"
+              search="Find a skill"
+            />
+            <ViewTab
+              label="By person"
+              active={mode === "person"}
+              onActivate={() => setMode("person")}
+              options={withHistory.map((p) => ({ key: p.userId, name: p.label }))}
+              selected={person ? [person.userId] : []}
+              onChange={(keys) => setPersonPick(keys[0] ?? "")}
+              search="Find a person"
+              empty="Nobody has skill history yet"
+            />
+            <ViewTab
+              label="By team"
+              active={mode === "team"}
+              onActivate={() => setMode("team")}
+              options={teamList.map((t) => ({ key: t.id, name: t.name }))}
+              selected={team ? [team.id] : []}
+              onChange={(keys) => setTeamPick(keys[0] ?? "")}
+              search="Find a team"
+              empty="No teams with skills yet"
+            />
           </div>
-          {mode === "skill" ? (
-            <SkillMultiSelect skills={skills} picked={skillPicks} onChange={setSkillPicks} />
-          ) : mode === "person" ? (
-            <select
-              className={selectCls}
-              value={person?.userId ?? ""}
-              onChange={(e) => setPersonPick(e.target.value)}
-              aria-label="Person"
-            >
-              {withHistory.map((p) => (
-                <option key={p.userId} value={p.userId}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            teamList.length > 0 && (
-              <select
-                className={selectCls}
-                value={team?.id ?? ""}
-                onChange={(e) => setTeamPick(e.target.value)}
-                aria-label="Team"
-              >
-                {teamList.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            )
-          )}
         </div>
       </div>
 
@@ -737,22 +725,39 @@ export function SkillDevelopment({
 }
 
 /**
- * Choose skills for the chart: "All skills" on top, then every skill
- * alphabetically, several at a time. Picking a skill leaves "All skills";
- * clearing every skill goes back to it.
+ * A view tab that carries its own list: the tab shows what's chosen, and
+ * opens the list when clicked (switching to its view first if needed).
+ * `multi` allows several choices plus `allLabel` (none chosen = all);
+ * otherwise one is chosen at a time.
  */
-function SkillMultiSelect({
-  skills,
-  picked,
+function ViewTab({
+  label,
+  active,
+  onActivate,
+  options,
+  selected,
   onChange,
+  multi = false,
+  allLabel,
+  search,
+  empty = "Nothing to choose yet",
 }: {
-  skills: { key: string; name: string }[];
-  picked: string[];
+  label: string;
+  active: boolean;
+  onActivate: () => void;
+  options: { key: string; name: string }[];
+  selected: string[];
   onChange: (next: string[]) => void;
+  multi?: boolean;
+  allLabel?: string;
+  search: string;
+  empty?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const box = useRef<HTMLDivElement>(null);
+  // Open towards the left when there is room (the tabs sit on the right), else to the right.
+  const [toRight, setToRight] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -768,50 +773,72 @@ function SkillMultiSelect({
     };
   }, [open]);
 
-  const chosen = skills.filter((k) => picked.includes(k.key));
+  const chosen = options.filter((o) => selected.includes(o.key));
   const summary = !chosen.length
-    ? "All skills"
+    ? (allLabel ?? "")
     : chosen.length === 1
       ? chosen[0].name
-      : `${chosen.length} skills`;
+      : `${chosen.length} chosen`;
   const q = filter.trim().toLowerCase();
-  const listed = q ? skills.filter((k) => k.name.toLowerCase().includes(q)) : skills;
-  const toggle = (key: string) =>
-    onChange(picked.includes(key) ? picked.filter((k) => k !== key) : [...picked, key]);
+  const listed = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+  const pick = (key: string) => {
+    if (!multi) {
+      onChange([key]);
+      setOpen(false);
+    } else {
+      onChange(selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key]);
+    }
+  };
 
   const item = (on: boolean) =>
     `flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-secondary ${
       on ? "font-medium" : ""
     }`;
   const tick = (on: boolean) =>
-    `grid h-4 w-4 shrink-0 place-items-center rounded border ${
-      on ? "border-primary bg-primary text-primary-foreground" : "border-input"
-    }`;
+    `grid h-4 w-4 shrink-0 place-items-center ${
+      multi ? "rounded border" : "rounded-full border"
+    } ${on ? "border-primary bg-primary text-primary-foreground" : "border-input"}`;
 
   return (
     <div ref={box} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        role="tab"
+        aria-selected={active}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-9 max-w-56 items-center gap-1.5 rounded-xl border border-input bg-white/70 px-3 text-sm dark:bg-white/5"
+        onClick={() => {
+          if (!active) onActivate();
+          const r = box.current?.getBoundingClientRect();
+          setToRight(!!r && r.right - 288 < 8);
+          setOpen(active ? !open : true);
+        }}
+        className={`flex max-w-64 items-center gap-1 rounded-lg px-3 py-1 text-sm font-medium ${
+          active ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+        }`}
       >
-        <span className="truncate">{summary}</span>
-        <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+        <span className="shrink-0">{label}</span>
+        {summary && (
+          <span className={`truncate font-normal ${active ? "opacity-90" : "opacity-75"}`}>
+            · {summary}
+          </span>
+        )}
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
       </button>
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-72 rounded-xl border-2 border-border bg-card p-2 shadow-lg">
+        <div
+          className={`absolute ${toRight ? "left-0" : "right-0"} z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl border-2 border-border bg-card p-2 text-foreground shadow-lg`}
+        >
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Find a skill"
+            placeholder={search}
             className="mb-1 h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus:border-teal-500"
-            aria-label="Find a skill"
+            aria-label={search}
             autoFocus
           />
-          <div role="listbox" aria-multiselectable="true" className="max-h-72 overflow-y-auto">
-            {!q && (
+          <div role="listbox" aria-multiselectable={multi} className="max-h-72 overflow-y-auto">
+            {multi && allLabel && !q && (
               <button
                 type="button"
                 role="option"
@@ -822,27 +849,29 @@ function SkillMultiSelect({
                 <span className={tick(!chosen.length)}>
                   {!chosen.length && <Check className="h-3 w-3" />}
                 </span>
-                All skills
+                {allLabel}
               </button>
             )}
-            {listed.map((k) => {
-              const on = picked.includes(k.key);
+            {listed.map((o) => {
+              const on = selected.includes(o.key);
               return (
                 <button
-                  key={k.key}
+                  key={o.key}
                   type="button"
                   role="option"
                   aria-selected={on}
-                  onClick={() => toggle(k.key)}
+                  onClick={() => pick(o.key)}
                   className={item(on)}
                 >
                   <span className={tick(on)}>{on && <Check className="h-3 w-3" />}</span>
-                  <span className="truncate">{k.name}</span>
+                  <span className="truncate">{o.name}</span>
                 </button>
               );
             })}
             {!listed.length && (
-              <p className="px-2 py-1.5 text-sm text-muted-foreground">No skill matches.</p>
+              <p className="px-2 py-1.5 text-sm text-muted-foreground">
+                {options.length ? "Nothing matches." : empty}
+              </p>
             )}
           </div>
         </div>
