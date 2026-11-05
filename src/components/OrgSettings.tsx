@@ -52,6 +52,8 @@ function useTitles(orgId: string | null) {
 export function OrgSettings() {
   const { orgId, title, role, orgs, refresh, can } = useOrg();
   const isOwner = title === "Owner" || role === "owner";
+  // Connecting organisations is for owners and admins (the server checks the same).
+  const canConnect = isOwner || title === "Admin" || role === "admin";
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
 
   const [name, setName] = useState(orgName);
@@ -129,7 +131,7 @@ export function OrgSettings() {
 
       {can("rename_org") && <SkillLevelsPanel orgId={orgId} />}
 
-      <SkillSpacePanel orgId={orgId} isOwner={isOwner} />
+      <SkillSpacePanel orgId={orgId} canConnect={canConnect} />
 
       {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
     </div>
@@ -138,10 +140,10 @@ export function OrgSettings() {
 
 /**
  * Organisations connected to this one share its skill list, level names and
- * people's skills. Owners connect with a code from the other organisation, or
- * create one for it, and can disconnect.
+ * people's skills. Owners and admins connect with a code from the other
+ * organisation, or create one for it, and can disconnect.
  */
-function SkillSpacePanel({ orgId, isOwner }: { orgId: string; isOwner: boolean }) {
+function SkillSpacePanel({ orgId, canConnect }: { orgId: string; canConnect: boolean }) {
   const qc = useQueryClient();
   const space = useQuery({
     queryKey: skillSpaceKey(orgId),
@@ -232,7 +234,7 @@ function SkillSpacePanel({ orgId, isOwner }: { orgId: string; isOwner: boolean }
               <Link2 className="h-3 w-3" /> {o.name}
             </span>
           ))}
-          {isOwner && (
+          {canConnect && (
             <button
               onClick={disconnect}
               disabled={busy}
@@ -246,13 +248,13 @@ function SkillSpacePanel({ orgId, isOwner }: { orgId: string; isOwner: boolean }
         <p className="mt-3 text-sm text-muted-foreground">Not connected to any organisation.</p>
       )}
 
-      {isOwner ? (
+      {canConnect ? (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-border p-3">
             <p className="text-sm font-medium">Invite an organisation</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Create a code and give it to an owner of the other organisation. It works once, for 7
-              days, and your skill list and level names are kept.
+              Create a code and give it to an owner or admin of the other organisation. It works
+              once, for 7 days, and your skill list and level names are kept.
             </p>
             {code ? (
               <div className="mt-2 flex items-center gap-2">
@@ -280,8 +282,8 @@ function SkillSpacePanel({ orgId, isOwner }: { orgId: string; isOwner: boolean }
           <div className="rounded-xl border border-border p-3">
             <p className="text-sm font-medium">Connect with a code</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Enter a code from another organisation's owner. Their skill list and level names are
-              used, and people's skills are combined.
+              Enter a code from another organisation's owner or admin. Their skill list and level
+              names are used, and people's skills are combined.
             </p>
             <div className="mt-2 flex gap-2">
               <input
@@ -303,7 +305,9 @@ function SkillSpacePanel({ orgId, isOwner }: { orgId: string; isOwner: boolean }
           </div>
         </div>
       ) : (
-        <p className="mt-2 text-xs text-muted-foreground">Only owners can connect organisations.</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Only owners and admins can connect organisations.
+        </p>
       )}
     </div>
   );

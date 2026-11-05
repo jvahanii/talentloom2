@@ -780,10 +780,10 @@ function Docs() {
                     icon: KeyRound,
                     text: (
                       <>
-                        An owner opens <strong>Settings → Connected organisations</strong> and
-                        selects <strong>Create a connection code</strong>. An owner of the other
-                        organisation enters it under <strong>Connect with a code</strong>. A code
-                        works once, for 7 days.
+                        An owner or admin opens <strong>Settings → Connected organisations</strong>{" "}
+                        and selects <strong>Create a connection code</strong>. An owner or admin of
+                        the other organisation enters it under <strong>Connect with a code</strong>.
+                        A code works once, for 7 days.
                       </>
                     ),
                   },
@@ -801,9 +801,9 @@ function Docs() {
                     icon: Trash2,
                     text: (
                       <>
-                        An owner can <strong>disconnect</strong> their organisation. It keeps a copy
-                        of the shared skill list, level names and its people's skills, and from then
-                        on they're separate again.
+                        An owner or admin can <strong>disconnect</strong> their organisation. It
+                        keeps a copy of the shared skill list, level names and its people's skills,
+                        and from then on they're separate again.
                       </>
                     ),
                   },

@@ -6,9 +6,10 @@ import { MAX_SKILL_LEVELS, MAX_SKILL_LEVEL_NAME_LENGTH, MIN_SKILL_LEVELS } from 
 
 /**
  * Connecting organisations into one skill space, so they share their skill
- * list, level names and people's skills. An owner of one organisation creates
- * a code; an owner of the other enters it. Either can disconnect later, and
- * the leaving organisation keeps a copy of the shared skills.
+ * list, level names and people's skills. An owner or admin of one
+ * organisation creates a code; an owner or admin of the other enters it.
+ * Either can disconnect later, and the leaving organisation keeps a copy of
+ * the shared skills.
  */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,9 +20,28 @@ async function admin(): Promise<Loose> {
   return supabaseAdmin as Loose;
 }
 
-async function requireOwner(sb: Loose, orgId: string, userId: string) {
-  const { data } = await sb.rpc("is_org_owner", { _org: orgId, _user: userId });
-  if (data !== true) throw new Error("Only an owner of the organisation can do this");
+/**
+ * Owners and admins. The Admin title counts even when the stored role is still
+ * "member" (titles can change without the role following).
+ */
+async function requireOwnerOrAdmin(sb: Loose, orgId: string, userId: string) {
+  const { data: byRole } = await sb.rpc("has_org_role", {
+    _org: orgId,
+    _user: userId,
+    _min: "admin",
+  });
+  if (byRole === true) return;
+  const db = await admin();
+  const { data: member } = await db
+    .from("organization_members")
+    .select("organization_titles(name)")
+    .eq("org_id", orgId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const title = (member?.organization_titles as { name?: string } | null)?.name;
+  if (title !== "Owner" && title !== "Admin") {
+    throw new Error("Only an owner or admin of the organisation can do this");
+  }
 }
 
 // No 0/O or 1/I, so a code read aloud or typed from a screenshot comes out right.
@@ -39,7 +59,7 @@ export const createSkillConnectionCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(orgOnly)
   .handler(async ({ data, context }) => {
-    await requireOwner(context.supabase, data.orgId, context.userId);
+    await requireOwnerOrAdmin(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const code = newCode();
     const { data: row, error } = await db
@@ -67,7 +87,7 @@ export const connectSkillSpace = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireOwner(context.supabase, data.orgId, context.userId);
+    await requireOwnerOrAdmin(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const code = data.code.includes("-")
       ? data.code
@@ -105,7 +125,7 @@ export const disconnectSkillSpace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(orgOnly)
   .handler(async ({ data, context }) => {
-    await requireOwner(context.supabase, data.orgId, context.userId);
+    await requireOwnerOrAdmin(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const { error } = await db.rpc("disconnect_skill_space", { _org: data.orgId });
     if (error) throw new Error(error.message);
