@@ -14,6 +14,13 @@ type Loose = any;
 
 const PROTECTED_TITLES = ["Owner", "Admin"];
 
+/** The organisation skills are stored on: the root of its skill space (itself unless connected). */
+export async function spaceRoot(admin: Loose, orgId: string): Promise<string> {
+  const { data, error } = await admin.rpc("skill_space_of", { _org: orgId });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? orgId;
+}
+
 async function hasPermission(sb: Loose, orgId: string, userId: string, perm: string) {
   const { data } = await sb.rpc("has_org_permission", { _org: orgId, _user: userId, _perm: perm });
   return data === true;
@@ -180,18 +187,20 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
       .eq("user_id", data.userId)
       .maybeSingle();
     if (!member) throw new Error("That person isn't a member of this organisation");
-    // This organisation's list only; the person's other organisations keep theirs.
+    // This organisation's skill space only (shared by connected organisations);
+    // the person's other organisations keep theirs.
+    const root = await spaceRoot(admin, data.orgId);
     const { error: dError } = await admin
       .from("org_member_skills")
       .delete()
-      .eq("org_id", data.orgId)
+      .eq("org_id", root)
       .eq("user_id", data.userId);
     if (dError) throw new Error(dError.message);
     const rows = writeSkills(data.skills);
     if (rows.length) {
       const { error } = await admin
         .from("org_member_skills")
-        .insert(rows.map((r) => ({ ...r, org_id: data.orgId, user_id: data.userId })));
+        .insert(rows.map((r) => ({ ...r, org_id: root, user_id: data.userId })));
       if (error) throw new Error(error.message);
     }
     return { ok: true };
@@ -202,8 +211,9 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
  * organisation. Each person keeps the skill once, in the place of the first
  * variant they had, at the highest level any variant had. The organisation's
  * learning groups and skill list follow the kept name; someone who ends up in
- * two learning groups stays in the first. Other organisations aren't touched:
- * each keeps its own skills. Needs "change titles".
+ * two learning groups stays in the first. Organisations connected to this one
+ * share its skills, so its people's skills change there too; others aren't
+ * touched. Needs "change titles".
  */
 export const mergeSkills = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -225,10 +235,18 @@ export const mergeSkills = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
 
+    const root = await spaceRoot(admin, data.orgId);
+    // Only this organisation's people: connected organisations' other people aren't ours to change.
+    const { data: memberRows, error: mError } = await admin
+      .from("organization_members")
+      .select("user_id")
+      .eq("org_id", data.orgId);
+    if (mError) throw new Error(mError.message);
+    const ours = new Set(((memberRows ?? []) as { user_id: string }[]).map((m) => m.user_id));
     const { data: rowsData, error: rError } = await admin
       .from("org_member_skills")
       .select("user_id, skill, level, position")
-      .eq("org_id", data.orgId);
+      .eq("org_id", root);
     if (rError) throw new Error(rError.message);
     const byUser = new Map<string, { skill: string; level: number | null; position: number }[]>();
     for (const r of (rowsData ?? []) as {
@@ -237,7 +255,7 @@ export const mergeSkills = createServerFn({ method: "POST" })
       level: number | null;
       position: number;
     }[]) {
-      if (variants.has(r.skill.toLowerCase())) {
+      if (ours.has(r.user_id) && variants.has(r.skill.toLowerCase())) {
         byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), r]);
       }
     }
@@ -249,7 +267,7 @@ export const mergeSkills = createServerFn({ method: "POST" })
       const { error: dError } = await admin
         .from("org_member_skills")
         .delete()
-        .eq("org_id", data.orgId)
+        .eq("org_id", root)
         .eq("user_id", userId)
         .in(
           "skill",
@@ -257,7 +275,7 @@ export const mergeSkills = createServerFn({ method: "POST" })
         );
       if (dError) throw new Error(dError.message);
       const { error: iError } = await admin.from("org_member_skills").insert({
-        org_id: data.orgId,
+        org_id: root,
         user_id: userId,
         skill: data.into,
         level: levels.length ? Math.max(...levels) : null,
@@ -271,7 +289,7 @@ export const mergeSkills = createServerFn({ method: "POST" })
     const { data: listed, error: lError } = await admin
       .from("org_skills")
       .select("id, name")
-      .eq("org_id", data.orgId);
+      .eq("org_id", root);
     if (lError) throw new Error(lError.message);
     const listedVariants = ((listed ?? []) as { id: string; name: string }[]).filter((s) =>
       variants.has(s.name.toLowerCase()),
@@ -287,7 +305,7 @@ export const mergeSkills = createServerFn({ method: "POST" })
       if (dError) throw new Error(dError.message);
       const { error: iError } = await admin
         .from("org_skills")
-        .insert({ org_id: data.orgId, name: data.into, created_by: context.userId });
+        .insert({ org_id: root, name: data.into, created_by: context.userId });
       if (iError && iError.code !== "23505") throw new Error(iError.message);
     }
 

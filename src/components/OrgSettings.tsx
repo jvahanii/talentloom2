@@ -12,7 +12,14 @@ import {
 } from "@/lib/org";
 import { toast } from "sonner";
 import { RequiredIndicator } from "@/components/ui/label";
-import { Plus, Trash2, UsersRound } from "lucide-react";
+import { Copy, Link2, Plus, Trash2, Unlink, UsersRound } from "lucide-react";
+import {
+  connectSkillSpace,
+  createSkillConnectionCode,
+  disconnectSkillSpace,
+  saveSkillLevelNames,
+} from "@/lib/skillSpace.functions";
+import { fetchSkillSpace, forgetSkillSpaces, skillSpaceKey } from "@/lib/skillLevels";
 import { useSkillLevelNames, skillLevelNamesKey } from "@/hooks/useSkillLevelNames";
 import {
   DEFAULT_SKILL_LEVEL_NAMES,
@@ -43,7 +50,8 @@ function useTitles(orgId: string | null) {
 }
 
 export function OrgSettings() {
-  const { orgId, title, orgs, refresh, can } = useOrg();
+  const { orgId, title, role, orgs, refresh, can } = useOrg();
+  const isOwner = title === "Owner" || role === "owner";
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
 
   const [name, setName] = useState(orgName);
@@ -121,7 +129,182 @@ export function OrgSettings() {
 
       {can("rename_org") && <SkillLevelsPanel orgId={orgId} />}
 
+      <SkillSpacePanel orgId={orgId} isOwner={isOwner} />
+
       {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
+    </div>
+  );
+}
+
+/**
+ * Organisations connected to this one share its skill list, level names and
+ * people's skills. Owners connect with a code from the other organisation, or
+ * create one for it, and can disconnect.
+ */
+function SkillSpacePanel({ orgId, isOwner }: { orgId: string; isOwner: boolean }) {
+  const qc = useQueryClient();
+  const space = useQuery({
+    queryKey: skillSpaceKey(orgId),
+    queryFn: () => fetchSkillSpace(orgId, true),
+  });
+  const others = (space.data?.orgs ?? []).filter((o) => o.id !== orgId);
+  const [code, setCode] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [entered, setEntered] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  /** Everything that shows skills reads the space again. */
+  const refreshAll = async () => {
+    forgetSkillSpaces();
+    await qc.invalidateQueries();
+  };
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await action();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const makeCode = () =>
+    run(async () => {
+      setCode(await createSkillConnectionCode({ data: { orgId } }));
+    });
+
+  const connect = () =>
+    run(async () => {
+      if (
+        !window.confirm(
+          "Connect to the organisation that gave you this code? Its skill list and level names are used for both, and the skills of people in both are combined (the higher level wins).",
+        )
+      ) {
+        return;
+      }
+      const { connectedTo } = await connectSkillSpace({ data: { orgId, code: entered } });
+      setEntered("");
+      toast.success(`Connected to ${connectedTo}`);
+      await refreshAll();
+    });
+
+  const disconnect = () =>
+    run(async () => {
+      if (
+        !window.confirm(
+          "Disconnect this organisation? It keeps a copy of the shared skill list, level names and its people's skills; from then on they're separate.",
+        )
+      ) {
+        return;
+      }
+      await disconnectSkillSpace({ data: { orgId } });
+      toast.success("Disconnected");
+      await refreshAll();
+    });
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Code copied");
+    } catch {
+      toast.error("Couldn't copy — select and copy it manually");
+    }
+  };
+
+  return (
+    <div className="mt-8">
+      <h4 className="text-sm font-semibold">Connected organisations</h4>
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        Connected organisations share their skill list, skill level names and people's skills:
+        someone in several of them has one list of skills for all. Each organisation still sees only
+        its own people, and teams and learning groups stay separate.
+      </p>
+
+      {others.length > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm">Connected with</span>
+          {others.map((o) => (
+            <span
+              key={o.id}
+              className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium"
+            >
+              <Link2 className="h-3 w-3" /> {o.name}
+            </span>
+          ))}
+          {isOwner && (
+            <button
+              onClick={disconnect}
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-xl border border-border px-3 py-1.5 text-xs font-medium hover:bg-destructive/10 hover:text-destructive disabled:opacity-60"
+            >
+              <Unlink className="h-3.5 w-3.5" /> Disconnect this organisation
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">Not connected to any organisation.</p>
+      )}
+
+      {isOwner ? (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-border p-3">
+            <p className="text-sm font-medium">Invite an organisation</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Create a code and give it to an owner of the other organisation. It works once, for 7
+              days, and your skill list and level names are kept.
+            </p>
+            {code ? (
+              <div className="mt-2 flex items-center gap-2">
+                <code className="rounded-lg bg-secondary px-3 py-1.5 font-mono text-sm font-semibold tracking-wider">
+                  {code.code}
+                </code>
+                <button
+                  onClick={() => copy(code.code)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+                  aria-label="Copy the code"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={makeCode}
+                disabled={busy}
+                className="btn-teal mt-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                Create a connection code
+              </button>
+            )}
+          </div>
+          <div className="rounded-xl border border-border p-3">
+            <p className="text-sm font-medium">Connect with a code</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Enter a code from another organisation's owner. Their skill list and level names are
+              used, and people's skills are combined.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={entered}
+                onChange={(e) => setEntered(e.target.value)}
+                placeholder="ABCD-EFGH"
+                maxLength={9}
+                className={inputCls + " font-mono uppercase"}
+                aria-label="Connection code"
+              />
+              <button
+                onClick={connect}
+                disabled={busy || entered.trim().length < 8}
+                className="btn-teal shrink-0 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-60"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">Only owners can connect organisations.</p>
+      )}
     </div>
   );
 }
@@ -220,14 +403,8 @@ function SkillLevelsPanel({ orgId }: { orgId: string }) {
   const save = async (next: string[] | null) => {
     setSaving(true);
     try {
-      // The column lives in the external database; Lovable regenerates types.ts without it.
-      const { data, error } = await supabase
-        .from("organizations")
-        .update({ skill_level_names: next } as never)
-        .eq("id", orgId)
-        .select("id");
-      if (error) throw error;
-      if (!data?.length) throw new Error("Your title doesn't allow changing organisation settings");
+      // Saved for the whole skill space when organisations are connected.
+      await saveSkillLevelNames({ data: { orgId, names: next } });
       toast.success(next ? "Skill levels saved" : "Skill levels reset");
       await qc.invalidateQueries({ queryKey: skillLevelNamesKey(orgId) });
     } catch (e) {

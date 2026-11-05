@@ -574,7 +574,8 @@ function Docs() {
                       <>
                         Each organisation keeps its own skills and levels for you, so if you're in
                         several, you set your skills separately in each — Settings shows the
-                        organisation you have selected; switch organisations at the top right.
+                        organisation you have selected; switch organisations at the top right. (
+                        <a href="#skills-connect">Connected organisations</a> share one list.)
                         People who may change titles there can also edit your skills on the People
                         and Skills pages.
                       </>
@@ -754,6 +755,55 @@ function Docs() {
                         members have, most widely held first, with how many have it. The colour is
                         the best level in the team; point at a skill to see who has it and at what
                         level.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-connect" title="Connect organisations">
+              <StepList
+                steps={[
+                  {
+                    icon: Link2,
+                    text: (
+                      <>
+                        Organisations can be connected so they share their skill list, skill level
+                        names and people's skills: someone in several connected organisations has
+                        one list of skills and levels for all of them. Each organisation still sees
+                        only its own people, and teams and learning groups stay separate.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: KeyRound,
+                    text: (
+                      <>
+                        An owner opens <strong>Settings → Connected organisations</strong> and
+                        selects <strong>Create a connection code</strong>. An owner of the other
+                        organisation enters it under <strong>Connect with a code</strong>. A code
+                        works once, for 7 days.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Layers,
+                    text: (
+                      <>
+                        On connecting, the skill lists are combined and the level names of the
+                        organisation that made the code are used. Someone in both keeps every skill
+                        from both, at the higher level.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Trash2,
+                    text: (
+                      <>
+                        An owner can <strong>disconnect</strong> their organisation. It keeps a copy
+                        of the shared skill list, level names and its people's skills, and from then
+                        on they're separate again.
                       </>
                     ),
                   },
