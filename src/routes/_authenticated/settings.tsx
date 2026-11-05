@@ -24,6 +24,7 @@ function Settings() {
   const qc = useQueryClient();
   const { orgId, orgs, title, role } = useOrg();
   const canDeleteOrg = title === "Owner" || role === "owner";
+  const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
   // Levels belong to an organisation: the current one, if you're a member of it.
   const levelOrg = orgs.find((o) => o.org_id === orgId && !o.viaSuperuser) ?? null;
   const levelOrgId = levelOrg?.org_id ?? null;
@@ -189,6 +190,8 @@ function Settings() {
           </div>
         </div>
       </div>
+
+      {canDeleteOrg && orgId && <DeleteOrgPanel orgId={orgId} orgName={orgName} />}
     </div>
   );
 }
