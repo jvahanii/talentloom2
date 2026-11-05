@@ -631,6 +631,7 @@ export function SkillDevelopment({
   // Per person, each skill they levelled up in: from the first level to the last.
   const levelled = new Map<string, Map<string, { skill: string; from: number; to: number }>>();
   let firstRatings = 0;
+  const firstLevels = new Map<string, { skill: string; level: number }[]>();
   const lastLevel = new Map<string, number | null>();
   for (const e of events) {
     if (!inSkills(e.skill)) continue;
@@ -650,6 +651,12 @@ export function SkillDevelopment({
       levelled.set(e.userId, mine);
     } else if (prev === null && e.level !== null && inFrame) {
       firstRatings += 1;
+      firstLevels.set(e.userId, [
+        ...(firstLevels.get(e.userId) ?? []).filter(
+          (x) => x.skill.toLowerCase() !== e.skill.toLowerCase(),
+        ),
+        { skill: e.skill, level: e.level },
+      ]);
     }
     lastLevel.set(key, e.level);
   }
@@ -661,6 +668,17 @@ export function SkillDevelopment({
   const engaged = scopePeople.filter((p) => levelUps.has(p.userId) || learningWith.has(p.userId));
   const notYet = scopePeople.filter((p) => !levelUps.has(p.userId) && !learningWith.has(p.userId));
   const byLevelUps = scopePeople.filter((p) => levelUps.has(p.userId)).length;
+  const learnsTogether = (userId: string, skill: string) =>
+    (learningWith.get(userId) ?? []).some((t) => t.toLowerCase() === skill.toLowerCase());
+  const levelUpsOf = (userId: string) => {
+    const all = [...(levelled.get(userId)?.values() ?? [])];
+    return {
+      together: all.filter((u) => learnsTogether(userId, u.skill)),
+      alone: all.filter((u) => !learnsTogether(userId, u.skill)),
+    };
+  };
+  const byTogether = scopePeople.filter((p) => levelUpsOf(p.userId).together.length).length;
+  const byAlone = scopePeople.filter((p) => levelUpsOf(p.userId).alone.length).length;
   const byGroups = scopePeople.filter((p) => learningWith.has(p.userId)).length;
   const engagedShare = scopePeople.length
     ? Math.round((engaged.length / scopePeople.length) * 100)
@@ -986,8 +1004,10 @@ export function SkillDevelopment({
               </div>
               <p className="text-xs text-muted-foreground">
                 {byLevelUps} raised a level
-                {from === null && to === null ? "" : " in this time frame"} · {byGroups} in a
-                Learning with group{scopeSkills ? " in the chosen skills" : ""}
+                {from === null && to === null ? "" : " in this time frame"}
+                {byLevelUps > 0 &&
+                  ` (${byTogether} together with others, ${byAlone} on their own)`}{" "}
+                · {byGroups} in a Learning with group{scopeSkills ? " in the chosen skills" : ""}
                 {firstRatings > 0 &&
                   ` · ${firstRatings} first level${firstRatings === 1 ? "" : "s"} set (not counted as learning)`}
               </p>
@@ -996,23 +1016,31 @@ export function SkillDevelopment({
                   <p className="text-xs font-semibold">Actively learning ({engaged.length})</p>
                   <ul className="mt-1 space-y-1">
                     {engaged.map((p) => {
-                      const ups = [...(levelled.get(p.userId)?.values() ?? [])];
+                      const { together, alone } = levelUpsOf(p.userId);
                       const topics = [...new Set(learningWith.get(p.userId) ?? [])];
+                      const ups = (list: typeof together) =>
+                        list
+                          .map(
+                            (u) =>
+                              `${u.skill} ${levelName(shown(u.from)!)} → ${levelName(shown(u.to)!)}`,
+                          )
+                          .join(", ");
                       return (
                         <li
                           key={p.userId}
                           className="rounded-lg bg-[#BDF5E0]/60 px-2.5 py-1.5 text-xs text-[#0B4F3A]"
                         >
                           <p className="font-semibold">{p.label}</p>
-                          {ups.length > 0 && (
+                          {together.length > 0 && (
                             <p>
-                              <span className="font-medium">Levelled up:</span>{" "}
-                              {ups
-                                .map(
-                                  (u) =>
-                                    `${u.skill} ${levelName(shown(u.from)!)} → ${levelName(shown(u.to)!)}`,
-                                )
-                                .join(", ")}
+                              <span className="font-medium">Levelled up together with others:</span>{" "}
+                              {ups(together)}
+                            </p>
+                          )}
+                          {alone.length > 0 && (
+                            <p>
+                              <span className="font-medium">Levelled up on their own:</span>{" "}
+                              {ups(alone)}
                             </p>
                           )}
                           {topics.length > 0 && (
@@ -1034,14 +1062,25 @@ export function SkillDevelopment({
                 <div>
                   <p className="text-xs font-semibold">Not yet engaged ({notYet.length})</p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {notYet.map((p) => (
-                      <span
-                        key={p.userId}
-                        className="rounded-full border border-dashed border-muted-foreground/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-                      >
-                        {p.label}
-                      </span>
-                    ))}
+                    {notYet.map((p) => {
+                      const first = firstLevels.get(p.userId) ?? [];
+                      return (
+                        <span
+                          key={p.userId}
+                          className="rounded-xl border border-dashed border-muted-foreground/40 px-2.5 py-0.5 text-xs text-muted-foreground"
+                        >
+                          <span className="font-medium">{p.label}</span>
+                          {first.length > 0 && (
+                            <span className="block">
+                              First levels set:{" "}
+                              {first
+                                .map((x) => `${x.skill} ${levelName(shown(x.level)!)}`)
+                                .join(", ")}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                     {!notYet.length && (
                       <span className="text-xs text-muted-foreground">Everyone is learning</span>
                     )}
