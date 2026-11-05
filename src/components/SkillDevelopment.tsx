@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { fetchSkillHistory, type SkillHistoryPoint } from "@/lib/skillLevels";
-import { fetchTeams, teamsKey } from "@/lib/teams";
+import { fetchTeamGroups, fetchTeams, teamGroupsKey, teamsKey } from "@/lib/teams";
 import { fetchOrgSkills, orgSkillListKey } from "@/lib/orgSkills";
 import { displayLevel, skillLevelLabel } from "@/lib/skills";
 
@@ -273,6 +273,11 @@ export function SkillDevelopment({
     queryKey: orgSkillListKey(orgId),
     queryFn: () => fetchOrgSkills(orgId),
   });
+  // Teams of teams (defined on the Teams page): several teams looked at as one.
+  const teamGroups = useQuery({
+    queryKey: teamGroupsKey(orgId),
+    queryFn: () => fetchTeamGroups(orgId),
+  });
   const teams = useQuery({
     queryKey: teamsKey(orgId),
     queryFn: () => fetchTeams(orgId),
@@ -393,7 +398,22 @@ export function SkillDevelopment({
   const now = Date.now();
   const picked = skills.filter((k) => skillPicks.includes(k.key));
   const person = withHistory.find((p) => p.userId === personPick) ?? withHistory[0];
-  const team = teamList.find((t) => t.id === teamPick) ?? teamList[0];
+  const groupChoices = (teamGroups.data ?? [])
+    .map((g) => {
+      const parts = (teams.data ?? []).filter((t) => g.teams.includes(t.id));
+      return {
+        id: `g:${g.id}`,
+        name: g.name,
+        teams: parts.length,
+        members: [...new Set(parts.flatMap((t) => t.members))],
+      };
+    })
+    .filter((g) => g.members.some((m) => withHistory.some((p) => p.userId === m)));
+  const team: { id: string; name: string; members: string[] } | undefined =
+    groupChoices.find((g) => g.id === teamPick) ??
+    teamList.find((t) => t.id === teamPick) ??
+    groupChoices[0] ??
+    teamList[0];
 
   let rows: Row[] = [];
   // `short`: the name at the end of the line, when it differs from the legend.
@@ -713,11 +733,20 @@ export function SkillDevelopment({
               label="By team"
               active={mode === "team"}
               onActivate={() => setMode("team")}
-              options={teamList.map((t) => ({ key: t.id, name: t.name }))}
+              options={[
+                ...groupChoices.map((g) => ({
+                  key: g.id,
+                  name: `Team of teams: ${g.name} (${g.teams} teams)`,
+                })),
+                ...teamList.map((t) => ({ key: t.id, name: t.name })),
+              ]}
               selected={team ? [team.id] : []}
               onChange={(keys) => setTeamPick(keys[0] ?? "")}
               search="Find a team"
               empty="No teams with skills yet"
+              summarise={(key, name) =>
+                key.startsWith("g:") ? name.replace(/^Team of teams: /, "") : name
+              }
             />
           </div>
         </div>
@@ -929,6 +958,7 @@ function ViewTab({
   multi = false,
   allLabel,
   presets = [],
+  summarise,
   search,
   empty = "Nothing to choose yet",
 }: {
@@ -940,6 +970,8 @@ function ViewTab({
   onChange: (next: string[]) => void;
   multi?: boolean;
   allLabel?: string;
+  /** The chosen option as the tab shows it, when shorter than in the list. */
+  summarise?: (key: string, name: string) => string;
   /** Quick choices that tick a set of options at once (e.g. strategic skills). */
   presets?: { label: string; keys: string[] }[];
   search: string;
@@ -969,7 +1001,7 @@ function ViewTab({
   const summary = !chosen.length
     ? (allLabel ?? "")
     : chosen.length === 1
-      ? chosen[0].name
+      ? (summarise?.(chosen[0].key, chosen[0].name) ?? chosen[0].name)
       : `${chosen.length} chosen`;
   const q = filter.trim().toLowerCase();
   const listed = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
