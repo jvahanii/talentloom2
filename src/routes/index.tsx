@@ -85,7 +85,9 @@ function Landing() {
                   Multilearning &amp; hiring
                 </span>
                 <span className="mt-1 block text-sm text-white/75">
-                  Foster your organization's adaptiveness through multilearning and organizational transfer of learning.{"\u00a0"}Give candidates seeking a job a standout hiring experience.{"\u00a0"}
+                  Foster your organization's adaptiveness through multilearning and organizational
+                  transfer of learning.{"\u00a0"}Give candidates seeking a job a standout hiring
+                  experience.{"\u00a0"}
                 </span>
                 <span
                   className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
@@ -206,9 +208,9 @@ function Landing() {
             <AccordionItem value="skills">
               <AccordionTrigger>Who can see my skills?</AccordionTrigger>
               <AccordionContent>
-                The people in the organisations you belong to. You add and level your own skills; in
-                each organisation, only people whose title lets them manage others can change them
-                for you.
+                Only the people in the same organisation. Each organisation keeps its own list of
+                your skills and levels. You add and level your own; only people whose title lets
+                them manage others can change them for you.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="d" className="border-b-0">

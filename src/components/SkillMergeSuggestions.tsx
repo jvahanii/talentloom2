@@ -77,7 +77,7 @@ export function SkillMergeSuggestions({ orgId, skills }: { orgId: string; skills
       </div>
       <p className="mt-0.5 text-xs opacity-80">
         Merging gives everyone who has any of them the one name you keep, at their highest level,
-        and moves the learning groups along. The new name shows in their other organisations too.
+        and moves the learning groups along. Only this organisation's skills change.
       </p>
       <ul className="mt-3 space-y-2">
         {visible.map((s) => (
@@ -214,7 +214,7 @@ export function ManualSkillMerge({ orgId, skills }: { orgId: string; skills: Ski
     const people = chosen.reduce((n, s) => n + count(s), 0);
     if (
       !window.confirm(
-        `Merge ${chosen.join(", ")} into "${keep}"? ${people} skill ${people === 1 ? "entry" : "entries"} change, and the new name shows in people's other organisations too.`,
+        `Merge ${chosen.join(", ")} into "${keep}"? ${people} skill ${people === 1 ? "entry" : "entries"} change in this organisation.`,
       )
     ) {
       return;

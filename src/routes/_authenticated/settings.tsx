@@ -8,8 +8,8 @@ import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { OrgSettings } from "@/components/OrgSettings";
 import { SkillsInput } from "@/components/SkillsInput";
-import { readSkills, type Skill } from "@/lib/skills";
-import { fetchOrgLevels } from "@/lib/skillLevels";
+import { type Skill } from "@/lib/skills";
+import { fetchMemberSkills } from "@/lib/skillLevels";
 import { updatePersonSkills } from "@/lib/people.functions";
 import { useOrg } from "@/lib/org";
 
@@ -25,7 +25,7 @@ function Settings() {
   const qc = useQueryClient();
   const { theme, setTheme } = useAppTheme();
   const { orgId, orgs } = useOrg();
-  // Levels belong to an organisation: the current one, if you're a member of it.
+  // Skills belong to an organisation: the current one, if you're a member of it.
   const levelOrg = orgs.find((o) => o.org_id === orgId && !o.viaSuperuser) ?? null;
   const levelOrgId = levelOrg?.org_id ?? null;
 
@@ -43,21 +43,20 @@ function Settings() {
       if (!uid) return;
       const { data: p } = (await supabase
         .from("profiles")
-        .select("full_name, email, skills")
+        .select("full_name, email")
         .eq("id", uid)
         .maybeSingle()) as unknown as {
         data: {
           full_name: string | null;
           email: string | null;
-          skills: string[] | null;
         } | null;
       };
-      const levels = levelOrgId ? await fetchOrgLevels(levelOrgId, [uid]) : new Map();
+      const skillsOf = levelOrgId ? await fetchMemberSkills(levelOrgId, [uid]) : new Map();
       setEmail(p?.email ?? "");
       if (p)
         setForm({
           full_name: p.full_name ?? "",
-          skills: readSkills(p.skills, levels.get(uid)),
+          skills: skillsOf.get(uid) ?? [],
         });
     })();
   }, [levelOrgId]);
@@ -67,13 +66,12 @@ function Settings() {
     try {
       const uid = await getMyProfileId();
       if (!uid) throw new Error("Not authenticated");
-      // `skills` lives in the external database; Lovable regenerates types.ts without it.
       const { error } = await supabase
         .from("profiles")
-        .update({ full_name: form.full_name, skills: form.skills.map((s) => s.name) } as never)
+        .update({ full_name: form.full_name })
         .eq("id", uid);
       if (error) throw error;
-      // Levels are saved for the current organisation only.
+      // Skills and levels are saved for the current organisation only.
       if (levelOrgId) {
         await updatePersonSkills({ data: { orgId: levelOrgId, userId: uid, skills: form.skills } });
       }
@@ -160,18 +158,22 @@ function Settings() {
               />
             </label>
             <div className="block sm:col-span-2">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">Skills</span>
-              <SkillsInput
-                value={form.skills}
-                onChange={(skills) => patch({ skills })}
-                withLevels={!!levelOrgId}
-              />
-              <span className="mt-1 block text-xs text-muted-foreground">
-                Your skills show in all your organisations.{" "}
-                {levelOrg
-                  ? `Levels are for ${levelOrg.name}; each organisation keeps its own.`
-                  : "Levels are set within an organisation."}
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                Skills{levelOrg ? ` in ${levelOrg.name}` : ""}
               </span>
+              {levelOrg ? (
+                <>
+                  <SkillsInput value={form.skills} onChange={(skills) => patch({ skills })} />
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Each organisation keeps its own skills and levels. To set them for another
+                    organisation, switch to it from the menu at the top right.
+                  </span>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Skills are set within an organisation. Join or create one to add yours.
+                </p>
+              )}
             </div>
           </div>
           <button

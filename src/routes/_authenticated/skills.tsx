@@ -18,7 +18,6 @@ import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg } from "@/lib/org";
 import {
-  readSkills,
   skillLevelLabel,
   skillLevelColor,
   displayLevel,
@@ -26,7 +25,7 @@ import {
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
-import { fetchOrgLevels } from "@/lib/skillLevels";
+import { fetchMemberSkills } from "@/lib/skillLevels";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
@@ -173,22 +172,21 @@ function SkillsPage() {
       if (!ids.length) return [];
       const { data: profiles, error: pError } = await supabase
         .from("profiles")
-        .select("id, full_name, email, skills")
+        .select("id, full_name, email")
         .in("id", ids);
       if (pError) throw pError;
-      const levels = await fetchOrgLevels(orgId!, ids);
+      const skillsOf = await fetchMemberSkills(orgId!, ids);
       return (
         (profiles ?? []) as unknown as {
           id: string;
           full_name: string | null;
           email: string | null;
-          skills: string[] | null;
         }[]
       ).map((p) => ({
         userId: p.id,
         name: p.full_name,
         email: p.email,
-        skills: readSkills(p.skills, levels.get(p.id)),
+        skills: skillsOf.get(p.id) ?? [],
       }));
     },
   });

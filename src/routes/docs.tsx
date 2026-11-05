@@ -572,11 +572,11 @@ function Docs() {
                     icon: UserRound,
                     text: (
                       <>
-                        Your skills belong to you, so they show in every organisation you're in.
-                        Their levels don't: each organisation keeps its own, so a skill can be
-                        Advanced in one and have no level in another. In Settings you set levels for
-                        the organisation you have selected. People who may change titles can also
-                        edit your skills and levels on the People and Skills pages.
+                        Each organisation keeps its own skills and levels for you, so if you're in
+                        several, you set your skills separately in each — Settings shows the
+                        organisation you have selected; switch organisations at the top right.
+                        People who may change titles there can also edit your skills on the People
+                        and Skills pages.
                       </>
                     ),
                   },
@@ -715,7 +715,7 @@ function Docs() {
                         Choose the name to <strong>Keep</strong> — the most common by default — and
                         select <strong>Merge</strong>. Everyone who has any of them gets the kept
                         name once, at the highest level they had, and their learning groups move
-                        along. The new name shows in their other organisations too.
+                        along. Only this organisation's skills change.
                       </>
                     ),
                   },

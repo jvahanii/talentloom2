@@ -2,8 +2,8 @@ import { supabase } from "@/integrations/supabase/app-client";
 
 /**
  * Skills on an organisation's own list, kept even when nobody has them yet —
- * a skill the organisation wants people to have or learn. People's skills
- * still live on their profiles; this list only adds skills with no holders.
+ * a skill the organisation wants people to have or learn. People's skills are
+ * in org_member_skills; this list only adds skills with no holders.
  * Everyone in the organisation can read it; changes need "change titles".
  */
 export type OrgSkill = { id: string; name: string };

@@ -180,42 +180,30 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
       .eq("user_id", data.userId)
       .maybeSingle();
     if (!member) throw new Error("That person isn't a member of this organisation");
-    const { skills, levels } = writeSkills(data.skills);
-    const { error } = await admin.from("profiles").update({ skills }).eq("id", data.userId);
-    if (error) throw new Error(error.message);
-    await replaceOrgLevels(admin, data.orgId, data.userId, levels);
+    // This organisation's list only; the person's other organisations keep theirs.
+    const { error: dError } = await admin
+      .from("org_member_skills")
+      .delete()
+      .eq("org_id", data.orgId)
+      .eq("user_id", data.userId);
+    if (dError) throw new Error(dError.message);
+    const rows = writeSkills(data.skills);
+    if (rows.length) {
+      const { error } = await admin
+        .from("org_member_skills")
+        .insert(rows.map((r) => ({ ...r, org_id: data.orgId, user_id: data.userId })));
+      if (error) throw new Error(error.message);
+    }
     return { ok: true };
   });
-
-/** Sets a person's levels in one organisation; other organisations keep theirs. */
-async function replaceOrgLevels(
-  admin: Loose,
-  orgId: string,
-  userId: string,
-  levels: { skill: string; level: number }[],
-) {
-  const { error: dError } = await admin
-    .from("org_skill_levels")
-    .delete()
-    .eq("org_id", orgId)
-    .eq("user_id", userId);
-  if (dError) throw new Error(dError.message);
-  if (!levels.length) return;
-  const { error } = await admin
-    .from("org_skill_levels")
-    .insert(
-      levels.map((l) => ({ org_id: orgId, user_id: userId, skill: l.skill, level: l.level })),
-    );
-  if (error) throw new Error(error.message);
-}
 
 /**
  * Merges skills that mean the same into one name for everyone in the
  * organisation. Each person keeps the skill once, in the place of the first
  * variant they had, at the highest level any variant had. The organisation's
- * learning groups for the variants move to the kept name; someone who ends up
- * in two of them stays in the first. Skills live on profiles, so the new name
- * shows in the person's other organisations too. Needs "change titles".
+ * learning groups and skill list follow the kept name; someone who ends up in
+ * two learning groups stays in the first. Other organisations aren't touched:
+ * each keeps its own skills. Needs "change titles".
  */
 export const mergeSkills = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -237,75 +225,46 @@ export const mergeSkills = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
 
-    const { data: members, error: mError } = await admin
-      .from("organization_members")
-      .select("user_id")
+    const { data: rowsData, error: rError } = await admin
+      .from("org_member_skills")
+      .select("user_id, skill, level, position")
       .eq("org_id", data.orgId);
-    if (mError) throw new Error(mError.message);
-    const ids = (members ?? []).map((m: { user_id: string }) => m.user_id);
-    const { data: profiles, error: pError } = ids.length
-      ? await admin.from("profiles").select("id, skills").in("id", ids)
-      : { data: [], error: null };
-    if (pError) throw new Error(pError.message);
-
-    let people = 0;
-    const merged: string[] = [];
-    for (const p of (profiles ?? []) as { id: string; skills: string[] | null }[]) {
-      const list = p.skills ?? [];
-      const hits = list.filter((s) => variants.has(s.toLowerCase()));
-      if (!hits.length || (hits.length === 1 && hits[0] === data.into)) continue;
-      const at = list.findIndex((s) => variants.has(s.toLowerCase()));
-      const next = list.filter((s) => !variants.has(s.toLowerCase()));
-      next.splice(at, 0, data.into);
-      const { error } = await admin.from("profiles").update({ skills: next }).eq("id", p.id);
-      if (error) throw new Error(error.message);
-      merged.push(p.id);
-      people += 1;
-    }
-
-    // Levels, in every organisation these people are in: the variants become the
-    // kept name once, at the highest level the person had among them there.
-    const { data: levelRows, error: lvError } = merged.length
-      ? await admin
-          .from("org_skill_levels")
-          .select("org_id, user_id, skill, level")
-          .in("user_id", merged)
-      : { data: [], error: null };
-    if (lvError) throw new Error(lvError.message);
-    const best = new Map<string, { org_id: string; user_id: string; level: number }>();
-    for (const r of (levelRows ?? []) as {
-      org_id: string;
+    if (rError) throw new Error(rError.message);
+    const byUser = new Map<string, { skill: string; level: number | null; position: number }[]>();
+    for (const r of (rowsData ?? []) as {
       user_id: string;
       skill: string;
-      level: number;
+      level: number | null;
+      position: number;
     }[]) {
-      if (!variants.has(r.skill.toLowerCase())) continue;
-      const key = `${r.org_id}|${r.user_id}`;
-      const prev = best.get(key);
-      if (!prev || r.level > prev.level)
-        best.set(key, { org_id: r.org_id, user_id: r.user_id, level: r.level });
+      if (variants.has(r.skill.toLowerCase())) {
+        byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), r]);
+      }
     }
-    for (const b of best.values()) {
-      const { data: rows, error: rError } = await admin
-        .from("org_skill_levels")
-        .select("skill")
-        .eq("org_id", b.org_id)
-        .eq("user_id", b.user_id);
-      if (rError) throw new Error(rError.message);
-      const stale = ((rows ?? []) as { skill: string }[])
-        .map((r) => r.skill)
-        .filter((s) => variants.has(s.toLowerCase()));
+
+    let people = 0;
+    for (const [userId, hits] of byUser) {
+      if (hits.length === 1 && hits[0].skill === data.into) continue;
+      const levels = hits.map((h) => h.level).filter((l): l is number => l !== null);
       const { error: dError } = await admin
-        .from("org_skill_levels")
+        .from("org_member_skills")
         .delete()
-        .eq("org_id", b.org_id)
-        .eq("user_id", b.user_id)
-        .in("skill", stale);
+        .eq("org_id", data.orgId)
+        .eq("user_id", userId)
+        .in(
+          "skill",
+          hits.map((h) => h.skill),
+        );
       if (dError) throw new Error(dError.message);
-      const { error: iError } = await admin
-        .from("org_skill_levels")
-        .insert({ org_id: b.org_id, user_id: b.user_id, skill: data.into, level: b.level });
+      const { error: iError } = await admin.from("org_member_skills").insert({
+        org_id: data.orgId,
+        user_id: userId,
+        skill: data.into,
+        level: levels.length ? Math.max(...levels) : null,
+        position: Math.min(...hits.map((h) => h.position)),
+      });
       if (iError) throw new Error(iError.message);
+      people += 1;
     }
 
     // The organisation's own skill list: the variants become the kept name, once.

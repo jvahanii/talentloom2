@@ -246,8 +246,8 @@ function SkillLevelsPanel({ orgId }: { orgId: string }) {
       <h4 className="text-sm font-semibold">Skill levels</h4>
       <p className="mt-0.5 text-xs text-muted-foreground">
         How many levels skills have in this organisation and what they're called, from lowest to
-        highest. People pick a level for each skill on their profile, the People page and the Skills
-        page.
+        highest. People pick a level for each skill in Settings, on the People page and on the
+        Skills page.
       </p>
       <label className="mt-3 flex items-center gap-2 text-sm">
         Number of levels

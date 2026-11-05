@@ -9,8 +9,8 @@ import { getMyProfileId } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
-import { fetchOrgLevels } from "@/lib/skillLevels";
-import { readSkills, skillLevelLabel, type Skill } from "@/lib/skills";
+import { fetchMemberSkills } from "@/lib/skillLevels";
+import { skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey } from "@/hooks/useOrgSkillNames";
 import { addToTeam, fetchTeams, removeFromTeam, teamsKey, type Team } from "@/lib/teams";
@@ -109,10 +109,7 @@ function PeoplePage() {
       if (error) throw error;
       const ids = (rows ?? []).map((r) => r.user_id);
       const { data: profiles } = ids.length
-        ? await supabase
-            .from("profiles")
-            .select("id, full_name, email, skills, created_at")
-            .in("id", ids)
+        ? await supabase.from("profiles").select("id, full_name, email, created_at").in("id", ids)
         : { data: [] };
       const byId = new Map(
         (
@@ -120,13 +117,13 @@ function PeoplePage() {
             id: string;
             full_name: string | null;
             email: string | null;
-            skills: string[] | null;
             created_at: string;
           }[]
         ).map((p) => [p.id, p]),
       );
       // Levels are this organisation's own; the same skill may have none elsewhere.
-      const levels = await fetchOrgLevels(orgId!, ids);
+      // Skills and levels are this organisation's own; other organisations keep theirs.
+      const skillsOf = await fetchMemberSkills(orgId!, ids);
       return (rows ?? []).map((r) => {
         const p = byId.get(r.user_id);
         return {
@@ -134,7 +131,7 @@ function PeoplePage() {
           userId: r.user_id,
           name: p?.full_name ?? null,
           email: p?.email ?? null,
-          skills: readSkills(p?.skills, levels.get(r.user_id)),
+          skills: skillsOf.get(r.user_id) ?? [],
           titleId: r.title_id,
           titleName:
             (r as unknown as { organization_titles: { name: string } | null }).organization_titles
