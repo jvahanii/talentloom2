@@ -664,13 +664,14 @@ function Docs() {
                         first. Search finds both skills and people. The <strong>Development</strong>{" "}
                         tab, next to Skills, shows how levels have changed over time, by skill, by
                         person or by team, with the latest changes below — and{" "}
-                        <strong>Show all changes</strong> for the whole history. By skill, pick{" "}
-                        <strong>All skills</strong> for one line over every skill, or tick any
-                        number of skills for a line each. It's <strong>cumulative</strong> by
-                        default: levels add up into level points (Novice 1, Basic 2, …), so the
-                        total grows as people learn and as new people gain a level.{" "}
-                        <strong>Average</strong> shows the average level of those who have one —
-                        then a person's view has a line per skill.{" "}
+                        <strong>Show all changes</strong> for the whole history. Choose a time frame
+                        — 30 days, a quarter, 12 months, all time, or custom dates — to look at a
+                        period. By skill, pick <strong>All skills</strong> for one line over every
+                        skill, or tick any number of skills for a line each. It's{" "}
+                        <strong>cumulative</strong> by default: levels add up into level points
+                        (Novice 1, Basic 2, …), so the total grows as people learn and as new people
+                        gain a level. <strong>Average</strong> shows the average level of those who
+                        have one — then a person's view has a line per skill.{" "}
                         <strong>Average (everyone)</strong> divides by everyone in the organisation
                         or team, counting people without the skill or a level as 0. Changes are
                         recorded from 5 November 2026 on.

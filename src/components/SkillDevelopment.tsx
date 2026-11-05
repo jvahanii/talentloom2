@@ -160,6 +160,76 @@ function changesIn(
 
 const LATEST = 8;
 
+const DAY = 86_400_000;
+const TIMEFRAMES = [
+  { id: "30d", label: "30 days" },
+  { id: "quarter", label: "Quarter" },
+  { id: "12m", label: "12 months" },
+  { id: "all", label: "All time" },
+  { id: "custom", label: "Custom" },
+] as const;
+type Timeframe = (typeof TIMEFRAMES)[number]["id"];
+
+/** A calendar quarter as "2026-Q4", and its start and end. */
+const quarterOf = (t: number) => {
+  const d = new Date(t);
+  return `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`;
+};
+function quarterRange(q: string): [number, number] | null {
+  const m = /^(\d{4})-Q([1-4])$/.exec(q);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const first = (Number(m[2]) - 1) * 3;
+  return [new Date(year, first, 1).getTime(), new Date(year, first + 3, 1).getTime() - 1];
+}
+/** Quarters from the first one with history up to now, newest first. */
+function quartersSince(start: number, now: number): string[] {
+  const out: string[] = [];
+  const d = new Date(start);
+  let year = d.getFullYear();
+  let q = Math.floor(d.getMonth() / 3);
+  const last = quarterOf(now);
+  for (;;) {
+    const key = `${year}-Q${q + 1}`;
+    out.push(key);
+    if (key === last || out.length > 200) break;
+    q += 1;
+    if (q === 4) {
+      q = 0;
+      year += 1;
+    }
+  }
+  return out.reverse();
+}
+const quarterLabel = (q: string) => q.replace("-", " ");
+
+/**
+ * The rows between `from` and `to`. The chart starts at `from` with the values
+ * that held then, so lines don't appear out of nowhere, and stops at `to`
+ * with the values that held then.
+ */
+function clipRows(rows: Row[], from: number | null, to: number | null): Row[] {
+  let out = rows;
+  if (from !== null && out.length && out[0].t < from) {
+    const before = out.filter((r) => r.t < from);
+    const after = out.filter((r) => r.t >= from);
+    out =
+      after.length && after[0].t === from
+        ? after
+        : [{ ...before[before.length - 1], t: from }, ...after];
+  }
+  if (to !== null && out.length && out[out.length - 1].t > to) {
+    const upTo = out.filter((r) => r.t <= to);
+    const last = upTo[upTo.length - 1] ?? out[0];
+    out = upTo.length && upTo[upTo.length - 1].t === to ? upTo : [...upTo, { ...last, t: to }];
+  }
+  return out;
+}
+
+const dateInput = (t: number) => format(t, "yyyy-MM-dd");
+const fromInput = (v: string) => (v ? new Date(`${v}T00:00:00`).getTime() : null);
+const toInput = (v: string) => (v ? new Date(`${v}T23:59:59`).getTime() : null);
+
 /** Rows for a multi-series step chart: every change time, each series carried forward. */
 function toRows(
   series: { key: string; points: { t: number; v: number | null }[] }[],
@@ -208,6 +278,10 @@ export function SkillDevelopment({
   const [teamPick, setTeamPick] = useState("");
   const [measure, setMeasure] = useState<Measure>("cumulative");
   const [showAllChanges, setShowAllChanges] = useState(false);
+  const [timeframe, setTimeframe] = useState<Timeframe>("all");
+  const [quarter, setQuarter] = useState(() => quarterOf(Date.now()));
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const cumulative = measure === "cumulative";
 
   // Your last choices come back on your next visit (this browser, per organisation).
@@ -219,11 +293,23 @@ export function SkillDevelopment({
       const saved = JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as {
         mode?: string;
         measure?: string;
+        timeframe?: string;
+        quarter?: unknown;
+        customFrom?: unknown;
+        customTo?: unknown;
         skills?: unknown;
         person?: unknown;
         team?: unknown;
       } | null;
       if (saved) {
+        if (TIMEFRAMES.some((t) => t.id === saved.timeframe)) {
+          setTimeframe(saved.timeframe as Timeframe);
+        }
+        if (typeof saved.quarter === "string" && quarterRange(saved.quarter)) {
+          setQuarter(saved.quarter);
+        }
+        if (typeof saved.customFrom === "string") setCustomFrom(saved.customFrom);
+        if (typeof saved.customTo === "string") setCustomTo(saved.customTo);
         if (saved.mode === "skill" || saved.mode === "person" || saved.mode === "team") {
           setMode(saved.mode);
         }
@@ -244,12 +330,34 @@ export function SkillDevelopment({
     try {
       window.localStorage.setItem(
         storageKey,
-        JSON.stringify({ mode, measure, skills: skillPicks, person: personPick, team: teamPick }),
+        JSON.stringify({
+          mode,
+          measure,
+          timeframe,
+          quarter,
+          customFrom,
+          customTo,
+          skills: skillPicks,
+          person: personPick,
+          team: teamPick,
+        }),
       );
     } catch {
       /* not remembered this time */
     }
-  }, [restored, storageKey, mode, measure, skillPicks, personPick, teamPick]);
+  }, [
+    restored,
+    storageKey,
+    mode,
+    measure,
+    timeframe,
+    quarter,
+    customFrom,
+    customTo,
+    skillPicks,
+    personPick,
+    teamPick,
+  ]);
 
   const events = useMemo(
     () => (history.data ?? []).filter((e) => label.has(e.userId)),
@@ -441,6 +549,24 @@ export function SkillDevelopment({
     note = "There are no teams with skills yet. Teams are set up on the Teams page.";
   }
 
+  // The chosen time frame: the chart starts there, and only changes inside it are listed.
+  const quarters = quartersSince(events[0]?.at ?? now, now);
+  const [from, to] = ((): [number | null, number | null] => {
+    if (timeframe === "30d") return [now - 30 * DAY, null];
+    if (timeframe === "12m") return [now - 365 * DAY, null];
+    if (timeframe === "quarter") {
+      const r = quarterRange(quarter) ?? quarterRange(quarterOf(now))!;
+      return [r[0], r[1] >= now ? null : r[1]];
+    }
+    if (timeframe === "custom") {
+      const end = toInput(customTo);
+      return [fromInput(customFrom), end !== null && end < now ? end : null];
+    }
+    return [null, null];
+  })();
+  rows = clipRows(rows, from, to);
+  changes = changes.filter((c) => (from === null || c.at >= from) && (to === null || c.at <= to));
+
   // One person's level by name: the changes list is about people, not totals.
   const levelName = (v: number) => skillLevelLabel(v, levelNames) ?? String(v);
   const levelText = (v: number) =>
@@ -475,6 +601,54 @@ export function SkillDevelopment({
         <h2 className="font-semibold">Skill development</h2>
         {since && <span className="text-xs text-muted-foreground">since {since}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <select
+            value={timeframe}
+            onChange={(e) => setTimeframe(e.target.value as Timeframe)}
+            aria-label="Time frame"
+            className="h-8 rounded-xl border border-border bg-transparent px-2 text-sm font-medium"
+          >
+            {TIMEFRAMES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          {timeframe === "quarter" && (
+            <select
+              value={quarters.includes(quarter) ? quarter : quarters[0]}
+              onChange={(e) => setQuarter(e.target.value)}
+              aria-label="Quarter"
+              className="h-8 rounded-xl border border-border bg-transparent px-2 text-sm"
+            >
+              {quarters.map((q) => (
+                <option key={q} value={q}>
+                  {quarterLabel(q)}
+                </option>
+              ))}
+            </select>
+          )}
+          {timeframe === "custom" && (
+            <span className="flex items-center gap-1 text-sm">
+              <input
+                type="date"
+                value={customFrom}
+                max={customTo || dateInput(now)}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                aria-label="From"
+                className="h-8 rounded-xl border border-border bg-transparent px-2 text-sm"
+              />
+              –
+              <input
+                type="date"
+                value={customTo}
+                min={customFrom || undefined}
+                max={dateInput(now)}
+                onChange={(e) => setCustomTo(e.target.value)}
+                aria-label="To"
+                className="h-8 rounded-xl border border-border bg-transparent px-2 text-sm"
+              />
+            </span>
+          )}
           <div
             className="inline-flex rounded-xl border border-border p-0.5"
             role="radiogroup"
