@@ -1,8 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GripVertical, Trash2, X } from "lucide-react";
-import { addOrgSkill, fetchOrgSkills, orgSkillListKey, removeOrgSkill } from "@/lib/orgSkills";
+import { GripVertical, Star, Trash2, X } from "lucide-react";
+import {
+  addOrgSkill,
+  fetchOrgSkills,
+  orgSkillListKey,
+  removeOrgSkill,
+  setStrategic,
+} from "@/lib/orgSkills";
 import { getMyProfileId } from "@/lib/auth";
 import {
   fetchLearningGroups,
@@ -53,6 +59,8 @@ type SkillGroup = {
   people: { userId: string; label: string; level: SkillLevel | null }[];
   /** Set when the skill is on the organisation's own list (it may have no holders). */
   listId?: string;
+  /** A skill the organisation wants to build up. */
+  strategic?: boolean;
 };
 
 function SkillsPage() {
@@ -66,6 +74,7 @@ function SkillsPage() {
   // Skills or Development, remembered in this browser.
   const [tab, chooseTab] = useRememberedTab("skills", ["skills", "development"] as const, "skills");
   const [newSkill, setNewSkill] = useState("");
+  const [strategicOnly, setStrategicOnly] = useState(false);
   const [newPerson, setNewPerson] = useState("");
   const [newLevel, setNewLevel] = useState("");
   const [addTo, setAddTo] = useState<Record<string, { person: string; level: string }>>({});
@@ -237,8 +246,17 @@ function SkillsPage() {
     // Skills on the organisation's list show even when nobody has them yet.
     for (const o of orgSkills.data ?? []) {
       const g = bySkill.get(o.name.toLowerCase());
-      if (g) g.listId = o.id;
-      else bySkill.set(o.name.toLowerCase(), { name: o.name, people: [], listId: o.id });
+      if (g) {
+        g.listId = o.id;
+        g.strategic = o.strategic;
+      } else {
+        bySkill.set(o.name.toLowerCase(), {
+          name: o.name,
+          people: [],
+          listId: o.id,
+          strategic: o.strategic,
+        });
+      }
     }
     const list = [...bySkill.values()];
     for (const g of list) {
@@ -247,6 +265,7 @@ function SkillsPage() {
     // Skills nobody has yet come first, so they get noticed and filled; then the most widely held.
     list.sort(
       (a, b) =>
+        Number(!!b.strategic) - Number(!!a.strategic) ||
         Number(b.people.length === 0) - Number(a.people.length === 0) ||
         b.people.length - a.people.length ||
         a.name.localeCompare(b.name),
@@ -298,13 +317,29 @@ function SkillsPage() {
   if (!orgId) return null;
 
   const q = filter.trim().toLowerCase();
-  const visible = q
-    ? groups.filter(
-        (g) =>
-          g.name.toLowerCase().includes(q) ||
-          g.people.some((p) => p.label.toLowerCase().includes(q)),
-      )
-    : groups;
+  const visible = groups.filter(
+    (g) =>
+      (!strategicOnly || g.strategic) &&
+      (!q ||
+        g.name.toLowerCase().includes(q) ||
+        g.people.some((p) => p.label.toLowerCase().includes(q))),
+  );
+  const strategicCount = groups.filter((g) => g.strategic).length;
+
+  const toggleStrategic = async (g: SkillGroup) => {
+    setBusy(true);
+    try {
+      await setStrategic(orgId, g.name, !g.strategic, await getMyProfileId());
+      await qc.invalidateQueries({ queryKey: orgSkillListKey(orgId) });
+      toast.success(
+        g.strategic ? `${g.name} is no longer strategic` : `${g.name} marked strategic`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not change the skill");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-6xl space-y-5">
@@ -412,22 +447,38 @@ function SkillsPage() {
             </Button>
           </form>
 
-          <Input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Find a skill or a person"
-            className="max-w-sm"
-            aria-label="Find a skill or a person"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Find a skill or a person"
+              className="max-w-sm"
+              aria-label="Find a skill or a person"
+            />
+            <button
+              type="button"
+              onClick={() => setStrategicOnly(!strategicOnly)}
+              aria-pressed={strategicOnly}
+              disabled={!strategicCount && !strategicOnly}
+              className={`inline-flex h-10 items-center gap-1.5 rounded-xl border-2 px-3 text-sm font-medium disabled:opacity-50 ${
+                strategicOnly ? "border-primary bg-primary/10 text-primary" : "border-border"
+              }`}
+            >
+              <Star className={`h-4 w-4 ${strategicOnly ? "fill-current" : ""}`} />
+              Strategic only{strategicCount ? ` (${strategicCount})` : ""}
+            </button>
+          </div>
 
           {people.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
           {!people.isLoading && visible.length === 0 && (
             <div className="rounded-2xl border-2 border-dashed border-border bg-card p-8 text-center">
-              <p className="font-medium">{q ? "Nothing matches" : "No skills yet"}</p>
+              <p className="font-medium">
+                {q || strategicOnly ? "Nothing matches" : "No skills yet"}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {q
-                  ? "Try a different word."
+                {q || strategicOnly
+                  ? "Try a different word, or show every skill."
                   : "Add the first skill above — each person's skills show up here grouped by skill."}
               </p>
             </div>
@@ -437,15 +488,41 @@ function SkillsPage() {
             {visible.map((g) => (
               <div
                 key={g.name}
-                className={
+                className={`${
                   g.people.length
                     ? "rounded-2xl border-2 border-border bg-card p-4"
                     : "rounded-2xl border-2 border-dashed border-[#FFD66B] bg-[#FFF6D6] p-4 dark:border-[#7A5C00] dark:bg-[#2E2610]"
-                }
+                } ${g.strategic ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <h2 className="truncate font-semibold">{g.name}</h2>
+                  <h2 className="flex min-w-0 items-center gap-1.5 font-semibold">
+                    <span className="truncate">{g.name}</span>
+                    {g.strategic && (
+                      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                        <Star className="h-3 w-3 fill-current" /> Strategic
+                      </span>
+                    )}
+                  </h2>
                   <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                    {canManageList && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleStrategic(g)}
+                        aria-pressed={!!g.strategic}
+                        className={`rounded-md p-1 hover:bg-primary/10 hover:text-primary ${
+                          g.strategic ? "text-primary" : ""
+                        }`}
+                        aria-label={
+                          g.strategic
+                            ? `${g.name} is strategic — unmark`
+                            : `Mark ${g.name} strategic`
+                        }
+                        title={g.strategic ? "Strategic — click to unmark" : "Mark as strategic"}
+                      >
+                        <Star className={`h-3.5 w-3.5 ${g.strategic ? "fill-current" : ""}`} />
+                      </button>
+                    )}
                     {g.people.length} {g.people.length === 1 ? "person" : "people"}
                     {canManageList && g.listId && !g.people.length && (
                       <button

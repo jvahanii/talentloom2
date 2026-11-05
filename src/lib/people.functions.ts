@@ -296,15 +296,16 @@ export const mergeSkills = createServerFn({ method: "POST" })
       people += 1;
     }
 
-    // The organisation's own skill list: the variants become the kept name, once.
+    // The organisation's own skill list: the variants become the kept name, once,
+    // strategic if any of them was.
     const { data: listed, error: lError } = await admin
       .from("org_skills")
-      .select("id, name")
+      .select("id, name, strategic")
       .eq("org_id", root);
     if (lError) throw new Error(lError.message);
-    const listedVariants = ((listed ?? []) as { id: string; name: string }[]).filter((s) =>
-      variants.has(s.name.toLowerCase()),
-    );
+    const listedVariants = (
+      (listed ?? []) as { id: string; name: string; strategic: boolean }[]
+    ).filter((s) => variants.has(s.name.toLowerCase()));
     if (listedVariants.length) {
       const { error: dError } = await admin
         .from("org_skills")
@@ -314,9 +315,12 @@ export const mergeSkills = createServerFn({ method: "POST" })
           listedVariants.map((s) => s.id),
         );
       if (dError) throw new Error(dError.message);
-      const { error: iError } = await admin
-        .from("org_skills")
-        .insert({ org_id: root, name: data.into, created_by: context.userId });
+      const { error: iError } = await admin.from("org_skills").insert({
+        org_id: root,
+        name: data.into,
+        created_by: context.userId,
+        strategic: listedVariants.some((s) => s.strategic),
+      });
       if (iError && iError.code !== "23505") throw new Error(iError.message);
     }
 
