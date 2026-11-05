@@ -126,6 +126,40 @@ function nudged(rows: Row[], keys: string[], step = 0.06): Row[] {
   });
 }
 
+type Change = {
+  at: number;
+  who: string;
+  skill: string;
+  /** "new": a skill added after history began, rather than a level change. */
+  from: number | null | "new";
+  to: number | null;
+};
+
+/** Every level change in these events, newest first (not the starting points). */
+function changesIn(
+  scope: SkillHistoryPoint[],
+  label: Map<string, string>,
+  historyStart: number | undefined,
+): Change[] {
+  const out: Change[] = [];
+  const seen = new Map<string, number | null>();
+  for (const e of scope) {
+    const key = `${e.userId}|${e.skill.toLowerCase()}`;
+    const prev = seen.has(key) ? seen.get(key)! : undefined;
+    const who = label.get(e.userId) ?? "Someone";
+    if (prev !== undefined && prev !== e.level) {
+      out.push({ at: e.at, who, skill: e.skill, from: prev, to: e.level });
+    } else if (prev === undefined && historyStart !== undefined && e.at > historyStart + 60_000) {
+      // Not one of the starting points recorded when history began.
+      out.push({ at: e.at, who, skill: e.skill, from: "new", to: e.level });
+    }
+    seen.set(key, e.level);
+  }
+  return out.sort((a, b) => b.at - a.at);
+}
+
+const LATEST = 8;
+
 /** Rows for a multi-series step chart: every change time, each series carried forward. */
 function toRows(
   series: { key: string; points: { t: number; v: number | null }[] }[],
@@ -173,6 +207,7 @@ export function SkillDevelopment({
   const [personPick, setPersonPick] = useState("");
   const [teamPick, setTeamPick] = useState("");
   const [measure, setMeasure] = useState<Measure>("cumulative");
+  const [showAllChanges, setShowAllChanges] = useState(false);
   const cumulative = measure === "cumulative";
 
   // Your last choices come back on your next visit (this browser, per organisation).
@@ -250,34 +285,14 @@ export function SkillDevelopment({
   // `short`: the name at the end of the line, when it differs from the legend.
   let series: { key: string; name: string; color: string; short?: string }[] = [];
   // `from: "new"` is a skill added after history began, rather than a level change.
-  let changes: {
-    at: number;
-    who: string;
-    skill: string;
-    from: number | null | "new";
-    to: number | null;
-  }[] = [];
+  let changes: Change[] = [];
   let note: string | null = null;
   let showChart = false;
 
   if (mode === "skill" && skills.length) {
     const all = !picked.length;
     const inScope = all ? events : events.filter((e) => skillPicks.includes(e.skill.toLowerCase()));
-    // Latest changes in the chosen skills.
-    const seen = new Map<string, number | null>();
-    for (const e of inScope) {
-      const key = `${e.userId}|${e.skill.toLowerCase()}`;
-      const prev = seen.has(key) ? seen.get(key)! : undefined;
-      const who = label.get(e.userId) ?? "Someone";
-      if (prev !== undefined && prev !== e.level) {
-        changes.push({ at: e.at, who, skill: e.skill, from: prev, to: e.level });
-      } else if (prev === undefined && events[0] && e.at > events[0].at + 60_000) {
-        // Not one of the starting points recorded when history began.
-        changes.push({ at: e.at, who, skill: e.skill, from: "new", to: e.level });
-      }
-      seen.set(key, e.level);
-    }
-    changes = changes.sort((a, b) => b.at - a.at).slice(0, 8);
+    changes = changesIn(inScope, label, events[0]?.at);
 
     if (all) {
       // One line for every skill: each person's level in each skill counts once.
@@ -338,6 +353,7 @@ export function SkillDevelopment({
     }
   } else if (mode === "person" && person && measure !== "average") {
     const mine = events.filter((e) => e.userId === person.userId);
+    changes = changesIn(mine, label, events[0]?.at);
     const points = aggregateOver(mine, (e) => e.skill.toLowerCase(), shown, measure);
     series = [
       {
@@ -353,6 +369,7 @@ export function SkillDevelopment({
     if (!showChart) note = `${person.label} has no skill levels yet.`;
   } else if (mode === "person" && person) {
     const mine = events.filter((e) => e.userId === person.userId);
+    changes = changesIn(mine, label, events[0]?.at);
     const names = [...new Set(mine.map((e) => e.skill))].filter((n) =>
       mine.some((e) => e.skill === n && e.level !== null),
     );
@@ -380,6 +397,7 @@ export function SkillDevelopment({
     // members' level points or average level.
     const members = new Set(team.members);
     const mine = events.filter((e) => members.has(e.userId));
+    changes = changesIn(mine, label, events[0]?.at);
     const holders = new Map<string, { name: string; people: Set<string>; levelled: boolean }>();
     for (const e of mine) {
       const key = e.skill.toLowerCase();
@@ -665,15 +683,28 @@ export function SkillDevelopment({
               </ResponsiveContainer>
             </div>
           )}
-          {mode === "skill" && (
+          {(mode === "skill" || mode === "person" || (mode === "team" && team)) && (
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">Latest changes</p>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {showAllChanges ? `All changes (${changes.length})` : "Latest changes"}
+              </p>
               {changes.length ? (
-                <ul className="mt-1 space-y-0.5 text-sm">
-                  {changes.map((c, i) => (
+                <ul
+                  className={`mt-1 space-y-0.5 text-sm ${
+                    showAllChanges ? "max-h-96 overflow-y-auto pr-2" : ""
+                  }`}
+                >
+                  {(showAllChanges ? changes : changes.slice(0, LATEST)).map((c, i) => (
                     <li key={i}>
-                      <span className="font-medium">{c.who}</span>
-                      {(!picked.length || picked.length > 1) && <> · {c.skill}</>}:{" "}
+                      {mode !== "person" && <span className="font-medium">{c.who}</span>}
+                      {mode === "person" ? (
+                        <span className="font-medium">{c.skill}</span>
+                      ) : (
+                        (mode === "team" || !picked.length || picked.length > 1) && (
+                          <> · {c.skill}</>
+                        )
+                      )}
+                      :{" "}
                       {c.from === "new"
                         ? c.to === null
                           ? "added the skill"
@@ -687,6 +718,15 @@ export function SkillDevelopment({
                 </ul>
               ) : (
                 <p className="mt-1 text-sm text-muted-foreground">No changes yet.</p>
+              )}
+              {changes.length > LATEST && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllChanges(!showAllChanges)}
+                  className="mt-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  {showAllChanges ? "Show only the latest" : `Show all ${changes.length} changes`}
+                </button>
               )}
             </div>
           )}
