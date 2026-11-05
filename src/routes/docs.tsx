@@ -765,6 +765,27 @@ function Docs() {
               />
             </Topic>
 
+            <Topic id="skills-topology" title="Org topology">
+              <StepList
+                steps={[
+                  {
+                    icon: Network,
+                    text: (
+                      <>
+                        The <strong>Org topology</strong> tab on the Skills page is a map where
+                        teams place themselves by the scope of their skills mandate (functional to
+                        expanding) and of their work mandate (tasks to whole solution). Pick a team,
+                        choose <strong>Where we are</strong> or <strong>Where we're heading</strong>
+                        , and click a square; an arrow joins the two. A team's members can place it,
+                        and so can anyone who may change titles. It's based on the Org Topologies™
+                        model (orgtopologies.com).
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
             <Topic id="skills-in-teams" title="Skills in teams">
               <StepList
                 steps={[
