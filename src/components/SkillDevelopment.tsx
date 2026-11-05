@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { fetchSkillHistory, type SkillHistoryPoint } from "@/lib/skillLevels";
+import { fetchTeams, teamsKey } from "@/lib/teams";
 import { displayLevel, skillLevelLabel } from "@/lib/skills";
 
 /**
@@ -44,6 +45,46 @@ const day = (t: number) => format(t, "d MMM yyyy");
 /** Step points of one person's level in one skill, carried on to now. */
 function stepsOf(events: SkillHistoryPoint[]): { t: number; v: number | null }[] {
   return events.map((e) => ({ t: e.at, v: e.level }));
+}
+
+/**
+ * The average level among people in a skill at each moment, from their
+ * history (people without a level don't count). `shown` caps a level at the
+ * organisation's number of levels.
+ */
+function averageOver(
+  events: SkillHistoryPoint[],
+  shown: (v: number | null) => number | null,
+): { t: number; v: number | null }[] {
+  const current = new Map<string, number | null>();
+  const points: { t: number; v: number | null }[] = [];
+  for (const e of events) {
+    current.set(e.userId, e.level);
+    const levels = [...current.values()].map(shown).filter((l): l is number => l !== null);
+    const avg = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : null;
+    const last = points[points.length - 1];
+    if (last && last.t === e.at) last.v = avg;
+    else points.push({ t: e.at, v: avg });
+  }
+  return points;
+}
+
+/**
+ * Lines on the same level would hide each other, so each is drawn nudged a
+ * little (well under half a level); the true value stays in `<key>__raw` for
+ * the tooltip and the line-end labels.
+ */
+function nudged(rows: Row[], keys: string[]): Row[] {
+  const offset = (i: number) => (i - (keys.length - 1) / 2) * 0.06;
+  return rows.map((r) => {
+    const out: Row = { ...r };
+    keys.forEach((k, i) => {
+      const v = r[k];
+      out[`${k}__raw`] = v;
+      out[k] = v === null || keys.length < 2 ? v : v + offset(i);
+    });
+    return out;
+  });
 }
 
 /** Rows for a multi-series step chart: every change time, each series carried forward. */
@@ -83,9 +124,14 @@ export function SkillDevelopment({
         people.map((p) => p.userId),
       ),
   });
-  const [mode, setMode] = useState<"skill" | "person">("skill");
+  const teams = useQuery({
+    queryKey: teamsKey(orgId),
+    queryFn: () => fetchTeams(orgId),
+  });
+  const [mode, setMode] = useState<"skill" | "person" | "team">("skill");
   const [skillPick, setSkillPick] = useState("");
   const [personPick, setPersonPick] = useState("");
+  const [teamPick, setTeamPick] = useState("");
 
   const events = useMemo(
     () => (history.data ?? []).filter((e) => label.has(e.userId)),
@@ -110,6 +156,10 @@ export function SkillDevelopment({
     );
   }, [events]);
   const withHistory = people.filter((p) => events.some((e) => e.userId === p.userId));
+  // Teams with someone whose skills have history.
+  const teamList = (teams.data ?? []).filter((t) =>
+    t.members.some((m) => withHistory.some((p) => p.userId === m)),
+  );
 
   if (history.isLoading || !people.length) return null;
 
@@ -117,9 +167,11 @@ export function SkillDevelopment({
   const now = Date.now();
   const skill = skills.find((s) => s.name === skillPick) ?? skills[0];
   const person = withHistory.find((p) => p.userId === personPick) ?? withHistory[0];
+  const team = teamList.find((t) => t.id === teamPick) ?? teamList[0];
 
   let rows: Row[] = [];
-  let series: { key: string; name: string; color: string }[] = [];
+  // `short`: the name at the end of the line, when it differs from the legend.
+  let series: { key: string; name: string; color: string; short?: string }[] = [];
   // `from: "new"` is a skill added after history began, rather than a level change.
   let changes: { at: number; who: string; from: number | null | "new"; to: number | null }[] = [];
   let note: string | null = null;
@@ -127,26 +179,20 @@ export function SkillDevelopment({
 
   if (mode === "skill" && skill) {
     const mine = events.filter((e) => e.skill.toLowerCase() === skill.name.toLowerCase());
-    // Average of the levels people have at each moment.
-    const current = new Map<string, number | null>();
-    const points: { t: number; v: number | null }[] = [];
+    const seen = new Map<string, number | null>();
     for (const e of mine) {
-      const prev = current.has(e.userId) ? current.get(e.userId)! : undefined;
+      const prev = seen.has(e.userId) ? seen.get(e.userId)! : undefined;
       if (prev !== undefined && prev !== e.level) {
         changes.push({ at: e.at, who: label.get(e.userId) ?? "Someone", from: prev, to: e.level });
       } else if (prev === undefined && events[0] && e.at > events[0].at + 60_000) {
         // Not one of the starting points recorded when history began.
         changes.push({ at: e.at, who: label.get(e.userId) ?? "Someone", from: "new", to: e.level });
       }
-      current.set(e.userId, e.level);
-      const levels = [...current.values()].map(shown).filter((l): l is number => l !== null);
-      const avg = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : null;
-      const last = points[points.length - 1];
-      if (last && last.t === e.at) last.v = avg;
-      else points.push({ t: e.at, v: avg });
+      seen.set(e.userId, e.level);
     }
+    const points = averageOver(mine, shown);
     series = [{ key: "avg", name: `Average level in ${skill.name}`, color: SERIES[0] }];
-    rows = toRows([{ key: "avg", points }], now);
+    rows = nudged(toRows([{ key: "avg", points }], now), ["avg"]);
     changes = changes.sort((a, b) => b.at - a.at).slice(0, 8);
     showChart = points.some((p) => p.v !== null);
     if (!showChart) note = `Nobody has a level in ${skill.name} yet.`;
@@ -157,39 +203,79 @@ export function SkillDevelopment({
     );
     const picked = names.slice(0, MAX_SERIES);
     series = picked.map((n, i) => ({ key: `s${i}`, name: n, color: SERIES[i] }));
-    // Lines on the same level would hide each other, so each is nudged a little
-    // (well under half a level; the tooltip rounds back to the true level).
-    const nudge = (i: number) => (i - (picked.length - 1) / 2) * 0.06;
-    rows = toRows(
-      picked.map((n, i) => ({
-        key: `s${i}`,
-        points: stepsOf(mine.filter((e) => e.skill === n)).map((p) => {
-          const v = shown(p.v);
-          return { t: p.t, v: v === null ? null : v + nudge(i) };
-        }),
-      })),
-      now,
+    rows = nudged(
+      toRows(
+        picked.map((n, i) => ({
+          key: `s${i}`,
+          points: stepsOf(mine.filter((e) => e.skill === n)).map((p) => ({
+            t: p.t,
+            v: shown(p.v),
+          })),
+        })),
+        now,
+      ),
+      series.map((s) => s.key),
     );
     showChart = picked.length > 0;
     if (!showChart) note = `${person.label} has no skill levels yet.`;
     else if (names.length > MAX_SERIES)
       note = `Showing ${MAX_SERIES} of ${person.label}'s ${names.length} levelled skills.`;
+  } else if (mode === "team" && team) {
+    // The team's skills, most widely held first; a line per skill of the
+    // members' average level.
+    const members = new Set(team.members);
+    const mine = events.filter((e) => members.has(e.userId));
+    const holders = new Map<string, { name: string; people: Set<string>; levelled: boolean }>();
+    for (const e of mine) {
+      const key = e.skill.toLowerCase();
+      const h = holders.get(key) ?? { name: e.skill, people: new Set<string>(), levelled: false };
+      h.people.add(e.userId);
+      if (e.level !== null) h.levelled = true;
+      holders.set(key, h);
+    }
+    const ranked = [...holders.values()]
+      .filter((h) => h.levelled)
+      .sort((a, b) => b.people.size - a.people.size || a.name.localeCompare(b.name));
+    const picked = ranked.slice(0, MAX_SERIES);
+    series = picked.map((h, i) => ({
+      key: `s${i}`,
+      name: `${h.name} (${h.people.size})`,
+      short: h.name,
+      color: SERIES[i],
+    }));
+    rows = nudged(
+      toRows(
+        picked.map((h, i) => ({
+          key: `s${i}`,
+          points: averageOver(
+            mine.filter((e) => e.skill.toLowerCase() === h.name.toLowerCase()),
+            shown,
+          ),
+        })),
+        now,
+      ),
+      series.map((s) => s.key),
+    );
+    showChart = picked.length > 0;
+    if (!showChart) note = `Nobody in ${team.name} has a skill level yet.`;
+    else if (ranked.length > MAX_SERIES)
+      note = `Showing the ${MAX_SERIES} most common of the team's ${ranked.length} levelled skills.`;
+  } else if (mode === "team") {
+    note = "There are no teams with skills yet. Teams are set up on the Teams page.";
   }
 
   const selectCls =
     "h-9 min-w-0 rounded-xl border border-input bg-white/70 px-2 text-sm outline-none focus:border-teal-500 dark:bg-white/5";
   const levelText = (v: number) =>
     Number.isInteger(v) ? (skillLevelLabel(v, levelNames) ?? String(v)) : `${v.toFixed(1)}`;
-  // Several lines are nudged apart; one line (the average) is shown as it is.
-  const tooltipLevel = (v: number) => levelText(series.length > 1 ? Math.round(v) : v);
-  // Name a line at its end when there are few and its end level is its own.
-  const ends = series.map((x) => rows[rows.length - 1]?.[x.key]);
+  // Name a line at its end when there are few and no other line ends near it.
+  const ends = series.map((x) => rows[rows.length - 1]?.[`${x.key}__raw`] ?? null);
   const labelled = (key: string, i: number) =>
     series.length > 1 &&
     series.length <= 4 &&
     ends[i] !== null &&
-    ends.filter((e) => e !== null && Math.round(e as number) === Math.round(ends[i] as number))
-      .length === 1 &&
+    ends.filter((e) => e !== null && Math.abs((e as number) - (ends[i] as number)) < 0.5).length ===
+      1 &&
     !!key;
   const anyLabel = series.some((x, i) => labelled(x.key, i));
 
@@ -204,7 +290,7 @@ export function SkillDevelopment({
         {since && <span className="text-xs text-muted-foreground">since {since}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="inline-flex rounded-xl border border-border p-0.5" role="tablist">
-            {(["skill", "person"] as const).map((m) => (
+            {(["skill", "person", "team"] as const).map((m) => (
               <button
                 key={m}
                 role="tab"
@@ -231,7 +317,7 @@ export function SkillDevelopment({
                 </option>
               ))}
             </select>
-          ) : (
+          ) : mode === "person" ? (
             <select
               className={selectCls}
               value={person?.userId ?? ""}
@@ -244,6 +330,21 @@ export function SkillDevelopment({
                 </option>
               ))}
             </select>
+          ) : (
+            teamList.length > 0 && (
+              <select
+                className={selectCls}
+                value={team?.id ?? ""}
+                onChange={(e) => setTeamPick(e.target.value)}
+                aria-label="Team"
+              >
+                {teamList.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            )
           )}
         </div>
       </div>
@@ -288,11 +389,19 @@ export function SkillDevelopment({
                   />
                   <Tooltip
                     labelFormatter={(t) => day(Number(t))}
-                    formatter={(v, name) => [
-                      typeof v === "number" ? tooltipLevel(v) : "no level",
-                      name as string,
-                    ]}
+                    formatter={(v, name, item) => {
+                      // The true value, not the nudged position of the line.
+                      const raw = (item?.payload as Row | undefined)?.[
+                        `${String(item?.dataKey)}__raw`
+                      ];
+                      const value = raw === undefined ? v : raw;
+                      return [
+                        typeof value === "number" ? levelText(value) : "no level",
+                        name as string,
+                      ];
+                    }}
                     contentStyle={{ borderRadius: 12, fontSize: 12 }}
+                    itemStyle={{ color: "#0b0b0b" }}
                   />
                   {series.length > 1 && <Legend wrapperStyle={{ fontSize: 12 }} />}
                   {series.map((s, si) => (
@@ -339,7 +448,9 @@ export function SkillDevelopment({
                             fontSize={12}
                             fill="#52514e"
                           >
-                            {s.name.length > 14 ? `${s.name.slice(0, 13)}…` : s.name}
+                            {(s.short ?? s.name).length > 14
+                              ? `${(s.short ?? s.name).slice(0, 13)}…`
+                              : (s.short ?? s.name)}
                           </text>
                         ) : (
                           <g key={`${s.key}-nolabel-${p.index}`} />

@@ -664,8 +664,9 @@ function Docs() {
                         first. Search finds both skills and people. At the top,{" "}
                         <strong>Skill development</strong> shows how levels have changed over time —
                         by skill, the average level of the people who have it and the latest
-                        changes; by person, a line for each of their skills. Changes are recorded
-                        from 5 November 2026 on.
+                        changes; by person, a line for each of their skills; by team, a line for
+                        each of the team's skills with its members' average level. Changes are
+                        recorded from 5 November 2026 on.
                       </>
                     ),
                   },
