@@ -16,6 +16,14 @@ import {
   teamsKey,
   updateTeam,
   type Team,
+  type TeamGroup,
+  fetchTeamGroups,
+  teamGroupsKey,
+  createTeamGroup,
+  updateTeamGroup,
+  deleteTeamGroup,
+  addTeamToGroup,
+  removeTeamFromGroup,
 } from "@/lib/teams";
 import { skillLevelColor, skillLevelLabel, type Skill, type SkillLevel } from "@/lib/skills";
 import { fetchMemberSkills } from "@/lib/skillLevels";
@@ -120,6 +128,7 @@ function TeamsPage() {
       return false;
     } finally {
       await qc.invalidateQueries({ queryKey: teamsKey(orgId) });
+      await qc.invalidateQueries({ queryKey: teamGroupsKey(orgId) });
       setBusy(false);
     }
   };
@@ -214,6 +223,17 @@ function TeamsPage() {
           />
         ))}
       </div>
+
+      {!!(teams.data ?? []).length && (
+        <TeamGroups
+          orgId={orgId}
+          teams={teams.data ?? []}
+          people={people}
+          canManage={canManage}
+          busy={busy}
+          run={run}
+        />
+      )}
 
       {!!(teams.data ?? []).length && withoutTeam.length > 0 && (
         <div className="rounded-2xl border-2 border-dashed border-border bg-card p-4">
@@ -404,6 +424,230 @@ function TeamSkills({ skills }: { skills: TeamSkill[] }) {
         <p className="mt-1 text-xs text-muted-foreground">
           Nobody in the team has added skills yet.
         </p>
+      )}
+    </div>
+  );
+}
+
+/** Teams of teams: groups made of whole teams. Two levels only — a group holds teams, not groups. */
+function TeamGroups({
+  orgId,
+  teams,
+  people,
+  canManage,
+  busy,
+  run,
+}: {
+  orgId: string;
+  teams: Team[];
+  people: Member[];
+  canManage: boolean;
+  busy: boolean;
+  run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
+}) {
+  const groups = useQuery({
+    queryKey: teamGroupsKey(orgId),
+    queryFn: () => fetchTeamGroups(orgId),
+  });
+  const [name, setName] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+
+  const create = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (await run(() => createTeamGroup(orgId, trimmed, picked), `Created ${trimmed}`)) {
+      setName("");
+      setPicked([]);
+    }
+  };
+
+  return (
+    <div className="space-y-4 border-t-2 border-dashed border-border pt-5">
+      <div>
+        <h2 className="text-xl font-bold">Teams of teams</h2>
+        <p className="text-sm text-muted-foreground">
+          Put several teams together. A team can be part of many teams of teams, but a team of
+          teams can only hold teams — not other teams of teams.
+        </p>
+      </div>
+
+      {canManage && (
+        <form
+          className="space-y-2 rounded-2xl border-2 border-border bg-card p-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void create();
+          }}
+        >
+          <p className="font-medium">Create a team of teams</p>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name, e.g. Product & Engineering"
+            maxLength={MAX_TEAM_NAME}
+            className="sm:max-w-xs"
+            aria-label="Team of teams name"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {teams.map((t) => {
+              const on = picked.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() =>
+                    setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))
+                  }
+                  className={`rounded-full border-2 px-2.5 py-0.5 text-xs font-medium ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary"}`}
+                  aria-pressed={on}
+                >
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
+          <Button type="submit" disabled={busy || !name.trim()}>
+            <Plus className="mr-1 h-4 w-4" /> Create
+          </Button>
+        </form>
+      )}
+
+      {!groups.isLoading && !(groups.data ?? []).length && (
+        <p className="text-sm text-muted-foreground">No teams of teams yet.</p>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {(groups.data ?? []).map((g) => (
+          <GroupCard
+            key={g.id}
+            orgId={orgId}
+            group={g}
+            teams={teams}
+            people={people}
+            canManage={canManage}
+            busy={busy}
+            run={run}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GroupCard({
+  orgId,
+  group,
+  teams,
+  people,
+  canManage,
+  busy,
+  run,
+}: {
+  orgId: string;
+  group: TeamGroup;
+  teams: Team[];
+  people: Member[];
+  canManage: boolean;
+  busy: boolean;
+  run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
+}) {
+  const [adding, setAdding] = useState("");
+  const inGroup = teams
+    .filter((t) => group.teams.includes(t.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const others = teams.filter((t) => !group.teams.includes(t.id));
+  const memberIds = [...new Set(inGroup.flatMap((t) => t.members))];
+
+  return (
+    <div className="flex flex-col rounded-2xl border-2 border-border bg-card p-4">
+      <div className="flex items-start gap-2">
+        {canManage ? (
+          <input
+            defaultValue={group.name}
+            onBlur={(e) => {
+              const next = e.target.value.trim();
+              if (next && next !== group.name)
+                void run(() => updateTeamGroup(group.id, { name: next }), "Renamed");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            maxLength={MAX_TEAM_NAME}
+            className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none hover:border-input focus:border-teal-500"
+            aria-label="Team of teams name"
+          />
+        ) : (
+          <h3 className="min-w-0 flex-1 truncate font-semibold">{group.name}</h3>
+        )}
+        <span className="shrink-0 pt-1 text-xs text-muted-foreground">
+          {inGroup.length} {inGroup.length === 1 ? "team" : "teams"} · {memberIds.length}{" "}
+          {memberIds.length === 1 ? "person" : "people"}
+        </span>
+        {canManage && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm(`Delete "${group.name}"? Its teams stay as they are.`))
+                void run(() => deleteTeamGroup(group.id), `Deleted ${group.name}`);
+            }}
+            className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            aria-label={`Delete ${group.name}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <ul className="mt-2 flex-1 space-y-1">
+        {inGroup.map((t) => (
+          <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
+            <span className="min-w-0 truncate">
+              {t.name}{" "}
+              <span className="text-xs text-muted-foreground">({t.members.length})</span>
+            </span>
+            {canManage && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => run(() => removeTeamFromGroup(group.id, t.id), `${t.name} removed`)}
+                className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-destructive"
+                aria-label={`Take ${t.name} out of ${group.name}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </li>
+        ))}
+        {!inGroup.length && <li className="text-sm text-muted-foreground">No teams yet</li>}
+      </ul>
+
+      {memberIds.length > 0 && <TeamSkills skills={teamSkills(memberIds, people)} />}
+
+      {canManage && others.length > 0 && (
+        <div className="mt-3 flex items-center gap-1.5 border-t-2 border-dashed border-border pt-3">
+          <select
+            className={`${selectCls} flex-1`}
+            value={adding}
+            onChange={(e) => setAdding(e.target.value)}
+            aria-label={`Add a team to ${group.name}`}
+          >
+            <option value="">+ Add team</option>
+            {others.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            disabled={busy || !adding}
+            onClick={async () => {
+              if (await run(() => addTeamToGroup(orgId, group.id, adding), `Added to ${group.name}`))
+                setAdding("");
+            }}
+          >
+            Add
+          </Button>
+        </div>
       )}
     </div>
   );

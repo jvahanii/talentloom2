@@ -82,3 +82,77 @@ export async function removeFromTeam(teamId: string, userId: string) {
     .eq("user_id", userId);
   if (error) throw explain(error);
 }
+
+/**
+ * Teams of teams: a group made of whole teams. Only two levels exist — a group
+ * holds teams, never other groups (enforced by the schema: links point from a
+ * group to a team). A team can belong to several groups.
+ */
+export type TeamGroup = { id: string; name: string; description: string | null; teams: string[] };
+
+export const teamGroupsKey = (orgId: string | null) => ["org-team-groups", orgId];
+
+function explainGroup(error: { code?: string; message: string }): Error {
+  if (error.code === "23505") return new Error("There's already a team of teams with that name");
+  return new Error(error.message);
+}
+
+export async function fetchTeamGroups(orgId: string): Promise<TeamGroup[]> {
+  const { data, error } = await db
+    .from("org_team_groups")
+    .select("id, name, description, org_team_group_links(team_id)")
+    .eq("org_id", orgId)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (
+    (data ?? []) as {
+      id: string;
+      name: string;
+      description: string | null;
+      org_team_group_links: { team_id: string }[];
+    }[]
+  ).map((g) => ({
+    id: g.id,
+    name: g.name,
+    description: g.description,
+    teams: g.org_team_group_links.map((l) => l.team_id),
+  }));
+}
+
+export async function createTeamGroup(orgId: string, name: string, teamIds: string[]) {
+  const { data, error } = await db
+    .from("org_team_groups")
+    .insert({ org_id: orgId, name: name.trim() })
+    .select("id")
+    .single();
+  if (error) throw explainGroup(error);
+  for (const t of teamIds) await addTeamToGroup(orgId, data.id, t);
+}
+
+export async function updateTeamGroup(id: string, change: { name?: string; description?: string | null }) {
+  const { data, error } = await db.from("org_team_groups").update(change).eq("id", id).select("id");
+  if (error) throw explainGroup(error);
+  if (!data?.length) throw new Error("Your title doesn't allow editing teams");
+}
+
+export async function deleteTeamGroup(id: string) {
+  const { data, error } = await db.from("org_team_groups").delete().eq("id", id).select("id");
+  if (error) throw explainGroup(error);
+  if (!data?.length) throw new Error("Your title doesn't allow deleting teams");
+}
+
+export async function addTeamToGroup(orgId: string, groupId: string, teamId: string) {
+  const { error } = await db
+    .from("org_team_group_links")
+    .insert({ org_id: orgId, group_id: groupId, team_id: teamId });
+  if (error && error.code !== "23505") throw explainGroup(error);
+}
+
+export async function removeTeamFromGroup(groupId: string, teamId: string) {
+  const { error } = await db
+    .from("org_team_group_links")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("team_id", teamId);
+  if (error) throw explainGroup(error);
+}
