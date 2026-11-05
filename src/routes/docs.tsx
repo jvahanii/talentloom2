@@ -661,7 +661,11 @@ function Docs() {
                       <>
                         The <strong>Skills</strong> page in the side menu has a card for every skill
                         in the organisation, with who has it and at what level, most widely held
-                        first. Search finds both skills and people.
+                        first. Search finds both skills and people. At the top,{" "}
+                        <strong>Skill development</strong> shows how levels have changed over time —
+                        by skill, the average level of the people who have it and the latest
+                        changes; by person, a line for each of their skills. Changes are recorded
+                        from 5 November 2026 on.
                       </>
                     ),
                   },

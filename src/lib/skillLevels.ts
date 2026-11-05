@@ -48,6 +48,34 @@ export function forgetSkillSpaces() {
   spaces.clear();
 }
 
+/** A recorded level of a person's skill at a moment (null: no level). */
+export type SkillHistoryPoint = { userId: string; skill: string; level: number | null; at: number };
+
+/** Level changes of these people's skills in the organisation's space, oldest first. */
+export async function fetchSkillHistory(
+  orgId: string,
+  userIds: string[],
+): Promise<SkillHistoryPoint[]> {
+  if (!userIds.length) return [];
+  const { root } = await fetchSkillSpace(orgId);
+  const { data, error } = await db
+    .from("org_member_skill_history")
+    .select("user_id, skill, level, changed_at")
+    .eq("org_id", root)
+    .in("user_id", userIds)
+    .order("changed_at", { ascending: true })
+    .order("id", { ascending: true });
+  if (error) throw error;
+  return (
+    (data ?? []) as { user_id: string; skill: string; level: number | null; changed_at: string }[]
+  ).map((r) => ({
+    userId: r.user_id,
+    skill: r.skill,
+    level: r.level,
+    at: new Date(r.changed_at).getTime(),
+  }));
+}
+
 /** Skills in the organisation's space by person; pass ids to fetch only those people. */
 export async function fetchMemberSkills(
   orgId: string,

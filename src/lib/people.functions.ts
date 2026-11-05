@@ -274,6 +274,17 @@ export const mergeSkills = createServerFn({ method: "POST" })
           hits.map((h) => h.skill),
         );
       if (dError) throw new Error(dError.message);
+      // The history follows the kept name, before the merged row is written.
+      const { error: hError } = await admin
+        .from("org_member_skill_history")
+        .update({ skill: data.into })
+        .eq("org_id", root)
+        .eq("user_id", userId)
+        .in(
+          "skill",
+          hits.map((h) => h.skill),
+        );
+      if (hError) throw new Error(hError.message);
       const { error: iError } = await admin.from("org_member_skills").insert({
         org_id: root,
         user_id: userId,

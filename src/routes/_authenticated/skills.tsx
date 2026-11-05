@@ -29,6 +29,7 @@ import { fetchMemberSkills } from "@/lib/skillLevels";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
+import { SkillDevelopment } from "@/components/SkillDevelopment";
 import { ManualSkillMerge, SkillMergeSuggestions } from "@/components/SkillMergeSuggestions";
 import { canonicalSkillName } from "@/lib/skills";
 import { Input } from "@/components/ui/input";
@@ -295,6 +296,15 @@ function SkillsPage() {
           or tap one name and then the other.
         </p>
       </div>
+
+      <SkillDevelopment
+        orgId={orgId}
+        people={(people.data ?? []).map((p) => ({
+          userId: p.userId,
+          label: p.name || p.email || "Unnamed",
+        }))}
+        levelNames={levelNames}
+      />
 
       {can("change_titles") && (
         <>
