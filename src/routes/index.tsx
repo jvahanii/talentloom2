@@ -347,8 +347,7 @@ function SkillsShowcase({
             <p className="text-soft mt-3 max-w-xl text-sm sm:text-base">
               Talentloom turns the know-how scattered across your organisation into something you
               can see and grow: who has which skill, how well, and who could - and should - learn it
-              from whom. Fostering the creation of multi-skilled people and teams is the basis for
-              true agility!
+              from whom. Creation of multi-skilled people and teams is the basis for true agility!
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
