@@ -628,6 +628,8 @@ export function SkillDevelopment({
   // A rise from one level to a higher one counts as learning. Giving a skill
   // its first level (no level → Basic) is an assessment, not progress.
   const levelUps = new Map<string, number>();
+  // Per person, each skill they levelled up in: from the first level to the last.
+  const levelled = new Map<string, Map<string, { skill: string; from: number; to: number }>>();
   let firstRatings = 0;
   const lastLevel = new Map<string, number | null>();
   for (const e of events) {
@@ -641,6 +643,11 @@ export function SkillDevelopment({
     const inFrame = (from === null || e.at >= from) && (to === null || e.at <= to);
     if (prev !== undefined && prev !== null && e.level !== null && e.level > prev && inFrame) {
       levelUps.set(e.userId, (levelUps.get(e.userId) ?? 0) + 1);
+      const mine = levelled.get(e.userId) ?? new Map();
+      const sk = e.skill.toLowerCase();
+      const had = mine.get(sk);
+      mine.set(sk, { skill: e.skill, from: had ? had.from : prev, to: e.level });
+      levelled.set(e.userId, mine);
     } else if (prev === null && e.level !== null && inFrame) {
       firstRatings += 1;
     }
@@ -987,32 +994,38 @@ export function SkillDevelopment({
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <p className="text-xs font-semibold">Actively learning ({engaged.length})</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <ul className="mt-1 space-y-1">
                     {engaged.map((p) => {
-                      const ups = levelUps.get(p.userId) ?? 0;
+                      const ups = [...(levelled.get(p.userId)?.values() ?? [])];
                       const topics = [...new Set(learningWith.get(p.userId) ?? [])];
                       return (
-                        <span
+                        <li
                           key={p.userId}
-                          className="inline-flex items-center gap-1 rounded-full bg-[#BDF5E0] px-2.5 py-0.5 text-xs font-medium text-[#0B6B4F]"
-                          title={[
-                            ups ? `${ups} level${ups === 1 ? "" : "s"} raised` : "",
-                            topics.length ? `Learning with: ${topics.join(", ")}` : "",
-                          ]
-                            .filter(Boolean)
-                            .join("\n")}
+                          className="rounded-lg bg-[#BDF5E0]/60 px-2.5 py-1.5 text-xs text-[#0B4F3A]"
                         >
-                          {p.label}
-                          {ups > 0 && <span className="opacity-80">↑{ups}</span>}
-                          {topics.length > 0 && (
-                            <span className="opacity-80">
-                              · {topics.slice(0, 2).join(", ")}
-                              {topics.length > 2 ? "…" : ""}
-                            </span>
+                          <p className="font-semibold">{p.label}</p>
+                          {ups.length > 0 && (
+                            <p>
+                              <span className="font-medium">Levelled up:</span>{" "}
+                              {ups
+                                .map(
+                                  (u) =>
+                                    `${u.skill} ${levelName(shown(u.from)!)} → ${levelName(shown(u.to)!)}`,
+                                )
+                                .join(", ")}
+                            </p>
                           )}
-                        </span>
+                          {topics.length > 0 && (
+                            <p>
+                              <span className="font-medium">Learning with others:</span>{" "}
+                              {topics.join(", ")}
+                            </p>
+                          )}
+                        </li>
                       );
                     })}
+                  </ul>
+                  <div className="mt-1 flex flex-wrap gap-1">
                     {!engaged.length && (
                       <span className="text-xs text-muted-foreground">Nobody yet</span>
                     )}
