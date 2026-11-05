@@ -21,7 +21,8 @@ import {
   readSkills,
   skillLevelLabel,
   skillLevelColor,
-  SKILL_LEVEL_VALUES,
+  displayLevel,
+  skillLevelValues,
   type Skill,
   type SkillLevel,
 } from "@/lib/skills";
@@ -356,7 +357,7 @@ function SkillsPage() {
           aria-label="Level"
         >
           <option value="">No level</option>
-          {SKILL_LEVEL_VALUES.map((l) => (
+          {skillLevelValues(levelNames).map((l) => (
             <option key={l} value={l}>
               {skillLevelLabel(l, levelNames)}
             </option>
@@ -502,14 +503,14 @@ function SkillsPage() {
                     </button>
                     <span className="flex shrink-0 items-center gap-1">
                       <select
-                        className={`rounded-full border-0 px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level)}`}
-                        value={p.level ?? ""}
+                        className={`rounded-full border-0 px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level, levelNames.length)}`}
+                        value={displayLevel(p.level, levelNames.length) ?? ""}
                         disabled={busy}
                         onChange={(e) => setLevel(p.userId, g.name, toLevel(e.target.value))}
                         aria-label={`${p.label} level in ${g.name}`}
                       >
                         <option value="">no level</option>
-                        {SKILL_LEVEL_VALUES.map((l) => (
+                        {skillLevelValues(levelNames).map((l) => (
                           <option key={l} value={l}>
                             {skillLevelLabel(l, levelNames)}
                           </option>
@@ -598,7 +599,7 @@ function SkillsPage() {
                     aria-label="Level"
                   >
                     <option value="">No level</option>
-                    {SKILL_LEVEL_VALUES.map((l) => (
+                    {skillLevelValues(levelNames).map((l) => (
                       <option key={l} value={l}>
                         {skillLevelLabel(l, levelNames)}
                       </option>

@@ -17,7 +17,9 @@ import { useSkillLevelNames, skillLevelNamesKey } from "@/hooks/useSkillLevelNam
 import {
   DEFAULT_SKILL_LEVEL_NAMES,
   MAX_SKILL_LEVEL_NAME_LENGTH,
-  SKILL_LEVEL_VALUES,
+  MAX_SKILL_LEVELS,
+  MIN_SKILL_LEVELS,
+  skillLevelColor,
 } from "@/lib/skills";
 
 const inputCls =
@@ -119,9 +121,9 @@ export function OrgSettings() {
         </Link>
       </div>
 
-      {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
-
       {can("rename_org") && <SkillLevelsPanel orgId={orgId} />}
+
+      {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
 
       {canDeleteOrg && <DeleteOrgPanel orgId={orgId} orgName={orgName} />}
     </div>
@@ -200,9 +202,24 @@ function SkillLevelsPanel({ orgId }: { orgId: string }) {
   const [saving, setSaving] = useState(false);
 
   const trimmed = names.map((n) => n.trim());
-  const changed = trimmed.some((n, i) => n !== current[i]);
+  const changed = trimmed.length !== current.length || trimmed.some((n, i) => n !== current[i]);
   const valid = trimmed.every(Boolean);
-  const isDefault = current.every((n, i) => n === DEFAULT_SKILL_LEVEL_NAMES[i]);
+  const isDefault =
+    current.length === DEFAULT_SKILL_LEVEL_NAMES.length &&
+    current.every((n, i) => n === DEFAULT_SKILL_LEVEL_NAMES[i]);
+  const fewer = names.length < current.length;
+
+  /** Keeps the names already typed; new levels start as "Level n" for renaming. */
+  const setCount = (count: number) =>
+    setNames(
+      Array.from({ length: count }, (_, i) =>
+        i < names.length
+          ? names[i]
+          : count === 4 && isDefault
+            ? DEFAULT_SKILL_LEVEL_NAMES[i]
+            : `Level ${i + 1}`,
+      ),
+    );
 
   const save = async (next: string[] | null) => {
     setSaving(true);
@@ -228,18 +245,41 @@ function SkillLevelsPanel({ orgId }: { orgId: string }) {
     <div className="mt-8">
       <h4 className="text-sm font-semibold">Skill levels</h4>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        What the four skill levels are called in this organisation, from lowest to highest. People
-        pick a level for each skill on their profile and on the People page.
+        How many levels skills have in this organisation and what they're called, from lowest to
+        highest. People pick a level for each skill on their profile, the People page and the Skills
+        page.
       </p>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        Number of levels
+        <select
+          value={names.length}
+          onChange={(e) => setCount(Number(e.target.value))}
+          disabled={saving}
+          className="h-9 rounded-xl border border-input bg-white/70 px-2 text-sm dark:bg-white/5"
+        >
+          {Array.from(
+            { length: MAX_SKILL_LEVELS - MIN_SKILL_LEVELS + 1 },
+            (_, i) => i + MIN_SKILL_LEVELS,
+          ).map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {SKILL_LEVEL_VALUES.map((level, i) => (
-          <label key={level} className="block">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">
-              Level {level} <RequiredIndicator />
+        {names.map((name, i) => (
+          <label key={i} className="block">
+            <span className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span
+                className={`inline-block h-3 w-3 rounded-full ${skillLevelColor(i + 1, names.length)}`}
+                aria-hidden
+              />
+              Level {i + 1} <RequiredIndicator />
             </span>
             <input
               required
-              value={names[i] ?? ""}
+              value={name}
               maxLength={MAX_SKILL_LEVEL_NAME_LENGTH}
               onChange={(e) => setNames(names.map((n, j) => (j === i ? e.target.value : n)))}
               className={inputCls}
@@ -247,6 +287,13 @@ function SkillLevelsPanel({ orgId }: { orgId: string }) {
           </label>
         ))}
       </div>
+      {fewer && (
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+          People whose skills are at a higher level will show at the highest one,{" "}
+          <strong>{trimmed[trimmed.length - 1] || `Level ${names.length}`}</strong>, in this
+          organisation. Their levels aren't changed, so adding levels back restores them.
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           onClick={() => save(trimmed)}

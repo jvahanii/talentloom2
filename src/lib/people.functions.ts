@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   MAX_SKILLS,
   MAX_SKILL_LENGTH,
+  MAX_SKILL_LEVELS,
   readSkills,
   writeSkills,
   type Skill,
@@ -157,7 +158,7 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
           .array(
             z.object({
               name: z.string().trim().min(1).max(MAX_SKILL_LENGTH),
-              level: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.null()]),
+              level: z.number().int().min(1).max(MAX_SKILL_LEVELS).nullable(),
             }),
           )
           .max(MAX_SKILLS),

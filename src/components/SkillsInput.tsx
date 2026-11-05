@@ -3,7 +3,8 @@ import { X } from "lucide-react";
 import {
   MAX_SKILLS,
   MAX_SKILL_LENGTH,
-  SKILL_LEVEL_VALUES,
+  displayLevel,
+  skillLevelValues,
   cleanSkills,
   skillLevelLabel,
   skillLevelColor,
@@ -16,9 +17,9 @@ import {
 import { useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 
-// Coloured by level, as on the Skills page.
-const chipCls = (level: SkillLevel | null) =>
-  `inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(level)}`;
+// Coloured by level, as on the Skills page, over the organisation's number of levels.
+const chipCls = (level: SkillLevel | null, count: number) =>
+  `inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(level, count)}`;
 
 /** Read-only skills, each with its level (in the organisation's words) when one is set. */
 export function SkillChips({ skills }: { skills: Skill[] }) {
@@ -27,7 +28,7 @@ export function SkillChips({ skills }: { skills: Skill[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {skills.map((s) => (
-        <span key={s.name} className={chipCls(s.level)}>
+        <span key={s.name} className={chipCls(s.level, levelNames.length)}>
           {s.name}
           {s.level !== null && (
             <span className="font-normal opacity-75">· {skillLevelLabel(s.level, levelNames)}</span>
@@ -212,10 +213,10 @@ export function SkillsInput({
   return (
     <div className="relative flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border border-input bg-white/70 px-2 py-1.5 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/30 dark:bg-white/5">
       {value.map((s) => (
-        <span key={s.name} className={chipCls(s.level)}>
+        <span key={s.name} className={chipCls(s.level, levelNames.length)}>
           {s.name}
           <select
-            value={s.level ?? ""}
+            value={displayLevel(s.level, levelNames.length) ?? ""}
             disabled={disabled}
             onChange={(e) =>
               setLevel(s.name, e.target.value ? (Number(e.target.value) as SkillLevel) : null)
@@ -224,7 +225,7 @@ export function SkillsInput({
             aria-label={`Level of ${s.name}`}
           >
             <option value="">no level</option>
-            {SKILL_LEVEL_VALUES.map((l) => (
+            {skillLevelValues(levelNames).map((l) => (
               <option key={l} value={l}>
                 {skillLevelLabel(l, levelNames)}
               </option>

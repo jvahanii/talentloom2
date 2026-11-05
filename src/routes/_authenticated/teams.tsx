@@ -392,7 +392,7 @@ function TeamSkills({ skills }: { skills: TeamSkill[] }) {
           {skills.map((s) => (
             <span
               key={s.name}
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(s.best)}`}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(s.best, levelNames.length)}`}
               title={s.holders
                 .map(
                   (h) =>

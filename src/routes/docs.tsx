@@ -589,9 +589,9 @@ function Docs() {
                     icon: Layers,
                     text: (
                       <>
-                        Each skill can have one of four levels, picked on its chip. By default they
-                        are <strong>Novice, Basic, Advanced and Master</strong>; a new skill starts
-                        with no level.
+                        Each skill can have a level, picked on its chip. By default there are four:{" "}
+                        <strong>Novice, Basic, Advanced and Master</strong>; a new skill starts with
+                        no level.
                       </>
                     ),
                   },
@@ -599,8 +599,9 @@ function Docs() {
                     icon: Palette,
                     text: (
                       <>
-                        Skills are coloured by level everywhere: Novice yellow, Basic mint, Advanced
-                        lavender, Master pink, and grey without a level.
+                        Skills are coloured by level everywhere, from yellow for the lowest to pink
+                        for the highest — with the default four, Novice yellow, Basic mint, Advanced
+                        lavender and Master pink — and grey without a level.
                       </>
                     ),
                   },
@@ -608,9 +609,12 @@ function Docs() {
                     icon: Settings2,
                     text: (
                       <>
-                        Anyone who can rename the organisation can rename its four levels under{" "}
-                        <strong>Settings → Skill levels</strong>, for example to Finnish, or reset
-                        them. Each organisation shows the same levels in its own words.
+                        Anyone who can rename the organisation can choose how many levels it uses —
+                        from 2 to 7 — and what they're called under{" "}
+                        <strong>Settings → Skill levels</strong>, for example in Finnish, or reset
+                        them. Each organisation shows levels in its own words. A person's skills are
+                        shared by all their organisations, so a level above an organisation's count
+                        shows there as its highest level.
                       </>
                     ),
                   },
