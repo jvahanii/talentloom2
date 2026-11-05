@@ -4,8 +4,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { Linkedin, Briefcase, Globe, Sun, Moon } from "lucide-react";
-import { useAppTheme } from "@/hooks/useAppTheme";
+import { Linkedin, Briefcase, Globe } from "lucide-react";
 import { OrgSettings } from "@/components/OrgSettings";
 import { SkillsInput } from "@/components/SkillsInput";
 import { readSkills, type Skill } from "@/lib/skills";
@@ -23,7 +22,6 @@ const inputCls =
 
 function Settings() {
   const qc = useQueryClient();
-  const { theme, setTheme } = useAppTheme();
   const { orgId, orgs } = useOrg();
   // Levels belong to an organisation: the current one, if you're a member of it.
   const levelOrg = orgs.find((o) => o.org_id === orgId && !o.viaSuperuser) ?? null;
@@ -107,41 +105,6 @@ function Settings() {
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Settings</h1>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="glass rounded-2xl p-5 lg:col-span-2">
-          <h3 className="font-display font-semibold">Appearance</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pick how the signed-in app looks. The public homepage always stays light.
-          </p>
-          <div className="mt-4 inline-flex rounded-xl border border-border p-1">
-            <button
-              type="button"
-              onClick={() => setTheme("light")}
-              aria-pressed={theme === "light"}
-              className={
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
-                (theme === "light"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground")
-              }
-            >
-              <Sun className="h-4 w-4" /> Light
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme("dark")}
-              aria-pressed={theme === "dark"}
-              className={
-                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors " +
-                (theme === "dark"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground")
-              }
-            >
-              <Moon className="h-4 w-4" /> Dark
-            </button>
-          </div>
-        </div>
-
         <div className="glass rounded-2xl p-5 lg:col-span-2">
           <h3 className="font-display font-semibold">Profile</h3>
           <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
