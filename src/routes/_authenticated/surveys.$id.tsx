@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useRememberedTab } from "@/hooks/useRememberedTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -62,6 +63,11 @@ const linkFor = (token: string) => `${window.location.origin}/p/${token}`;
 function SurveyPage() {
   const { id } = Route.useParams();
   const q = useQuery({ queryKey: ["pulse", id], queryFn: () => getPulseSurvey({ data: { id } }) });
+  const [savedTab, chooseTab, hasSavedTab] = useRememberedTab(
+    "survey",
+    ["results", "questions", "rounds", "people", "interview", "settings"] as const,
+    "results",
+  );
   if (q.isLoading) return <p className="text-muted-foreground">Loading…</p>;
   if (q.error || !q.data) return <p className="text-destructive">Could not load this survey.</p>;
   const { survey, rounds } = q.data;
@@ -69,6 +75,22 @@ function SurveyPage() {
   const isInterview = survey.kind === "interview";
   const usesInvites = !isInterview && survey.response_mode !== "link";
   const canManagePeople = q.data.canManagePeople;
+  // The last tab used, if this survey has it; otherwise results, or the
+  // questions while there are none yet.
+  const available = [
+    "results",
+    "questions",
+    "rounds",
+    ...(canManagePeople && (usesInvites || isInterview) ? ["people"] : []),
+    ...(canManagePeople && isInterview ? ["interview"] : []),
+    "settings",
+  ];
+  const tab =
+    hasSavedTab && available.includes(savedTab)
+      ? savedTab
+      : q.data.questions.length
+        ? "results"
+        : "questions";
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
@@ -82,7 +104,7 @@ function SurveyPage() {
           {rounds.length} round{rounds.length === 1 ? "" : "s"}
         </p>
       </div>
-      <Tabs defaultValue={q.data.questions.length ? "results" : "questions"}>
+      <Tabs value={tab} onValueChange={chooseTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="questions">Questions</TabsTrigger>

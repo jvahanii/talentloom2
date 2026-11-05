@@ -661,9 +661,9 @@ function Docs() {
                       <>
                         The <strong>Skills</strong> page in the side menu has a card for every skill
                         in the organisation, with who has it and at what level, most widely held
-                        first. Search finds both skills and people. At the top,{" "}
-                        <strong>Skill development</strong> shows how levels have changed over time,
-                        by skill (with the latest changes), by person or by team. By skill, pick{" "}
+                        first. Search finds both skills and people. The <strong>Development</strong>{" "}
+                        tab, next to Skills, shows how levels have changed over time, by skill (with
+                        the latest changes), by person or by team. By skill, pick{" "}
                         <strong>All skills</strong> for one line over every skill, or tick any
                         number of skills for a line each. It's <strong>cumulative</strong> by
                         default: levels add up into level points (Novice 1, Basic 2, …), so the

@@ -22,6 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRememberedTab } from "@/hooks/useRememberedTab";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -208,6 +209,11 @@ function AdminPage() {
   const navigate = useNavigate();
   const { setOrgId, refresh } = useOrg();
   const qc = useQueryClient();
+  const [tab, chooseTab] = useRememberedTab(
+    "admin",
+    ["organisations", "accounts", "surveys"] as const,
+    "organisations",
+  );
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -333,7 +339,7 @@ function AdminPage() {
           }} />
       )}
 
-      <Tabs defaultValue="organisations">
+      <Tabs value={tab} onValueChange={chooseTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="organisations">Organisations ({organisations.length})</TabsTrigger>
           <TabsTrigger value="accounts">Accounts ({accounts.length})</TabsTrigger>

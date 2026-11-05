@@ -14,7 +14,7 @@ import {
 } from "@/lib/learning";
 import { updatePersonSkills } from "@/lib/people.functions";
 import { Button } from "@/components/ui/button";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg } from "@/lib/org";
 import {
@@ -30,6 +30,8 @@ import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
 import { SkillDevelopment } from "@/components/SkillDevelopment";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRememberedTab } from "@/hooks/useRememberedTab";
 import { ManualSkillMerge, SkillMergeSuggestions } from "@/components/SkillMergeSuggestions";
 import { canonicalSkillName } from "@/lib/skills";
 import { Input } from "@/components/ui/input";
@@ -61,6 +63,8 @@ function SkillsPage() {
   const [filter, setFilter] = useState("");
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
+  // Skills or Development, remembered in this browser.
+  const [tab, chooseTab] = useRememberedTab("skills", ["skills", "development"] as const, "skills");
   const [newSkill, setNewSkill] = useState("");
   const [newPerson, setNewPerson] = useState("");
   const [newLevel, setNewLevel] = useState("");
@@ -307,347 +311,362 @@ function SkillsPage() {
       <div>
         <h1 className="text-2xl font-bold">Skills</h1>
         <p className="text-sm text-muted-foreground">
-          Every skill in {orgName}, who has it, and at what level.
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          To have people learn a skill together, drag a name onto another name in the same skill —
-          or tap one name and then the other.
+          Every skill in {orgName}, who has it, at what level, and how levels develop.
         </p>
       </div>
 
-      <SkillDevelopment
-        orgId={orgId}
-        people={(people.data ?? []).map((p) => ({
-          userId: p.userId,
-          label: p.name || p.email || "Unnamed",
-        }))}
-        levelNames={levelNames}
-      />
+      <Tabs value={tab} onValueChange={chooseTab}>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="skills">Skills ({groups.length})</TabsTrigger>
+          <TabsTrigger value="development">Development</TabsTrigger>
+        </TabsList>
 
-      {can("change_titles") && (
-        <>
-          <SkillMergeSuggestions
+        <TabsContent value="development">
+          <SkillDevelopment
             orgId={orgId}
-            skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+            people={(people.data ?? []).map((p) => ({
+              userId: p.userId,
+              label: p.name || p.email || "Unnamed",
+            }))}
+            levelNames={levelNames}
           />
-          <ManualSkillMerge
-            orgId={orgId}
-            skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
-          />
-        </>
-      )}
+        </TabsContent>
 
-      <form
-        className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-center"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const name = canonicalSkillName(knownSkills, newSkill);
-          if (!name) return;
-          if (!newPerson) {
-            if (canManageList && (await addToList(name))) setNewSkill("");
-            return;
-          }
-          if (await addSkill(newPerson, name, toLevel(newLevel))) {
-            setNewSkill("");
-            setNewLevel("");
-          }
-        }}
-      >
-        <span className="text-sm font-semibold">
-          {canManageList ? "Add a skill" : "Add a skill to a person"}
-        </span>
-        <SkillNameInput
-          value={newSkill}
-          onChange={setNewSkill}
-          placeholder="Skill, e.g. Facilitation"
-          className="sm:w-72"
-        />
-        <select
-          className={selectCls}
-          value={newPerson}
-          onChange={(e) => setNewPerson(e.target.value)}
-          aria-label="Person"
-        >
-          <option value="">
-            {canManageList ? "Nobody yet — just add the skill" : "Choose a person"}
-          </option>
-          {(people.data ?? []).map((p) => (
-            <option key={p.userId} value={p.userId}>
-              {p.name || p.email || "Unnamed"}
-            </option>
-          ))}
-        </select>
-        <select
-          className={selectCls}
-          value={newLevel}
-          onChange={(e) => setNewLevel(e.target.value)}
-          aria-label="Level"
-        >
-          <option value="">No level</option>
-          {skillLevelValues(levelNames).map((l) => (
-            <option key={l} value={l}>
-              {skillLevelLabel(l, levelNames)}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" disabled={busy || !newSkill.trim() || (!newPerson && !canManageList)}>
-          Add
-        </Button>
-      </form>
-
-      <Input
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        placeholder="Find a skill or a person"
-        className="max-w-sm"
-        aria-label="Find a skill or a person"
-      />
-
-      {people.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-
-      {!people.isLoading && visible.length === 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-border bg-card p-8 text-center">
-          <p className="font-medium">{q ? "Nothing matches" : "No skills yet"}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {q
-              ? "Try a different word."
-              : "Add the first skill above — each person's skills show up here grouped by skill."}
+        <TabsContent value="skills" className="space-y-5">
+          <p className="text-sm text-muted-foreground">
+            To have people learn a skill together, drag a name onto another name in the same skill —
+            or tap one name and then the other.
           </p>
-        </div>
-      )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {visible.map((g) => (
-          <div
-            key={g.name}
-            className={
-              g.people.length
-                ? "rounded-2xl border-2 border-border bg-card p-4"
-                : "rounded-2xl border-2 border-dashed border-[#FFD66B] bg-[#FFF6D6] p-4 dark:border-[#7A5C00] dark:bg-[#2E2610]"
-            }
+          {can("change_titles") && (
+            <>
+              <SkillMergeSuggestions
+                orgId={orgId}
+                skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+              />
+              <ManualSkillMerge
+                orgId={orgId}
+                skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+              />
+            </>
+          )}
+
+          <form
+            className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-center"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const name = canonicalSkillName(knownSkills, newSkill);
+              if (!name) return;
+              if (!newPerson) {
+                if (canManageList && (await addToList(name))) setNewSkill("");
+                return;
+              }
+              if (await addSkill(newPerson, name, toLevel(newLevel))) {
+                setNewSkill("");
+                setNewLevel("");
+              }
+            }}
           >
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="truncate font-semibold">{g.name}</h2>
-              <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                {g.people.length} {g.people.length === 1 ? "person" : "people"}
-                {canManageList && g.listId && !g.people.length && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => removeFromList(g.listId!, g.name)}
-                    className="rounded-md p-1 hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={`Remove ${g.name} from the organisation's skills`}
-                    title="Remove from the organisation's skills"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </span>
-            </div>
-            {!g.people.length && (
-              <p className="mt-3 text-sm text-muted-foreground">
-                <span className="mr-1.5 inline-block rounded-full bg-[#FFE9A8] px-2 py-0.5 text-xs font-semibold text-[#7A5C00]">
-                  Nobody yet
-                </span>
-                Add someone below.
+            <span className="text-sm font-semibold">
+              {canManageList ? "Add a skill" : "Add a skill to a person"}
+            </span>
+            <SkillNameInput
+              value={newSkill}
+              onChange={setNewSkill}
+              placeholder="Skill, e.g. Facilitation"
+              className="sm:w-72"
+            />
+            <select
+              className={selectCls}
+              value={newPerson}
+              onChange={(e) => setNewPerson(e.target.value)}
+              aria-label="Person"
+            >
+              <option value="">
+                {canManageList ? "Nobody yet — just add the skill" : "Choose a person"}
+              </option>
+              {(people.data ?? []).map((p) => (
+                <option key={p.userId} value={p.userId}>
+                  {p.name || p.email || "Unnamed"}
+                </option>
+              ))}
+            </select>
+            <select
+              className={selectCls}
+              value={newLevel}
+              onChange={(e) => setNewLevel(e.target.value)}
+              aria-label="Level"
+            >
+              <option value="">No level</option>
+              {skillLevelValues(levelNames).map((l) => (
+                <option key={l} value={l}>
+                  {skillLevelLabel(l, levelNames)}
+                </option>
+              ))}
+            </select>
+            <Button
+              type="submit"
+              disabled={busy || !newSkill.trim() || (!newPerson && !canManageList)}
+            >
+              Add
+            </Button>
+          </form>
+
+          <Input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Find a skill or a person"
+            className="max-w-sm"
+            aria-label="Find a skill or a person"
+          />
+
+          {people.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+
+          {!people.isLoading && visible.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-border bg-card p-8 text-center">
+              <p className="font-medium">{q ? "Nothing matches" : "No skills yet"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {q
+                  ? "Try a different word."
+                  : "Add the first skill above — each person's skills show up here grouped by skill."}
               </p>
-            )}
-            <ul className="mt-3 space-y-1.5">
-              {g.people.map((p) => {
-                const key = `${g.name}|${p.userId}`;
-                const isPicked = picked?.skill === g.name && picked.userId === p.userId;
-                const canDrop =
-                  (dragging?.skill === g.name && dragging.userId !== p.userId) ||
-                  (picked?.skill === g.name && picked.userId !== p.userId);
-                const together = groupOf(learningGroups, g.name, p.userId);
-                return (
-                  <li
-                    key={p.userId}
-                    draggable={!busy}
-                    onDragStart={(e) => {
-                      e.dataTransfer.effectAllowed = "link";
-                      e.dataTransfer.setData("text/plain", p.label);
-                      setDragging({ userId: p.userId, skill: g.name });
-                    }}
-                    onDragEnd={() => {
-                      setDragging(null);
-                      setDropOn(null);
-                    }}
-                    onDragOver={(e) => {
-                      if (dragging?.skill !== g.name || dragging.userId === p.userId) return;
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "link";
-                      if (dropOn !== key) setDropOn(key);
-                    }}
-                    onDragLeave={() => dropOn === key && setDropOn(null)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const from = dragging;
-                      setDragging(null);
-                      setDropOn(null);
-                      if (from && from.skill === g.name)
-                        void linkPeople(g.name, from.userId, p.userId);
-                    }}
-                    className={`-mx-1.5 flex items-center justify-between gap-2 rounded-lg px-1.5 py-0.5 text-sm transition-colors ${
-                      dropOn === key
-                        ? "bg-primary/20 ring-2 ring-primary"
-                        : isPicked
-                          ? "bg-primary/10 ring-2 ring-primary/60"
-                          : canDrop
-                            ? "hover:bg-primary/10"
-                            : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        if (isPicked) setPicked(null);
-                        else if (picked?.skill === g.name)
-                          void linkPeople(g.name, picked.userId, p.userId);
-                        else setPicked({ userId: p.userId, skill: g.name });
-                      }}
-                      className="flex min-w-0 cursor-grab items-center gap-1 text-left active:cursor-grabbing"
-                      title={
-                        picked?.skill === g.name && !isPicked
-                          ? `Learn ${g.name} together with this person`
-                          : "Drag onto someone to learn together, or tap and then tap someone"
-                      }
-                      aria-pressed={isPicked}
-                    >
-                      <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                      <span className="truncate">{p.label}</span>
-                      {together && (
-                        <span
-                          className="shrink-0 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary"
-                          title="Learning together"
-                        >
-                          {learningGroups
-                            .filter((x) => x.topic.toLowerCase() === g.name.toLowerCase())
-                            .indexOf(together) + 1}
-                        </span>
-                      )}
-                    </button>
-                    <span className="flex shrink-0 items-center gap-1">
-                      <select
-                        className={`rounded-full border-0 px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level, levelNames.length)}`}
-                        value={displayLevel(p.level, levelNames.length) ?? ""}
+            </div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((g) => (
+              <div
+                key={g.name}
+                className={
+                  g.people.length
+                    ? "rounded-2xl border-2 border-border bg-card p-4"
+                    : "rounded-2xl border-2 border-dashed border-[#FFD66B] bg-[#FFF6D6] p-4 dark:border-[#7A5C00] dark:bg-[#2E2610]"
+                }
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="truncate font-semibold">{g.name}</h2>
+                  <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                    {g.people.length} {g.people.length === 1 ? "person" : "people"}
+                    {canManageList && g.listId && !g.people.length && (
+                      <button
+                        type="button"
                         disabled={busy}
-                        onChange={(e) => setLevel(p.userId, g.name, toLevel(e.target.value))}
-                        aria-label={`${p.label} level in ${g.name}`}
+                        onClick={() => removeFromList(g.listId!, g.name)}
+                        className="rounded-md p-1 hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={`Remove ${g.name} from the organisation's skills`}
+                        title="Remove from the organisation's skills"
                       >
-                        <option value="">no level</option>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </span>
+                </div>
+                {!g.people.length && (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    <span className="mr-1.5 inline-block rounded-full bg-[#FFE9A8] px-2 py-0.5 text-xs font-semibold text-[#7A5C00]">
+                      Nobody yet
+                    </span>
+                    Add someone below.
+                  </p>
+                )}
+                <ul className="mt-3 space-y-1.5">
+                  {g.people.map((p) => {
+                    const key = `${g.name}|${p.userId}`;
+                    const isPicked = picked?.skill === g.name && picked.userId === p.userId;
+                    const canDrop =
+                      (dragging?.skill === g.name && dragging.userId !== p.userId) ||
+                      (picked?.skill === g.name && picked.userId !== p.userId);
+                    const together = groupOf(learningGroups, g.name, p.userId);
+                    return (
+                      <li
+                        key={p.userId}
+                        draggable={!busy}
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = "link";
+                          e.dataTransfer.setData("text/plain", p.label);
+                          setDragging({ userId: p.userId, skill: g.name });
+                        }}
+                        onDragEnd={() => {
+                          setDragging(null);
+                          setDropOn(null);
+                        }}
+                        onDragOver={(e) => {
+                          if (dragging?.skill !== g.name || dragging.userId === p.userId) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "link";
+                          if (dropOn !== key) setDropOn(key);
+                        }}
+                        onDragLeave={() => dropOn === key && setDropOn(null)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const from = dragging;
+                          setDragging(null);
+                          setDropOn(null);
+                          if (from && from.skill === g.name)
+                            void linkPeople(g.name, from.userId, p.userId);
+                        }}
+                        className={`-mx-1.5 flex items-center justify-between gap-2 rounded-lg px-1.5 py-0.5 text-sm transition-colors ${
+                          dropOn === key
+                            ? "bg-primary/20 ring-2 ring-primary"
+                            : isPicked
+                              ? "bg-primary/10 ring-2 ring-primary/60"
+                              : canDrop
+                                ? "hover:bg-primary/10"
+                                : ""
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            if (isPicked) setPicked(null);
+                            else if (picked?.skill === g.name)
+                              void linkPeople(g.name, picked.userId, p.userId);
+                            else setPicked({ userId: p.userId, skill: g.name });
+                          }}
+                          className="flex min-w-0 cursor-grab items-center gap-1 text-left active:cursor-grabbing"
+                          title={
+                            picked?.skill === g.name && !isPicked
+                              ? `Learn ${g.name} together with this person`
+                              : "Drag onto someone to learn together, or tap and then tap someone"
+                          }
+                          aria-pressed={isPicked}
+                        >
+                          <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                          <span className="truncate">{p.label}</span>
+                          {together && (
+                            <span
+                              className="shrink-0 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary"
+                              title="Learning together"
+                            >
+                              {learningGroups
+                                .filter((x) => x.topic.toLowerCase() === g.name.toLowerCase())
+                                .indexOf(together) + 1}
+                            </span>
+                          )}
+                        </button>
+                        <span className="flex shrink-0 items-center gap-1">
+                          <select
+                            className={`rounded-full border-0 px-2.5 py-0.5 text-xs font-medium ${skillLevelColor(p.level, levelNames.length)}`}
+                            value={displayLevel(p.level, levelNames.length) ?? ""}
+                            disabled={busy}
+                            onChange={(e) => setLevel(p.userId, g.name, toLevel(e.target.value))}
+                            aria-label={`${p.label} level in ${g.name}`}
+                          >
+                            <option value="">no level</option>
+                            {skillLevelValues(levelNames).map((l) => (
+                              <option key={l} value={l}>
+                                {skillLevelLabel(l, levelNames)}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => removeSkill(p.userId, g.name)}
+                            className="rounded-full p-1 text-muted-foreground hover:bg-secondary"
+                            aria-label={`Remove ${g.name} from ${p.label}`}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {(() => {
+                  const known = new Map(g.people.map((p) => [p.userId, p.label]));
+                  const together = learningGroups
+                    .filter((x) => x.topic.toLowerCase() === g.name.toLowerCase())
+                    .map((x) => ({ ...x, members: x.members.filter((m) => known.has(m)) }));
+                  if (!together.length) return null;
+                  return (
+                    <div className="mt-3 space-y-1.5 border-t-2 border-dashed border-border pt-3">
+                      <p className="text-xs font-semibold text-muted-foreground">Learning with</p>
+                      {together.map((lg, i) => (
+                        <div key={lg.id} className="flex flex-wrap items-center gap-1 text-xs">
+                          <span className="rounded-full bg-primary/15 px-1.5 font-semibold text-primary">
+                            {i + 1}
+                          </span>
+                          {lg.members.map((m) => (
+                            <span
+                              key={m}
+                              className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5"
+                            >
+                              {known.get(m)}
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  const full = learningGroups.find((x) => x.id === lg.id);
+                                  if (full) void leaveGroup(full, m);
+                                }}
+                                className="rounded-full text-muted-foreground hover:text-destructive"
+                                aria-label={`Take ${known.get(m)} out of this learning group`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {(() => {
+                  const others = (people.data ?? []).filter(
+                    (p) => !g.people.some((x) => x.userId === p.userId),
+                  );
+                  if (!others.length) return null;
+                  const st = addTo[g.name] ?? { person: "", level: "" };
+                  const set = (v: Partial<typeof st>) =>
+                    setAddTo((a) => ({ ...a, [g.name]: { ...st, ...v } }));
+                  return (
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t-2 border-dashed border-border pt-3">
+                      <select
+                        className={`${selectCls} min-w-0 flex-1`}
+                        value={st.person}
+                        onChange={(e) => set({ person: e.target.value })}
+                        aria-label={`Add person to ${g.name}`}
+                      >
+                        <option value="">+ Add person</option>
+                        {others.map((p) => (
+                          <option key={p.userId} value={p.userId}>
+                            {p.name || p.email || "Unnamed"}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        className={selectCls}
+                        value={st.level}
+                        onChange={(e) => set({ level: e.target.value })}
+                        aria-label="Level"
+                      >
+                        <option value="">No level</option>
                         {skillLevelValues(levelNames).map((l) => (
                           <option key={l} value={l}>
                             {skillLevelLabel(l, levelNames)}
                           </option>
                         ))}
                       </select>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => removeSkill(p.userId, g.name)}
-                        className="rounded-full p-1 text-muted-foreground hover:bg-secondary"
-                        aria-label={`Remove ${g.name} from ${p.label}`}
+                      <Button
+                        size="sm"
+                        disabled={busy || !st.person}
+                        onClick={async () => {
+                          if (await addSkill(st.person, g.name, toLevel(st.level)))
+                            set({ person: "", level: "" });
+                        }}
                       >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            {(() => {
-              const known = new Map(g.people.map((p) => [p.userId, p.label]));
-              const together = learningGroups
-                .filter((x) => x.topic.toLowerCase() === g.name.toLowerCase())
-                .map((x) => ({ ...x, members: x.members.filter((m) => known.has(m)) }));
-              if (!together.length) return null;
-              return (
-                <div className="mt-3 space-y-1.5 border-t-2 border-dashed border-border pt-3">
-                  <p className="text-xs font-semibold text-muted-foreground">Learning with</p>
-                  {together.map((lg, i) => (
-                    <div key={lg.id} className="flex flex-wrap items-center gap-1 text-xs">
-                      <span className="rounded-full bg-primary/15 px-1.5 font-semibold text-primary">
-                        {i + 1}
-                      </span>
-                      {lg.members.map((m) => (
-                        <span
-                          key={m}
-                          className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5"
-                        >
-                          {known.get(m)}
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => {
-                              const full = learningGroups.find((x) => x.id === lg.id);
-                              if (full) void leaveGroup(full, m);
-                            }}
-                            className="rounded-full text-muted-foreground hover:text-destructive"
-                            aria-label={`Take ${known.get(m)} out of this learning group`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
+                        Add
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              );
-            })()}
-            {(() => {
-              const others = (people.data ?? []).filter(
-                (p) => !g.people.some((x) => x.userId === p.userId),
-              );
-              if (!others.length) return null;
-              const st = addTo[g.name] ?? { person: "", level: "" };
-              const set = (v: Partial<typeof st>) =>
-                setAddTo((a) => ({ ...a, [g.name]: { ...st, ...v } }));
-              return (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t-2 border-dashed border-border pt-3">
-                  <select
-                    className={`${selectCls} min-w-0 flex-1`}
-                    value={st.person}
-                    onChange={(e) => set({ person: e.target.value })}
-                    aria-label={`Add person to ${g.name}`}
-                  >
-                    <option value="">+ Add person</option>
-                    {others.map((p) => (
-                      <option key={p.userId} value={p.userId}>
-                        {p.name || p.email || "Unnamed"}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className={selectCls}
-                    value={st.level}
-                    onChange={(e) => set({ level: e.target.value })}
-                    aria-label="Level"
-                  >
-                    <option value="">No level</option>
-                    {skillLevelValues(levelNames).map((l) => (
-                      <option key={l} value={l}>
-                        {skillLevelLabel(l, levelNames)}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    size="sm"
-                    disabled={busy || !st.person}
-                    onClick={async () => {
-                      if (await addSkill(st.person, g.name, toLevel(st.level)))
-                        set({ person: "", level: "" });
-                    }}
-                  >
-                    Add
-                  </Button>
-                </div>
-              );
-            })()}
+                  );
+                })()}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
