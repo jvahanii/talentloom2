@@ -9,6 +9,7 @@ import { findMergeSuggestions, type MergeSuggestion, type SkillCount } from "@/l
 import { learningGroupsKey } from "@/lib/learning";
 import { orgSkillNamesKey } from "@/hooks/useOrgSkillNames";
 import { MAX_SKILL_LENGTH } from "@/lib/skills";
+import { orgSkillListKey } from "@/lib/orgSkills";
 
 /** Merges skills into one name and refreshes everything that shows skills. */
 function useMergeSkills(orgId: string) {
@@ -21,6 +22,7 @@ function useMergeSkills(orgId: string) {
       qc.invalidateQueries({ queryKey: ["org-people", orgId] }),
       qc.invalidateQueries({ queryKey: orgSkillNamesKey(orgId) }),
       qc.invalidateQueries({ queryKey: learningGroupsKey(orgId) }),
+      qc.invalidateQueries({ queryKey: orgSkillListKey(orgId) }),
     ]);
   };
 }

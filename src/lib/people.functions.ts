@@ -247,6 +247,30 @@ export const mergeSkills = createServerFn({ method: "POST" })
       people += 1;
     }
 
+    // The organisation's own skill list: the variants become the kept name, once.
+    const { data: listed, error: lError } = await admin
+      .from("org_skills")
+      .select("id, name")
+      .eq("org_id", data.orgId);
+    if (lError) throw new Error(lError.message);
+    const listedVariants = ((listed ?? []) as { id: string; name: string }[]).filter((s) =>
+      variants.has(s.name.toLowerCase()),
+    );
+    if (listedVariants.length) {
+      const { error: dError } = await admin
+        .from("org_skills")
+        .delete()
+        .in(
+          "id",
+          listedVariants.map((s) => s.id),
+        );
+      if (dError) throw new Error(dError.message);
+      const { error: iError } = await admin
+        .from("org_skills")
+        .insert({ org_id: data.orgId, name: data.into, created_by: context.userId });
+      if (iError && iError.code !== "23505") throw new Error(iError.message);
+    }
+
     // Learning groups: rename to the kept skill, then keep each person in one group per skill.
     const { data: groups, error: gError } = await admin
       .from("learning_groups")

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { GripVertical, X } from "lucide-react";
+import { GripVertical, Trash2, X } from "lucide-react";
+import { addOrgSkill, fetchOrgSkills, orgSkillListKey, removeOrgSkill } from "@/lib/orgSkills";
 import { getMyProfileId } from "@/lib/auth";
 import {
   fetchLearningGroups,
@@ -46,6 +47,8 @@ type PersonSkills = {
 type SkillGroup = {
   name: string;
   people: { userId: string; label: string; level: SkillLevel | null }[];
+  /** Set when the skill is on the organisation's own list (it may have no holders). */
+  listId?: string;
 };
 
 function SkillsPage() {
@@ -188,6 +191,12 @@ function SkillsPage() {
     },
   });
 
+  const orgSkills = useQuery({
+    queryKey: orgSkillListKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchOrgSkills(orgId!),
+  });
+
   const groups = useMemo<SkillGroup[]>(() => {
     const bySkill = new Map<string, SkillGroup>();
     for (const p of people.data ?? []) {
@@ -202,13 +211,60 @@ function SkillsPage() {
         g.people.push({ userId: p.userId, label, level: s.level });
       }
     }
+    // Skills on the organisation's list show even when nobody has them yet.
+    for (const o of orgSkills.data ?? []) {
+      const g = bySkill.get(o.name.toLowerCase());
+      if (g) g.listId = o.id;
+      else bySkill.set(o.name.toLowerCase(), { name: o.name, people: [], listId: o.id });
+    }
     const list = [...bySkill.values()];
     for (const g of list) {
       g.people.sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || a.label.localeCompare(b.label));
     }
     list.sort((a, b) => b.people.length - a.people.length || a.name.localeCompare(b.name));
     return list;
-  }, [people.data]);
+  }, [people.data, orgSkills.data]);
+
+  const canManageList = can("change_titles");
+
+  const refreshList = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: orgSkillListKey(orgId) }),
+      qc.invalidateQueries({ queryKey: orgSkillNamesKey(orgId) }),
+    ]);
+
+  const addToList = async (name: string) => {
+    if (!orgId) return false;
+    if (groups.some((g) => g.name.toLowerCase() === name.toLowerCase())) {
+      toast.info(`${name} is already in the organisation's skills`);
+      return true;
+    }
+    setBusy(true);
+    try {
+      await addOrgSkill(orgId, name, await getMyProfileId());
+      await refreshList();
+      toast.success(`Added ${name} to the organisation's skills`);
+      return true;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add the skill");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeFromList = async (id: string, name: string) => {
+    setBusy(true);
+    try {
+      await removeOrgSkill(id);
+      await refreshList();
+      toast.success(`Removed ${name}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not remove the skill");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (!orgId) return null;
 
@@ -252,14 +308,20 @@ function SkillsPage() {
         onSubmit={async (e) => {
           e.preventDefault();
           const name = canonicalSkillName(knownSkills, newSkill);
-          if (!name || !newPerson) return;
+          if (!name) return;
+          if (!newPerson) {
+            if (canManageList && (await addToList(name))) setNewSkill("");
+            return;
+          }
           if (await addSkill(newPerson, name, toLevel(newLevel))) {
             setNewSkill("");
             setNewLevel("");
           }
         }}
       >
-        <span className="text-sm font-semibold">Add a skill to a person</span>
+        <span className="text-sm font-semibold">
+          {canManageList ? "Add a skill" : "Add a skill to a person"}
+        </span>
         <SkillNameInput
           value={newSkill}
           onChange={setNewSkill}
@@ -272,7 +334,9 @@ function SkillsPage() {
           onChange={(e) => setNewPerson(e.target.value)}
           aria-label="Person"
         >
-          <option value="">Choose a person</option>
+          <option value="">
+            {canManageList ? "Nobody yet — just add the skill" : "Choose a person"}
+          </option>
           {(people.data ?? []).map((p) => (
             <option key={p.userId} value={p.userId}>
               {p.name || p.email || "Unnamed"}
@@ -292,7 +356,7 @@ function SkillsPage() {
             </option>
           ))}
         </select>
-        <Button type="submit" disabled={busy || !newSkill.trim() || !newPerson}>
+        <Button type="submit" disabled={busy || !newSkill.trim() || (!newPerson && !canManageList)}>
           Add
         </Button>
       </form>
@@ -323,10 +387,27 @@ function SkillsPage() {
           <div key={g.name} className="rounded-2xl border-2 border-border bg-card p-4">
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="truncate font-semibold">{g.name}</h2>
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                 {g.people.length} {g.people.length === 1 ? "person" : "people"}
+                {canManageList && g.listId && !g.people.length && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => removeFromList(g.listId!, g.name)}
+                    className="rounded-md p-1 hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Remove ${g.name} from the organisation's skills`}
+                    title="Remove from the organisation's skills"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </span>
             </div>
+            {!g.people.length && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Nobody has this skill yet. Add someone below.
+              </p>
+            )}
             <ul className="mt-3 space-y-1.5">
               {g.people.map((p) => {
                 const key = `${g.name}|${p.userId}`;

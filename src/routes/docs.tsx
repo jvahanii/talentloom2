@@ -663,9 +663,12 @@ function Docs() {
                     icon: Plus,
                     text: (
                       <>
-                        Add a skill to someone with <strong>Add a skill to a person</strong> at the
-                        top, or <strong>+ Add person</strong> on a skill's card. Change a level or
-                        remove a skill right on the card.
+                        Add a skill to someone with <strong>Add a skill</strong> at the top, or{" "}
+                        <strong>+ Add person</strong> on a skill's card. Change a level or remove a
+                        skill right on the card. People who may change titles can also add a skill
+                        nobody has yet — choose <strong>Nobody yet</strong> as the person — for
+                        example a skill the organisation wants people to learn. It gets a card of
+                        its own, and an empty card can be removed with its bin icon.
                       </>
                     ),
                   },
