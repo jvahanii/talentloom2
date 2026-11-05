@@ -16,6 +16,14 @@ import {
   teamsKey,
   updateTeam,
   type Team,
+  type TeamGroup,
+  fetchTeamGroups,
+  teamGroupsKey,
+  createTeamGroup,
+  updateTeamGroup,
+  deleteTeamGroup,
+  addTeamToGroup,
+  removeTeamFromGroup,
 } from "@/lib/teams";
 import { skillLevelColor, skillLevelLabel, type Skill, type SkillLevel } from "@/lib/skills";
 import { fetchMemberSkills } from "@/lib/skillLevels";
@@ -120,6 +128,7 @@ function TeamsPage() {
       return false;
     } finally {
       await qc.invalidateQueries({ queryKey: teamsKey(orgId) });
+      await qc.invalidateQueries({ queryKey: teamGroupsKey(orgId) });
       setBusy(false);
     }
   };
@@ -214,6 +223,17 @@ function TeamsPage() {
           />
         ))}
       </div>
+
+      {!!(teams.data ?? []).length && (
+        <TeamGroups
+          orgId={orgId}
+          teams={teams.data ?? []}
+          people={people}
+          canManage={canManage}
+          busy={busy}
+          run={run}
+        />
+      )}
 
       {!!(teams.data ?? []).length && withoutTeam.length > 0 && (
         <div className="rounded-2xl border-2 border-dashed border-border bg-card p-4">
