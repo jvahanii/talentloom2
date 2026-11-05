@@ -779,9 +779,11 @@ function Docs() {
                         teams place themselves by the scope of their skills mandate (functional to
                         expanding) and of their work mandate (tasks to whole solution). Pick a team,
                         choose <strong>Where we are</strong> or <strong>Where we're heading</strong>
-                        , and click a square; an arrow joins the two. A team's members can place it,
-                        and so can anyone who may change titles. It's based on the Org Topologies™
-                        model (orgtopologies.com).
+                        , then drag the team from the list onto the map or click any spot on it;
+                        drag a dot to move it. A dot can sit anywhere within its square, and an
+                        arrow joins where the team is to where it's heading. A team's members can
+                        place it, and so can anyone who may change titles. It's based on the Org
+                        Topologies™ model (orgtopologies.com).
                       </>
                     ),
                   },
