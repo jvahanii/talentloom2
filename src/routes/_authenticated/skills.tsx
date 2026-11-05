@@ -27,7 +27,7 @@ import {
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
-import { SkillMergeSuggestions } from "@/components/SkillMergeSuggestions";
+import { ManualSkillMerge, SkillMergeSuggestions } from "@/components/SkillMergeSuggestions";
 import { canonicalSkillName } from "@/lib/skills";
 import { Input } from "@/components/ui/input";
 
@@ -235,10 +235,16 @@ function SkillsPage() {
       </div>
 
       {can("change_titles") && (
-        <SkillMergeSuggestions
-          orgId={orgId}
-          skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
-        />
+        <>
+          <SkillMergeSuggestions
+            orgId={orgId}
+            skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+          />
+          <ManualSkillMerge
+            orgId={orgId}
+            skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+          />
+        </>
       )}
 
       <form

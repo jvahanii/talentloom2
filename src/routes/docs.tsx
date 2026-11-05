@@ -720,6 +720,17 @@ function Docs() {
                       </>
                     ),
                   },
+                  {
+                    icon: Merge,
+                    text: (
+                      <>
+                        To merge skills the suggestions don't catch — synonyms or translations such
+                        as <em>Mentoring</em> and <em>Ohjaus</em> — select{" "}
+                        <strong>Merge skills…</strong>, pick two or more skills, choose which name
+                        to keep or type <strong>Another name…</strong>, and confirm.
+                      </>
+                    ),
+                  },
                 ]}
               />
             </Topic>
