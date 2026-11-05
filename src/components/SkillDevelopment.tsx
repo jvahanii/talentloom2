@@ -49,19 +49,40 @@ function stepsOf(events: SkillHistoryPoint[]): { t: number; v: number | null }[]
   return events.map((e) => ({ t: e.at, v: e.level }));
 }
 
-type Measure = "cumulative" | "average";
+/**
+ * cumulative: level points added up. average: the mean of the levels that are
+ * set. everyone: the points divided by everyone in scope, so people without
+ * the skill or a level count as 0.
+ */
+type Measure = "cumulative" | "average" | "everyone";
+
+const MEASURES: { id: Measure; label: string; hint: string }[] = [
+  {
+    id: "cumulative",
+    label: "Cumulative",
+    hint: "Levels added up into level points (Novice 1, Basic 2 …)",
+  },
+  { id: "average", label: "Average", hint: "The average level of those who have one" },
+  {
+    id: "everyone",
+    label: "Average (everyone)",
+    hint: "The average over everyone, counting people without the skill or a level as 0",
+  },
+];
 
 /**
  * The total (level points) or average of the current levels at each moment,
  * from history; `keyOf` says what a level belongs to (a person, or a skill).
- * Missing levels don't count. `shown` caps a level at the organisation's
- * number of levels.
+ * For "everyone", `everyone` is how many to divide by (default: everything
+ * recorded so far, levels or not). `shown` caps a level at the
+ * organisation's number of levels.
  */
 function aggregateOver(
   events: SkillHistoryPoint[],
   keyOf: (e: SkillHistoryPoint) => string,
   shown: (v: number | null) => number | null,
   measure: Measure,
+  everyone?: number,
 ): { t: number; v: number | null }[] {
   const current = new Map<string, number | null>();
   const points: { t: number; v: number | null }[] = [];
@@ -69,7 +90,17 @@ function aggregateOver(
     current.set(keyOf(e), e.level);
     const levels = [...current.values()].map(shown).filter((l): l is number => l !== null);
     const total = levels.reduce((a, b) => a + b, 0);
-    const avg = !levels.length ? null : measure === "cumulative" ? total : total / levels.length;
+    const of = everyone ?? current.size;
+    const avg =
+      measure === "everyone"
+        ? of > 0
+          ? total / of
+          : null
+        : !levels.length
+          ? null
+          : measure === "cumulative"
+            ? total
+            : total / levels.length;
     const last = points[points.length - 1];
     if (last && last.t === e.at) last.v = avg;
     else points.push({ t: e.at, v: avg });
@@ -200,11 +231,15 @@ export function SkillDevelopment({
       }
       seen.set(e.userId, e.level);
     }
-    const points = aggregateOver(mine, (e) => e.userId, shown, measure);
+    const points = aggregateOver(mine, (e) => e.userId, shown, measure, people.length);
     series = [
       {
         key: "avg",
-        name: cumulative ? `Level points in ${skill.name}` : `Average level in ${skill.name}`,
+        name: cumulative
+          ? `Level points in ${skill.name}`
+          : measure === "everyone"
+            ? `Average in ${skill.name} over all ${people.length} people`
+            : `Average level in ${skill.name}`,
         color: SERIES[0],
       },
     ];
@@ -212,11 +247,17 @@ export function SkillDevelopment({
     changes = changes.sort((a, b) => b.at - a.at).slice(0, 8);
     showChart = points.some((p) => p.v !== null);
     if (!showChart) note = `Nobody has a level in ${skill.name} yet.`;
-  } else if (mode === "person" && person && cumulative) {
+  } else if (mode === "person" && person && measure !== "average") {
     const mine = events.filter((e) => e.userId === person.userId);
-    const points = aggregateOver(mine, (e) => e.skill.toLowerCase(), shown, "cumulative");
+    const points = aggregateOver(mine, (e) => e.skill.toLowerCase(), shown, measure);
     series = [
-      { key: "avg", name: `${person.label}: level points in all skills`, color: SERIES[0] },
+      {
+        key: "avg",
+        name: cumulative
+          ? `${person.label}: level points in all skills`
+          : `${person.label}: average over all skills, no level as 0`,
+        color: SERIES[0],
+      },
     ];
     rows = nudged(toRows([{ key: "avg", points }], now), ["avg"]);
     showChart = points.some((p) => p.v !== null);
@@ -277,6 +318,7 @@ export function SkillDevelopment({
             (e) => e.userId,
             shown,
             measure,
+            team.members.filter((m) => label.has(m)).length,
           ),
         })),
         now,
@@ -299,9 +341,11 @@ export function SkillDevelopment({
   const levelText = (v: number) =>
     cumulative
       ? `${v} level point${v === 1 ? "" : "s"}`
-      : Number.isInteger(v)
-        ? (skillLevelLabel(v, levelNames) ?? String(v))
-        : `${v.toFixed(1)}`;
+      : v === 0
+        ? "No level"
+        : Number.isInteger(v)
+          ? (skillLevelLabel(v, levelNames) ?? String(v))
+          : `${v.toFixed(1)}`;
   // Name a line at its end when there are few and no other line ends near it.
   const ends = series.map((x) => rows[rows.length - 1]?.[`${x.key}__raw`] ?? null);
   const labelled = (key: string, i: number) =>
@@ -329,22 +373,18 @@ export function SkillDevelopment({
             role="radiogroup"
             aria-label="Measure"
           >
-            {(["cumulative", "average"] as const).map((m) => (
+            {MEASURES.map((m) => (
               <button
-                key={m}
+                key={m.id}
                 role="radio"
-                aria-checked={measure === m}
-                onClick={() => setMeasure(m)}
-                title={
-                  m === "cumulative"
-                    ? "Levels added up into level points (Novice 1, Basic 2 …)"
-                    : "The typical level"
-                }
-                className={`rounded-lg px-3 py-1 text-sm font-medium capitalize ${
-                  measure === m ? "bg-secondary text-foreground" : "text-muted-foreground"
+                aria-checked={measure === m.id}
+                onClick={() => setMeasure(m.id)}
+                title={m.hint}
+                className={`rounded-lg px-3 py-1 text-sm font-medium ${
+                  measure === m.id ? "bg-secondary text-foreground" : "text-muted-foreground"
                 }`}
               >
-                {m}
+                {m.label}
               </button>
             ))}
           </div>
@@ -453,9 +493,14 @@ export function SkillDevelopment({
                     />
                   ) : (
                     <YAxis
-                      domain={[1, count]}
-                      ticks={Array.from({ length: count }, (_, i) => i + 1)}
-                      tickFormatter={(v: number) => skillLevelLabel(v, levelNames) ?? String(v)}
+                      domain={[measure === "everyone" ? 0 : 1, count]}
+                      ticks={Array.from(
+                        { length: measure === "everyone" ? count + 1 : count },
+                        (_, i) => (measure === "everyone" ? i : i + 1),
+                      )}
+                      tickFormatter={(v: number) =>
+                        v === 0 ? "No level" : (skillLevelLabel(v, levelNames) ?? String(v))
+                      }
                       tick={{ fontSize: 12, fill: "#52514e" }}
                       width={88}
                       stroke="#d6d4ce"

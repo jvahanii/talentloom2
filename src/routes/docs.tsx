@@ -666,9 +666,11 @@ function Docs() {
                         by skill (with the latest changes), by person or by team. It's{" "}
                         <strong>cumulative</strong> by default: levels add up into level points
                         (Novice 1, Basic 2, …), so the total grows as people learn and as new people
-                        gain a level. Switch to <strong>Average</strong> for the typical level —
-                        then a person's view has a line per skill. Changes are recorded from 5
-                        November 2026 on.
+                        gain a level. <strong>Average</strong> shows the average level of those who
+                        have one — then a person's view has a line per skill.{" "}
+                        <strong>Average (everyone)</strong> divides by everyone in the organisation
+                        or team, counting people without the skill or a level as 0. Changes are
+                        recorded from 5 November 2026 on.
                       </>
                     ),
                   },
