@@ -41,6 +41,11 @@ import {
   Plus,
   RefreshCw,
   Hash,
+  TrendingUp,
+  CalendarRange,
+  Info,
+  Boxes,
+  Map as MapIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -541,6 +546,29 @@ function Docs() {
                   ),
                 },
                 {
+                  icon: Boxes,
+                  text: (
+                    <span id="teams-of-teams" className="scroll-mt-24">
+                      <strong>Teams of teams</strong>, below the teams, put several teams together —
+                      for example a product area. Name one, pick its teams and select{" "}
+                      <strong>Create</strong>; add or remove teams on its card later. A team can be
+                      in many teams of teams, but a team of teams holds only teams. Each card shows
+                      how many people it has and the skills they share, and{" "}
+                      <a href="#skills-development">Skill development</a> can show a team of teams
+                      as one.
+                    </span>
+                  ),
+                },
+                {
+                  icon: MapIcon,
+                  text: (
+                    <>
+                      Teams can place themselves on the{" "}
+                      <a href="#skills-topology">Org topology map</a> on the Skills page.
+                    </>
+                  ),
+                },
+                {
                   icon: ShieldCheck,
                   text: (
                     <>
@@ -661,27 +689,10 @@ function Docs() {
                       <>
                         The <strong>Skills</strong> page in the side menu has a card for every skill
                         in the organisation, with who has it and at what level, most widely held
-                        first. Search finds both skills and people. The <strong>Development</strong>{" "}
-                        tab, next to Skills, shows how levels have changed over time, by skill, by
-                        person or by team, with the latest changes below — and{" "}
-                        <strong>Show all changes</strong> for the whole history. Choose a time frame
-                        — 30 days, a quarter, 12 months, all time, or custom dates — to look at a
-                        period. By skill, pick <strong>All skills</strong> for one line over every
-                        skill, or tick any number of skills for a line each. By team, pick a team or
-                        a <strong>team of teams</strong> (set up on the Teams page) to see its
-                        teams' people together. Under the chart,{" "}
-                        <strong>Learning engagement</strong> shows who in the view is actively
-                        learning — a level of theirs rose from one level to a higher one in the time
-                        frame (a skill's first level is an assessment, so it doesn't count), or
-                        they're in a Learning with group — and who isn't yet.{" "}
-                        <strong>How is this calculated?</strong> under the chart explains every
-                        number. It's <strong>cumulative</strong> by default: levels add up into
-                        level points (Novice 1, Basic 2, …), so the total grows as people learn and
-                        as new people gain a level. <strong>Average</strong> shows the average level
-                        of those who have one — then a person's view has a line per skill.{" "}
-                        <strong>Average (everyone)</strong> divides by everyone in the organisation
-                        or team, counting people without the skill or a level as 0. Changes are
-                        recorded from 5 November 2026 on.
+                        first. Search finds both skills and people. The page has three tabs —{" "}
+                        <strong>Skills</strong>, <a href="#skills-development">Development</a> and
+                        the <a href="#skills-topology">Org topology map</a> — and opens on the one
+                        you used last.
                       </>
                     ),
                   },
@@ -708,6 +719,79 @@ function Docs() {
                       <>
                         Drag a name onto another in the same card to have them{" "}
                         <a href="#learning">learn that skill together</a>.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="skills-development" title="Skill development">
+              <StepList
+                steps={[
+                  {
+                    icon: TrendingUp,
+                    text: (
+                      <>
+                        The <strong>Development</strong> tab on the Skills page charts how skill
+                        levels have changed over time. Look at it <strong>by skill</strong> —{" "}
+                        <strong>All skills</strong> for one line over every skill, any number of
+                        skills ticked for a line each, or the quick{" "}
+                        <strong>Strategic skills</strong> choice — <strong>by person</strong>, or{" "}
+                        <strong>by team</strong>, where you can also pick a{" "}
+                        <a href="#teams-of-teams">team of teams</a> to see its teams' people
+                        together.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: CalendarRange,
+                    text: (
+                      <>
+                        Choose a time frame: <strong>30 days</strong>, a calendar{" "}
+                        <strong>Quarter</strong>, <strong>12 months</strong>,{" "}
+                        <strong>All time</strong>, or <strong>Custom</strong> dates. The latest
+                        changes are listed below the chart; <strong>Show all changes</strong> opens
+                        the whole history. Changes are recorded from 5 November 2026 on.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: BarChart3,
+                    text: (
+                      <>
+                        It's <strong>Cumulative</strong> by default: levels add up into level points
+                        (Novice 1, Basic 2, …), so the total grows as people learn and as new people
+                        gain a level. <strong>Average</strong> shows the average level of those who
+                        have one — then a person's view has a line per skill.{" "}
+                        <strong>Average (everyone)</strong> divides by everyone in the organisation
+                        or team, counting people without the skill or a level as 0.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Activity,
+                    text: (
+                      <>
+                        <strong>Learning engagement</strong> under the chart shows who in the view
+                        is <strong>actively learning</strong>: a level of theirs rose to a higher
+                        one in the time frame, or they're in a <a href="#learning">Learning with</a>{" "}
+                        group. A skill's first level is an assessment, not learning, so it doesn't
+                        count. For each person it lists the skills they levelled up —{" "}
+                        <strong>together with others</strong> (in a skill they learn in a group) or{" "}
+                        <strong>on their own</strong> — and what they're learning with others. Those{" "}
+                        <strong>not yet engaged</strong> are listed too, with any first levels
+                        they've set.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Info,
+                    text: (
+                      <>
+                        <strong>How is this calculated?</strong> under the chart explains every
+                        number. Your choices — view, skills, time frame and measure — are remembered
+                        in your browser for each organisation.
                       </>
                     ),
                   },
@@ -1271,7 +1355,7 @@ function Docs() {
                   text: (
                     <>
                       In <strong>Settings</strong>, update your name and{" "}
-                      <a href="#skills-add">skills</a> and choose a light or dark appearance.
+                      <a href="#skills-add">skills</a> for the organisation you have selected.
                       Settings is available even before you have an organisation.
                     </>
                   ),
@@ -1281,9 +1365,10 @@ function Docs() {
                   text: (
                     <>
                       The <strong>Organisation</strong> panel is where you rename the organisation,
-                      set titles and permissions, name the <a href="#skills-levels">skill levels</a>
-                      , and delete the organisation. People, invites and teams are managed on their
-                      own pages — see <a href="#organisations">Organisations & people</a> and{" "}
+                      choose and name the <a href="#skills-levels">skill levels</a>, set titles and
+                      permissions, <a href="#skills-connect">connect organisations</a>, and delete
+                      the organisation. People, invites and teams are managed on their own pages —
+                      see <a href="#organisations">Organisations & people</a> and{" "}
                       <a href="#teams">Teams</a>.
                     </>
                   ),
@@ -1362,6 +1447,15 @@ function Docs() {
                     When a new version of Talentloom is published, a bar at the bottom offers{" "}
                     <strong>Reload</strong> — it never reloads by itself, so nothing you're typing
                     is lost. If a page can't load right after an update, it retries on its own.
+                  </>
+                }
+              />
+              <Fact
+                icon={Layers}
+                text={
+                  <>
+                    Pages with tabs, such as Skills and Admin, open on the tab you used last in this
+                    browser.
                   </>
                 }
               />
