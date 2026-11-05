@@ -175,6 +175,47 @@ export function SkillDevelopment({
   const [measure, setMeasure] = useState<Measure>("cumulative");
   const cumulative = measure === "cumulative";
 
+  // Your last choices come back on your next visit (this browser, per organisation).
+  // Until something is saved, the view is all skills, cumulative.
+  const storageKey = `talentloom:skill-development:${orgId}`;
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as {
+        mode?: string;
+        measure?: string;
+        skills?: unknown;
+        person?: unknown;
+        team?: unknown;
+      } | null;
+      if (saved) {
+        if (saved.mode === "skill" || saved.mode === "person" || saved.mode === "team") {
+          setMode(saved.mode);
+        }
+        if (MEASURES.some((m) => m.id === saved.measure)) setMeasure(saved.measure as Measure);
+        if (Array.isArray(saved.skills)) {
+          setSkillPicks(saved.skills.filter((k): k is string => typeof k === "string"));
+        }
+        if (typeof saved.person === "string") setPersonPick(saved.person);
+        if (typeof saved.team === "string") setTeamPick(saved.team);
+      }
+    } catch {
+      /* nothing saved, or storage unavailable: keep the defaults */
+    }
+    setRestored(true);
+  }, [storageKey]);
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({ mode, measure, skills: skillPicks, person: personPick, team: teamPick }),
+      );
+    } catch {
+      /* not remembered this time */
+    }
+  }, [restored, storageKey, mode, measure, skillPicks, personPick, teamPick]);
+
   const events = useMemo(
     () => (history.data ?? []).filter((e) => label.has(e.userId)),
     [history.data, label],
