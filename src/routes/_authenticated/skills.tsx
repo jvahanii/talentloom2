@@ -221,7 +221,13 @@ function SkillsPage() {
     for (const g of list) {
       g.people.sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || a.label.localeCompare(b.label));
     }
-    list.sort((a, b) => b.people.length - a.people.length || a.name.localeCompare(b.name));
+    // Skills nobody has yet come first, so they get noticed and filled; then the most widely held.
+    list.sort(
+      (a, b) =>
+        Number(b.people.length === 0) - Number(a.people.length === 0) ||
+        b.people.length - a.people.length ||
+        a.name.localeCompare(b.name),
+    );
     return list;
   }, [people.data, orgSkills.data]);
 
@@ -384,7 +390,14 @@ function SkillsPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((g) => (
-          <div key={g.name} className="rounded-2xl border-2 border-border bg-card p-4">
+          <div
+            key={g.name}
+            className={
+              g.people.length
+                ? "rounded-2xl border-2 border-border bg-card p-4"
+                : "rounded-2xl border-2 border-dashed border-[#FFD66B] bg-[#FFF6D6] p-4 dark:border-[#7A5C00] dark:bg-[#2E2610]"
+            }
+          >
             <div className="flex items-baseline justify-between gap-2">
               <h2 className="truncate font-semibold">{g.name}</h2>
               <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
@@ -405,7 +418,10 @@ function SkillsPage() {
             </div>
             {!g.people.length && (
               <p className="mt-3 text-sm text-muted-foreground">
-                Nobody has this skill yet. Add someone below.
+                <span className="mr-1.5 inline-block rounded-full bg-[#FFE9A8] px-2 py-0.5 text-xs font-semibold text-[#7A5C00]">
+                  Nobody yet
+                </span>
+                Add someone below.
               </p>
             )}
             <ul className="mt-3 space-y-1.5">
