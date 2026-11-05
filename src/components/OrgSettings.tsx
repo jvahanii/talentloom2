@@ -43,9 +43,7 @@ function useTitles(orgId: string | null) {
 }
 
 export function OrgSettings() {
-  const { orgId, title, role, orgs, refresh, can } = useOrg();
-  const isOwner = title === "Owner";
-  const canDeleteOrg = isOwner || role === "owner";
+  const { orgId, title, orgs, refresh, can } = useOrg();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "";
 
   const [name, setName] = useState(orgName);
@@ -124,14 +122,12 @@ export function OrgSettings() {
       {can("rename_org") && <SkillLevelsPanel orgId={orgId} />}
 
       {can("manage_titles") && <TitlesPanel orgId={orgId} titles={titles.data ?? []} />}
-
-      {canDeleteOrg && <DeleteOrgPanel orgId={orgId} orgName={orgName} />}
     </div>
   );
 }
 
 /** Owners can delete the organisation; they must type its name to confirm. */
-function DeleteOrgPanel({ orgId, orgName }: { orgId: string; orgName: string }) {
+export function DeleteOrgPanel({ orgId, orgName }: { orgId: string; orgName: string }) {
   const [confirmName, setConfirmName] = useState("");
   const [deleting, setDeleting] = useState(false);
   const matches = confirmName.trim() === orgName.trim() && !!orgName.trim();

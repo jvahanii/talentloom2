@@ -454,6 +454,13 @@ function ShellInner({ children }: { children: ReactNode }) {
       return data;
     },
   });
+  // Same cached answer the menu uses for the Superuser item.
+  const { data: me } = useQuery({
+    queryKey: ["am-i-superuser"],
+    queryFn: () => amISuperuser(),
+    staleTime: Infinity,
+    retry: false,
+  });
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-card p-4 md:flex">
@@ -505,6 +512,12 @@ function ShellInner({ children }: { children: ReactNode }) {
                 >
                   {profile?.full_name || user.user_metadata?.full_name || user.email}
                 </span>
+                {me?.superuser && (
+                  <span className="hidden shrink-0 items-center gap-1 rounded-full bg-brand-butter px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-ink sm:inline-flex">
+                    <ShieldCheck className="h-3 w-3" />
+                    Superuser
+                  </span>
+                )}
               </div>
             )}
             <OrgSwitcher />

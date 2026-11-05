@@ -15,7 +15,6 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk";
 import { Toaster } from "@/components/ui/sonner";
-import { AppThemeProvider } from "@/hooks/useAppTheme";
 import { UpdateBanner } from "@/components/UpdateBanner";
 import { isStaleBuildError, nextAutoReload, reloadFreshPage } from "@/lib/appVersion";
 
@@ -181,12 +180,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
-        <AppThemeProvider>
-          <AuthChangeInvalidator />
-          <Outlet />
-          <Toaster />
-          <UpdateBanner />
-        </AppThemeProvider>
+        <AuthChangeInvalidator />
+        <Outlet />
+        <Toaster />
+        <UpdateBanner />
       </ClerkProvider>
     </QueryClientProvider>
   );
