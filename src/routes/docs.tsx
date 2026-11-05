@@ -768,15 +768,15 @@ function Docs() {
               />
             </Topic>
 
-            <Topic id="skills-topology" title="Org topology">
+            <Topic id="skills-topology" title="Org topology map">
               <StepList
                 steps={[
                   {
                     icon: Network,
                     text: (
                       <>
-                        The <strong>Org topology</strong> tab on the Skills page is a map where
-                        teams place themselves by the scope of their skills mandate (functional to
+                        The <strong>Org topology map</strong> tab on the Skills page is where teams
+                        place themselves by the scope of their skills mandate (functional to
                         expanding) and of their work mandate (tasks to whole solution). Pick a team,
                         choose <strong>Where we are</strong> or <strong>Where we're heading</strong>
                         , then drag the team from the list onto the map or click any spot on it;

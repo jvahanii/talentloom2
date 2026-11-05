@@ -204,10 +204,10 @@ export function OrgTopology({ orgId }: { orgId: string }) {
   return (
     <section
       className="space-y-3 rounded-2xl border-2 border-border bg-card p-4"
-      aria-label="Org topology"
+      aria-label="Org topology map"
     >
       <div>
-        <h2 className="font-semibold">Org topology</h2>
+        <h2 className="font-semibold">Org topology map</h2>
         <p className="text-sm text-muted-foreground">
           Teams place themselves by the scope of their skills mandate and of their work mandate:
           where they are now, and where they're heading. Drag a team from the list onto the map, or

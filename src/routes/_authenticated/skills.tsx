@@ -359,7 +359,7 @@ function SkillsPage() {
         <TabsList className="flex-wrap">
           <TabsTrigger value="skills">Skills ({groups.length})</TabsTrigger>
           <TabsTrigger value="development">Development</TabsTrigger>
-          <TabsTrigger value="topology">Org topology</TabsTrigger>
+          <TabsTrigger value="topology">Org topology map</TabsTrigger>
         </TabsList>
 
         <TabsContent value="topology">
