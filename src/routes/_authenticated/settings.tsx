@@ -5,7 +5,7 @@ import { getMyProfileId } from "@/lib/auth";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { Linkedin, Briefcase, Globe } from "lucide-react";
-import { OrgSettings } from "@/components/OrgSettings";
+import { OrgSettings, DeleteOrgPanel } from "@/components/OrgSettings";
 import { SkillsInput } from "@/components/SkillsInput";
 import { readSkills, type Skill } from "@/lib/skills";
 import { fetchOrgLevels } from "@/lib/skillLevels";
@@ -22,7 +22,8 @@ const inputCls =
 
 function Settings() {
   const qc = useQueryClient();
-  const { orgId, orgs } = useOrg();
+  const { orgId, orgs, title, role } = useOrg();
+  const canDeleteOrg = title === "Owner" || role === "owner";
   // Levels belong to an organisation: the current one, if you're a member of it.
   const levelOrg = orgs.find((o) => o.org_id === orgId && !o.viaSuperuser) ?? null;
   const levelOrgId = levelOrg?.org_id ?? null;
