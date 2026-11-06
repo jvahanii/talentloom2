@@ -76,7 +76,7 @@ function Landing() {
             <div className="mx-auto mt-10 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Link
                 {...(hasOrganisation
-                  ? { to: "/pipeline" as const }
+                  ? { to: "/skills" as const }
                   : { to: "/auth" as const, search: { mode: "signup" as const } })}
                 className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
@@ -91,7 +91,7 @@ function Landing() {
                 <span
                   className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
                 >
-                  {hasOrganisation ? "Go to my organisation" : "Create organisation"}
+                  {hasOrganisation ? "Go to Skills" : "Create organisation"}
                 </span>
               </Link>
               <Link
