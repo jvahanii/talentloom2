@@ -70,8 +70,7 @@ function Landing() {
               PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way to foster adaptiveness through multilearning, run
-              satisfaction surveys, and match people to new opportunities.
+              A faster, cleaner and free way to foster adaptiveness through multilearning, see change with advanced surveys, and match people to new opportunities.
             </p>
             <div className="mx-auto mt-10 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Link
@@ -103,8 +102,7 @@ function Landing() {
                   Surveys
                 </span>
                 <span className="mt-1 block flex-1 text-sm text-white/75">
-                  Run satisfaction surveys and structured interviews over time to see how your
-                  people are really doing.
+                  Run employee engagement - or any surveys - over time. Respondents can see their previous answers, so you'll cut through the noise and get the signal
                 </span>
                 <span
                   className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
@@ -271,7 +269,7 @@ const SKILL_FEATURES = [
   {
     icon: Network,
     t: "Teams that learn from each other",
-    d: "See at a glance which skills each team possesses, and how deep they go to create meaningful cross-team learning relationships",
+    d: "See at a glance which skills each team possesses, and how deep they go to create meaningful cross-team learning relationships. Map their state and progress using Org Topologies",
   },
   {
     icon: Merge,
