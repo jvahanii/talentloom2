@@ -95,6 +95,24 @@ function Landing() {
                 </span>
               </Link>
               <Link
+                to="/pulse"
+                className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+              >
+                <ClipboardList className="h-7 w-7 text-white" />
+                <span className="mt-4 block font-display text-lg font-semibold text-white">
+                  Surveys
+                </span>
+                <span className="mt-1 block flex-1 text-sm text-white/75">
+                  Run satisfaction surveys and structured interviews over time to see how your
+                  people are really doing.
+                </span>
+                <span
+                  className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
+                >
+                  Explore Pulse
+                </span>
+              </Link>
+              <Link
                 {...(hasOrganisation
                   ? { to: "/pipeline" as const }
                   : { to: "/auth" as const, search: { mode: "signup" as const } })}
@@ -130,24 +148,6 @@ function Landing() {
                   className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
                 >
                   Explore open roles
-                </span>
-              </Link>
-              <Link
-                to="/pulse"
-                className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
-              >
-                <ClipboardList className="h-7 w-7 text-white" />
-                <span className="mt-4 block font-display text-lg font-semibold text-white">
-                  Surveys
-                </span>
-                <span className="mt-1 block flex-1 text-sm text-white/75">
-                  Run satisfaction surveys and structured interviews over time to see how your
-                  people are really doing.
-                </span>
-                <span
-                  className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
-                >
-                  Explore Pulse
                 </span>
               </Link>
             </div>
@@ -374,9 +374,7 @@ function SkillsShowcase({
             <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs font-bold text-primary">
               Skills &amp; multilearning
             </span>
-            <h2 className="font-display mt-3 text-3xl font-bold">
-              Let grow what your people know
-            </h2>
+            <h2 className="font-display mt-3 text-3xl font-bold">Let grow what your people know</h2>
             <p className="text-soft mt-3 max-w-xl text-sm sm:text-base">
               Talentloom turns the know-how scattered across your organisation into something you
               can see and grow: who has which skill, how well, and who could - and should - learn it
