@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, Link2, Merge, Network, Sparkles, UserRound } from "lucide-react";
+import { Briefcase, ClipboardList, Link2, Merge, Network, Sparkles } from "lucide-react";
 import { skillLevelColor, type SkillLevel } from "@/lib/skills";
 import { MarketingShell } from "@/components/MarketingShell";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -73,50 +73,63 @@ function Landing() {
               A faster, cleaner and free way to foster adaptiveness through multilearning, run
               satisfaction surveys, and match people to new opportunities.
             </p>
-            <div className="mx-auto mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
+            <div className="mx-auto mt-10 grid max-w-5xl gap-4 md:grid-cols-3">
               <Link
                 {...(hasOrganisation
                   ? { to: "/pipeline" as const }
                   : { to: "/auth" as const, search: { mode: "signup" as const } })}
-                className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+                className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
-                <Briefcase className="h-7 w-7 text-white" />
+                <Network className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">
-                  Multilearning &amp; hiring
+                  Multilearning
                 </span>
-                <span className="mt-1 block text-sm text-white/75">
-                  Foster your organization's adaptiveness through multilearning and organizational
-                  transfer of learning.{"\u00a0"}Give candidates seeking a job a standout hiring
-                  experience.{"\u00a0"}
+                <span className="mt-1 block flex-1 text-sm text-white/75">
+                  Map your people's skills, help them learn from each other, and foster your
+                  organization's adaptiveness through the transfer of learning.
                 </span>
                 <span
-                  className={`mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
+                  className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
                 >
                   {hasOrganisation ? "Go to my organisation" : "Create organisation"}
                 </span>
               </Link>
               <Link
                 to="/apply"
-                className="group rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+                className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
-                <UserRound className="h-7 w-7 text-white" />
+                <Briefcase className="h-7 w-7 text-white" />
                 <span className="mt-4 block font-display text-lg font-semibold text-white">
-                  I’m looking for work
+                  Hiring
                 </span>
-                <span className="mt-1 block text-sm text-white/75">
-                  Find roles worth your time, apply in minutes, and keep your potential positions,
-                  applications and documents organized.
+                <span className="mt-1 block flex-1 text-sm text-white/75">
+                  Give candidates a standout hiring experience. Looking for work? Find roles worth
+                  your time, apply in minutes, and keep your applications organized.
                 </span>
-                <span className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90">
+                <span
+                  className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
+                >
                   Explore open roles
                 </span>
               </Link>
-              <div className="-mt-2 text-center">
-                <Link
-                  to="/candidate/auth"
-                  className="text-xs text-white/80 underline-offset-2 hover:underline"
-                ></Link>
-              </div>
+              <Link
+                to="/pulse"
+                className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+              >
+                <ClipboardList className="h-7 w-7 text-white" />
+                <span className="mt-4 block font-display text-lg font-semibold text-white">
+                  Surveys
+                </span>
+                <span className="mt-1 block flex-1 text-sm text-white/75">
+                  Run satisfaction surveys and structured interviews over time to see how your
+                  people are really doing.
+                </span>
+                <span
+                  className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
+                >
+                  Explore Pulse
+                </span>
+              </Link>
             </div>
             <Link
               to="/docs"
