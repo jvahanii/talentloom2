@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, ClipboardList, Link2, Merge, Network, Sparkles } from "lucide-react";
+import { Briefcase, ClipboardList, Link2, Merge, Network, Search, Sparkles } from "lucide-react";
 import { skillLevelColor, type SkillLevel } from "@/lib/skills";
 import { MarketingShell } from "@/components/MarketingShell";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -73,7 +73,7 @@ function Landing() {
               A faster, cleaner and free way to foster adaptiveness through multilearning, run
               satisfaction surveys, and match people to new opportunities.
             </p>
-            <div className="mx-auto mt-10 grid max-w-5xl gap-4 md:grid-cols-3">
+            <div className="mx-auto mt-10 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Link
                 {...(hasOrganisation
                   ? { to: "/pipeline" as const }
@@ -95,7 +95,9 @@ function Landing() {
                 </span>
               </Link>
               <Link
-                to="/apply"
+                {...(hasOrganisation
+                  ? { to: "/pipeline" as const }
+                  : { to: "/auth" as const, search: { mode: "signup" as const } })}
                 className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
               >
                 <Briefcase className="h-7 w-7 text-white" />
@@ -103,8 +105,26 @@ function Landing() {
                   Hiring
                 </span>
                 <span className="mt-1 block flex-1 text-sm text-white/75">
-                  Give candidates a standout hiring experience. Looking for work? Find roles worth
-                  your time, apply in minutes, and keep your applications organized.
+                  Give candidates a standout hiring experience: post positions, follow every
+                  candidate through your flow, and decide together.
+                </span>
+                <span
+                  className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90 ${orgsLoading ? "invisible" : ""}`}
+                >
+                  {hasOrganisation ? "Go to candidate flow" : "Start hiring"}
+                </span>
+              </Link>
+              <Link
+                to="/apply"
+                className="group flex flex-col rounded-2xl border border-white/20 bg-white/10 p-6 text-left backdrop-blur transition hover:bg-white/20"
+              >
+                <Search className="h-7 w-7 text-white" />
+                <span className="mt-4 block font-display text-lg font-semibold text-white">
+                  Find a job
+                </span>
+                <span className="mt-1 block flex-1 text-sm text-white/75">
+                  Looking for work? Find roles worth your time, apply in minutes, and keep your
+                  applications organized.
                 </span>
                 <span
                   className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
