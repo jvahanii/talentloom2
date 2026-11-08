@@ -66,6 +66,9 @@ function Landing() {
         >
           <div className="absolute inset-0 bg-gradient-to-br from-[rgba(55,40,65,0.92)] via-[rgba(110,50,85,0.88)] to-[rgba(30,90,75,0.86)]" />
           <div className="relative">
+            <div className="mb-4 text-5xl sm:text-6xl" role="img" aria-label="Cat and pig">
+              🐱 🐷
+            </div>
             <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">
               PeopleOps for the People
             </h1>
