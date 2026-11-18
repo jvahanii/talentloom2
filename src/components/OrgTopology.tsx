@@ -23,7 +23,7 @@ import {
  */
 
 const SKILLS = ["Functional", "Multi-skill", "End-to-end", "Expanding"];
-const WORK = ["Tasks", "Capabilities", "Partial solution", "Whole solution"];
+const WORK = ["Tasks", "Features", "Whole solution", "Expanding"];
 
 // Categorical slots in fixed order (validated reference palette, light surface).
 const SERIES = [

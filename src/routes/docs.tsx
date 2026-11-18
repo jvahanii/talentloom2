@@ -861,7 +861,7 @@ function Docs() {
                       <>
                         The <strong>Org topology map</strong> tab on the Skills page is where teams
                         place themselves by the scope of their skills mandate (functional to
-                        expanding) and of their work mandate (tasks to whole solution). Pick a team,
+                        expanding) and of their work mandate (tasks to expanding). Pick a team,
                         choose <strong>Where we are</strong> or <strong>Where we're heading</strong>
                         , then drag the team from the list onto the map or click any spot on it;
                         drag a dot to move it. A dot can sit anywhere within its square, and an

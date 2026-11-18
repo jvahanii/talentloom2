@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/app-client";
 /**
  * Where teams place themselves on the org topology map: a 4×4 grid of scope of
  * skills mandate (across: 1 functional … 4 expanding) by scope of work mandate
- * (up: 1 tasks … 4 whole solution), now and, optionally, where they're heading.
+ * (up: 1 tasks … 4 expanding), now and, optionally, where they're heading.
  * A spot is free within its square: x runs 0–4 across and y 0–4 up, so
  * x 2.5 lies in the third column. A team's members can place it, and so can
  * anyone who may change titles.
