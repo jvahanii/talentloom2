@@ -1,6 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, ClipboardList, Link2, Merge, Network, Search, Sparkles } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  Calculator,
+  CalendarClock,
+  ClipboardList,
+  Coins,
+  Gift,
+  Link2,
+  Merge,
+  Network,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import { skillLevelColor, type SkillLevel } from "@/lib/skills";
 import { MarketingShell } from "@/components/MarketingShell";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -34,6 +51,50 @@ export const Route = createFileRoute("/")({
   }),
   component: Landing,
 });
+
+/** The rest of PeopleOps, shown under the hero's main cards. */
+const MORE_CAPABILITIES: { icon: LucideIcon; title: string; text: string }[] = [
+  {
+    icon: Building2,
+    title: "Org chart",
+    text: "Units and supervisors at a glance: who leads what, and who reports to whom.",
+  },
+  {
+    icon: CalendarClock,
+    title: "Work & vacation times",
+    text: "Working hours, holidays and time off, planned and approved in one calendar.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Career paths",
+    text: "Show the next steps each role can lead to, and the skills that get people there.",
+  },
+  {
+    icon: Coins,
+    title: "Salaries",
+    text: "Pay ranges and salary history for every role and person, in one place.",
+  },
+  {
+    icon: Gift,
+    title: "Bonus schemes",
+    text: "Set up bonus schemes, link them to goals, and see what each one pays out.",
+  },
+  {
+    icon: Calculator,
+    title: "Bookkeeping",
+    text: "Personnel costs flow straight into your books, ready for the accountant.",
+  },
+  {
+    icon: RefreshCw,
+    title: "Careers page sync",
+    text: "Import the jobs on your public careers page and keep them in sync automatically.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Cyber security",
+    text: "Strong sign-in, encrypted data, and each organisation's data kept apart.",
+  },
+];
 
 function Landing() {
   const { user } = useSession();
@@ -73,7 +134,9 @@ function Landing() {
               PeopleOps for the People
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg text-white/80">
-              A faster, cleaner and free way to foster adaptiveness through multilearning, see change with advanced surveys, and match people to new opportunities.
+              A faster, cleaner and free way to foster adaptiveness through multilearning, see
+              change with advanced surveys, and match people to new opportunities. Your org chart,
+              working times, career paths, pay and bookkeeping live in the same place.
             </p>
             <div className="mx-auto mt-10 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Link
@@ -105,7 +168,8 @@ function Landing() {
                   Surveys
                 </span>
                 <span className="mt-1 block flex-1 text-sm text-white/75">
-                  Run employee engagement - or any surveys - over time. Respondents can see their previous answers, so you'll cut through the noise and get the signal
+                  Run employee engagement - or any surveys - over time. Respondents can see their
+                  previous answers, so you'll cut through the noise and get the signal
                 </span>
                 <span
                   className={`mt-4 self-start rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 transition group-hover:opacity-90`}
@@ -151,6 +215,22 @@ function Landing() {
                   Explore open roles
                 </span>
               </Link>
+            </div>
+            <div className="mx-auto mt-6 max-w-5xl rounded-2xl border border-white/15 bg-white/5 p-4 text-left backdrop-blur sm:p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
+                Also in Talentloom
+              </p>
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {MORE_CAPABILITIES.map(({ icon: Icon, title, text }) => (
+                  <li key={title} className="flex items-start gap-3 rounded-xl bg-white/10 p-3">
+                    <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-white">{title}</span>
+                      <span className="block text-xs leading-relaxed text-white/70">{text}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <Link
               to="/docs"
