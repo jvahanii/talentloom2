@@ -420,7 +420,7 @@ function OrgChartPage() {
       </Dialog>
 
       <Dialog open={!!boxDialog} onOpenChange={(o) => !o && setBoxDialog(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{boxDialog?.mode === "edit" ? "Edit the role" : "Add a role"}</DialogTitle>
             <DialogDescription>
