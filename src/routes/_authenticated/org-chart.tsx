@@ -1655,7 +1655,7 @@ function PeoplePanel({
   const unplaced = people.filter((p) => unitsFor(p.id).length === 0).length;
   const headedBy = (id: string) =>
     [...(headsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
-  // By unit: those in no unit first, then each unit in turn. Each person is
+  // By unit: each unit in turn, then those in no unit. Each person is
   // listed once (so each row can be dragged): under the unit they head, or
   // else the first unit they belong to, alphabetically. A unit's head comes
   // first under it.
@@ -1667,7 +1667,11 @@ function PeoplePanel({
       const u = headedBy(p.id)[0] ?? unitsFor(p.id)[0] ?? NO_UNIT;
       byUnit.set(u, [...(byUnit.get(u) ?? []), p]);
     }
-    for (const u of [...byUnit.keys()].sort((a, b) => a.localeCompare(b))) {
+    // Units alphabetically, and those in no unit last.
+    const order = [...byUnit.keys()].sort((a, b) =>
+      a === NO_UNIT ? 1 : b === NO_UNIT ? -1 : a.localeCompare(b),
+    );
+    for (const u of order) {
       const heads = (p: OrgPerson) => (u && headedBy(p.id).includes(u) ? 0 : 1);
       // Stable sort: the list's own order (by name) stays within heads and members.
       groups.push({ unit: u, people: [...byUnit.get(u)!].sort((a, b) => heads(a) - heads(b)) });
