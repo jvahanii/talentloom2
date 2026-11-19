@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/app-client";
+import { documentContentType } from "./file-types";
 
 export const CANDIDATE_FILES_BUCKET = "candidate-files";
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -43,7 +44,7 @@ export async function uploadCandidateFile(
   const path = storagePath(orgId, candidateId, kind, file.name);
   const { error } = await supabase.storage
     .from(CANDIDATE_FILES_BUCKET)
-    .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    .upload(path, file, { contentType: documentContentType(file.name), upsert: false });
   if (error) throw error;
   return path;
 }

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/app-auth-middleware";
 import { z } from "zod";
+import { documentContentType, documentProblem } from "./file-types";
 
 const BUCKET = "candidate-files";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -137,11 +138,13 @@ export const uploadCandidateDocument = createServerFn({ method: "POST" })
     const bytes = Buffer.from(data.data, "base64");
     if (bytes.byteLength === 0) throw new Error("That file appears to be empty.");
     if (bytes.byteLength > MAX_FILE_BYTES) throw new Error("Files must be 10 MB or smaller.");
+    const problem = documentProblem(data.name, bytes);
+    if (problem) throw new Error(problem);
 
     const path = `applicants/${context.userId}/${data.kind}-${Date.now()}.${ext}`;
     const { error: upErr } = await context.supabase.storage
       .from(BUCKET)
-      .upload(path, bytes, { contentType: data.type || "application/octet-stream", upsert: false });
+      .upload(path, bytes, { contentType: documentContentType(data.name), upsert: false });
     if (upErr) throw new Error("Could not upload the file. Please try again.");
 
     const { data: inserted, error } = await context.supabase

@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { documentContentType, documentProblem } from "./file-types";
 
 const SOURCE_VALUES = ["Referral", "LinkedIn", "Job board", "Agency", "Website", "Other"] as const;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -28,20 +29,44 @@ const ApplicationSchema = z.object({
 
 const OrgIdSchema = z.object({ org_id: z.string().uuid() });
 
-const ALLOWED_EXT = ["pdf", "doc", "docx"];
-
 function extOf(name: string) {
   return (name.split(".").pop() ?? "").toLowerCase();
 }
 
-// Best-effort in-process throttle (workers are stateless, so this only slows bursts).
-const hits = new Map<string, number[]>();
-function rateLimited(ip: string, limit = 5, windowMs = 10 * 60_000) {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < windowMs);
-  recent.push(now);
-  hits.set(ip, recent);
-  return recent.length > limit;
+/** The visitor's address as Vercel saw it. Vercel overwrites these headers
+ *  with the real client address, so visitors can't pick their own. */
+function clientIp() {
+  return (
+    getRequestHeader("x-real-ip")?.trim() ||
+    getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown"
+  );
+}
+
+const APPLICATION_LIMIT = 5;
+const APPLICATION_WINDOW_SECONDS = 10 * 60;
+
+/** Counts this attempt in the database, so the limit holds across every
+ *  server instance. Only a hash of the address is kept, for one day. */
+async function rateLimited(ip: string): Promise<boolean> {
+  const { createHash } = await import("node:crypto");
+  const ipHash = createHash("sha256").update(`talentloom-apply:${ip}`).digest("hex");
+  const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+  const rpc = supabaseAdmin.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const { data, error } = await rpc.call(supabaseAdmin, "note_application_attempt", {
+    _ip_hash: ipHash,
+    _limit: APPLICATION_LIMIT,
+    _window_seconds: APPLICATION_WINDOW_SECONDS,
+  });
+  if (error) {
+    // Don't turn real applicants away because the counter is unavailable.
+    console.error("[apply] rate limit check failed:", error.message);
+    return false;
+  }
+  return data === true;
 }
 
 export const listOpenOrganizations = createServerFn({ method: "GET" }).handler(async () => {
@@ -271,20 +296,16 @@ export const getApplyContext = createServerFn({ method: "POST" })
 export const submitApplication = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ApplicationSchema.parse(input))
   .handler(async ({ data }) => {
-    const ip =
-      getRequestHeader("cf-connecting-ip") ??
-      getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ??
-      "unknown";
-    if (rateLimited(ip))
-      throw new Error("Too many applications from this device. Please try again later.");
-
     for (const f of [data.cv, data.cover_letter]) {
       if (!f) continue;
-      if (!ALLOWED_EXT.includes(extOf(f.name)))
-        throw new Error("Only PDF, DOC or DOCX files are accepted.");
-      if (Buffer.from(f.data, "base64").byteLength > MAX_FILE_BYTES)
-        throw new Error("Files must be 10 MB or smaller.");
+      const bytes = Buffer.from(f.data, "base64");
+      if (bytes.byteLength > MAX_FILE_BYTES) throw new Error("Files must be 10 MB or smaller.");
+      const problem = documentProblem(f.name, bytes);
+      if (problem) throw new Error(problem);
     }
+
+    if (await rateLimited(clientIp()))
+      throw new Error("Too many applications from this device. Please try again later.");
     if (!data.cv && !data.saved_cv_id) throw new Error("Please attach your CV.");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
@@ -366,7 +387,7 @@ export const submitApplication = createServerFn({ method: "POST" })
         const { error: upErr } = await supabaseAdmin.storage
           .from("candidate-files")
           .upload(path, Buffer.from(file.data, "base64"), {
-            contentType: file.type || "application/octet-stream",
+            contentType: documentContentType(file.name),
             upsert: false,
           });
         if (!upErr) {
@@ -381,7 +402,7 @@ export const submitApplication = createServerFn({ method: "POST" })
             const { error: docUpErr } = await supabaseAdmin.storage
               .from("candidate-files")
               .upload(docPath, Buffer.from(file.data, "base64"), {
-                contentType: file.type || "application/octet-stream",
+                contentType: documentContentType(file.name),
                 upsert: false,
               });
             if (!docUpErr) {

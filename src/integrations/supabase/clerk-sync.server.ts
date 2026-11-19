@@ -39,9 +39,46 @@ async function verifyHs256(token: string, secret: string): Promise<Record<string
     string,
     unknown
   >;
-  const exp = typeof payload["exp"] === "number" ? (payload["exp"] as number) : undefined;
-  if (exp && exp * 1000 < Date.now() - 5000) throw new Error("token expired");
+  checkClaims(payload);
   return payload;
+}
+
+const SKEW_MS = 5000;
+
+/** Clerk's production instance, and its development instances (localhost). */
+function isClerkIssuer(iss: unknown): boolean {
+  return (
+    iss === "https://clerk.talentloom.org" ||
+    (typeof iss === "string" && /^https:\/\/[a-z0-9-]+\.clerk\.accounts\.dev$/.test(iss))
+  );
+}
+
+/** Origins whose sign-ins are this app's: the live site and local development. */
+function isAuthorizedParty(azp: string): boolean {
+  return (
+    azp === "https://www.talentloom.org" ||
+    azp === "https://talentloom.org" ||
+    /^http:\/\/localhost(:\d+)?$/.test(azp)
+  );
+}
+
+/**
+ * The shared secret also signs other tokens for the database, so a valid
+ * signature alone isn't enough: the token must be a current Clerk sign-in
+ * for this app, made for the database (audience "authenticated").
+ */
+function checkClaims(p: Record<string, unknown>) {
+  const now = Date.now();
+  if (typeof p["exp"] !== "number") throw new Error("token has no expiry");
+  if ((p["exp"] as number) * 1000 < now - SKEW_MS) throw new Error("token expired");
+  if (typeof p["nbf"] === "number" && (p["nbf"] as number) * 1000 > now + SKEW_MS)
+    throw new Error("token not valid yet");
+  if (!isClerkIssuer(p["iss"])) throw new Error("token not issued by Clerk");
+  const aud = p["aud"];
+  if (!(aud === "authenticated" || (Array.isArray(aud) && aud.includes("authenticated"))))
+    throw new Error("token not meant for the database");
+  if (typeof p["azp"] === "string" && !isAuthorizedParty(p["azp"]))
+    throw new Error("token made for another site");
 }
 
 export async function verifyClerkToken(token: string): Promise<string> {
@@ -68,7 +105,15 @@ export async function verifyClerkToken(token: string): Promise<string> {
       payload = (await verifyHs256(token, supabaseJwtSecret)) as { sub?: string };
     } else if (secretKey) {
       // Default Clerk signing (RS256 via Clerk JWKS).
-      payload = await verifyToken(token, { secretKey });
+      payload = await verifyToken(token, {
+        secretKey,
+        authorizedParties: [
+          "https://www.talentloom.org",
+          "https://talentloom.org",
+          "http://localhost:3000",
+          "http://localhost:8080",
+        ],
+      });
     } else {
       throw new Error("Missing CLERK_SECRET_KEY");
     }
@@ -93,6 +138,26 @@ interface ProfileRow {
   full_name?: string | null;
 }
 
+interface ClerkUserEmails {
+  primaryEmailAddressId: string | null;
+  emailAddresses: { id: string; emailAddress: string; verification: { status: string } | null }[];
+}
+
+/**
+ * The account's email, counted only once its owner has proved they hold it.
+ * Profiles store this address, and it decides who gets survey invitations,
+ * survey co-ownership and anonymous applications (with their CVs), so an
+ * address someone merely typed in must never count. Primary address first.
+ */
+export function verifiedEmailOf(user: ClerkUserEmails): string | null {
+  const verified = user.emailAddresses.filter((e) => e.verification?.status === "verified");
+  const email =
+    verified.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ??
+    verified[0]?.emailAddress ??
+    null;
+  return email ? email.trim().toLowerCase() : null;
+}
+
 /**
  * Finds (or creates) the profile row for a Clerk user.
  * Existing users are linked by email on first Clerk sign-in so their
@@ -114,10 +179,7 @@ export async function provisionProfileForClerkUser(clerkUserId: string): Promise
 
   const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
   const cu = await clerk.users.getUser(clerkUserId);
-  const email =
-    cu.emailAddresses.find((e) => e.id === cu.primaryEmailAddressId)?.emailAddress ??
-    cu.emailAddresses[0]?.emailAddress ??
-    null;
+  const email = verifiedEmailOf(cu);
   const fullName = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || cu.username || null;
 
   // Link an existing profile (created before the Clerk migration) by email.

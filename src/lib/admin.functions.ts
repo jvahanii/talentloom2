@@ -66,22 +66,40 @@ export const getAdminOverview = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<AdminOverview> => {
     const { data: allowed } = await (context.supabase as Loose).rpc("is_superuser");
     if (allowed !== true) throw new Error("Only a superuser can open this page");
+    await assertStrongSignIn(context.clerkUserId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
 
     // Sign-in accounts that never got an app record would be invisible here:
-    // create the missing records first so every account is listed.
+    // create the missing records first so every account is listed. Each
+    // record's email is also brought in line with the account's verified
+    // address, so an unverified one stored earlier stops counting.
     try {
       const { createClerkClient } = await import("@clerk/backend");
       const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
-      const { data: known } = await admin.from("profiles").select("clerk_user_id").limit(10000);
-      const linked = new Set(((known ?? []) as Loose[]).map((p) => p.clerk_user_id).filter(Boolean));
-      const { provisionProfileForClerkUser } = await import("@/integrations/supabase/clerk-sync.server");
+      const { data: known } = await admin
+        .from("profiles")
+        .select("id, clerk_user_id, email")
+        .limit(10000);
+      const byClerkId = new Map<string, { id: string; email: string | null }>(
+        ((known ?? []) as Loose[])
+          .filter((p) => p.clerk_user_id)
+          .map((p) => [p.clerk_user_id as string, { id: p.id, email: p.email }]),
+      );
+      const { provisionProfileForClerkUser, verifiedEmailOf } =
+        await import("@/integrations/supabase/clerk-sync.server");
       for (let offset = 0; ; offset += 100) {
         const page = await clerk.users.getUserList({ limit: 100, offset });
         for (const u of page.data) {
-          if (!linked.has(u.id)) {
+          const profile = byClerkId.get(u.id);
+          if (profile) {
+            const email = verifiedEmailOf(u);
+            if ((profile.email ?? "").toLowerCase() !== (email ?? "")) {
+              const { error } = await admin.from("profiles").update({ email }).eq("id", profile.id);
+              if (error) console.error("[admin] could not update email for", u.id, error.message);
+            }
+          } else {
             try {
               await provisionProfileForClerkUser(u.id);
             } catch (e) {
@@ -259,9 +277,28 @@ export const getAdminOverview = createServerFn({ method: "GET" })
 
 // ---------- Superuser actions ----------
 
-async function requireSuperuser(context: { supabase: unknown }) {
+/**
+ * Superuser powers reach every organisation, so the account behind them must
+ * not be one a guessed or leaked password opens: either it has no password
+ * (Google or emailed-code sign-in, guarded by the mailbox's own security) or
+ * it has two-step verification on. Asked of Clerk directly, not the token.
+ */
+async function assertStrongSignIn(clerkUserId: string) {
+  const { createClerkClient } = await import("@clerk/backend");
+  const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
+  const user = await clerk.users.getUser(clerkUserId);
+  if (user.passwordEnabled && !user.twoFactorEnabled) {
+    throw new Error(
+      "Superuser actions need two-step verification on an account with a password. " +
+        "Turn it on in your account settings, or remove the password and sign in with Google.",
+    );
+  }
+}
+
+async function requireSuperuser(context: { supabase: unknown; clerkUserId: string }) {
   const { data } = await (context.supabase as Loose).rpc("is_superuser");
   assertSuperuser(data);
+  await assertStrongSignIn(context.clerkUserId);
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   return supabaseAdmin as Loose;
 }
