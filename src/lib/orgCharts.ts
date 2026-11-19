@@ -171,7 +171,12 @@ export async function fetchOrgPeople(orgId: string): Promise<OrgPerson[]> {
     .in("id", ids);
   if (pError) throw pError;
   return ((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[])
-    .map((p) => ({ id: p.id, name: p.full_name || p.email || "Unnamed", email: p.email }))
+    .map((p) => ({
+      id: p.id,
+      // Some names are stored with stray spaces ("Anna  Stroikina ").
+      name: p.full_name?.replace(/\s+/g, " ").trim() || p.email || "Unnamed",
+      email: p.email,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

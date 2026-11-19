@@ -975,11 +975,12 @@ function OrgChartPage() {
 
 /** Search People by name or email. */
 function matchPeople(people: OrgPerson[], query: string) {
-  const term = query.trim().toLowerCase();
-  return people.filter(
-    (p) =>
-      !term || p.name.toLowerCase().includes(term) || (p.email ?? "").toLowerCase().includes(term),
-  );
+  // Each word on its own, so "anna stro" finds "Anna Stroikina" however it's spaced.
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return people.filter((p) => {
+    const text = `${p.name} ${p.email ?? ""}`.toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
 }
 
 /**
