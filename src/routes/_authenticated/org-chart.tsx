@@ -596,6 +596,9 @@ function OrgChartPage() {
     });
   };
 
+  /** How long a removal can be undone: long enough to notice and reach the button. */
+  const UNDO_MS = 8000;
+
   const removeMember = (m: ChartMember, unit: ChartNode) => {
     if (!chart) return;
     const c = chart;
@@ -606,6 +609,7 @@ function OrgChartPage() {
     void run(() => deleteMembers([m.id])).then((ok) => {
       if (!ok) return;
       toast(`Removed ${name} from ${unit.role}`, {
+        duration: UNDO_MS,
         action: {
           label: "Undo",
           onClick: () =>
@@ -633,6 +637,7 @@ function OrgChartPage() {
     void run(() => updateNode(unit.id, { person_id: null, person_name: "" })).then((ok) => {
       if (!ok) return;
       toast(`${name} is no longer head of ${unit.role}`, {
+        duration: UNDO_MS,
         action: { label: "Undo", onClick: () => void run(() => updateNode(unit.id, before)) },
       });
     });
