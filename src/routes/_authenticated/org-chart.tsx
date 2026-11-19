@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { useRememberedTab } from "@/hooks/useRememberedTab";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   MAX_CHART_NAME,
   MAX_NOTE,
@@ -57,6 +58,7 @@ import {
   fetchOrgPeople,
   moveMember,
   orgPeopleKey,
+  impliedReporting,
   planMove,
   renameChart,
   subtreeIds,
@@ -64,6 +66,7 @@ import {
   type ChartMember,
   type ChartNode,
   type DropPlace,
+  type ImpliedLine,
   type NewMember,
   type NodeFields,
   type NodeKind,
@@ -132,6 +135,28 @@ function useRememberedChart(orgId: string | null) {
   return [id, choose] as const;
 }
 
+/** An on/off choice remembered in this browser. */
+function useRememberedFlag(key: string, fallback: boolean) {
+  const [on, setOn] = useState(fallback);
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(key);
+      if (v === "1" || v === "0") setOn(v === "1");
+    } catch {
+      /* keep the fallback */
+    }
+  }, [key]);
+  const choose = (next: boolean) => {
+    setOn(next);
+    try {
+      window.localStorage.setItem(key, next ? "1" : "0");
+    } catch {
+      /* not remembered */
+    }
+  };
+  return [on, choose] as const;
+}
+
 /** A unit member in the dialog: saved ones have an id, new ones don't yet. */
 type StagedMember = NewMember & { id?: string };
 
@@ -182,6 +207,9 @@ type View = {
   unitName: (n: ChartNode) => string | null;
   /** How many roles belong to a unit. */
   roleCount: (unitId: string) => number;
+  /** Reporting lines implied by the units, by where they hang. */
+  implied: Map<string, ImpliedLine[]>;
+  onOpenImplied: (line: ImpliedLine) => void;
   /** Boxes the item being dragged can't land on. */
   blocked: Set<string>;
   onOpen: (n: ChartNode) => void;
@@ -264,6 +292,8 @@ function OrgChartPage() {
   const [confirmChartDelete, setConfirmChartDelete] = useState(false);
   const [confirmBoxDelete, setConfirmBoxDelete] = useState<ChartNode | null>(null);
   const [dragging, setDragging] = useState<DragData | null>(null);
+  const [showImplied, setShowImplied] = useRememberedFlag("talentloom:org-chart:implied", true);
+  const [impliedOpen, setImpliedOpen] = useState<ImpliedLine | null>(null);
   /** A drop can end in a click on the box under it; that click opens nothing. */
   const dragEndedAt = useRef(0);
 
@@ -526,7 +556,33 @@ function OrgChartPage() {
           )
         : new Set();
 
+  const impliedLines =
+    kind === "role" && showImplied ? impliedReporting(nodes, members, nameOf, memberName) : [];
+  const implied = new Map<string, ImpliedLine[]>();
+  for (const l of impliedLines) implied.set(l.parent, [...(implied.get(l.parent) ?? []), l]);
+  /** A role for someone shown by an implied line, reporting where the line does. */
+  const roleFromLine = (l: ImpliedLine) => {
+    setImpliedOpen(null);
+    setBoxDialog({
+      mode: "add",
+      parentId: l.managerRoleId,
+      fields: {
+        ...emptyFields,
+        role: l.isHead ? l.title : "",
+        person_id: l.personId,
+        person_name: l.name.slice(0, MAX_PERSON),
+        unit_id: l.unitId,
+      },
+      members: [],
+    });
+  };
+
   const view: View = {
+    implied,
+    onOpenImplied: (l) => {
+      if (Date.now() - dragEndedAt.current < 300) return;
+      setImpliedOpen(l);
+    },
     kids,
     membersOf,
     nameOf,
@@ -652,7 +708,7 @@ function OrgChartPage() {
             <div className="min-w-0 rounded-2xl border-2 border-border bg-card p-4">
               {nodesQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
-              ) : shown.length === 0 ? (
+              ) : shown.length === 0 && impliedLines.length === 0 ? (
                 <div className="py-8 text-center">
                   {kind === "unit" ? (
                     <Building2 className="mx-auto h-8 w-8 text-muted-foreground" />
@@ -671,6 +727,20 @@ function OrgChartPage() {
                 </div>
               ) : (
                 <>
+                  {kind === "role" && (
+                    <div className="mb-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      {showImplied && impliedLines.length > 0 && (
+                        <span className="flex items-center gap-1.5">
+                          <span className="inline-block h-3 w-5 rounded border-2 border-dashed border-muted-foreground/60" />
+                          Dashed: follows from the Units tab
+                        </span>
+                      )}
+                      <label className="flex items-center gap-2">
+                        <Switch checked={showImplied} onCheckedChange={setShowImplied} />
+                        Show lines implied by units
+                      </label>
+                    </div>
+                  )}
                   <TopZone active={dragging?.type === "box"} kind={kind} />
                   <div className="overflow-x-auto pb-4">
                     <div className="org-tree mx-auto w-max min-w-full">
@@ -958,6 +1028,53 @@ function OrgChartPage() {
                 </Button>
               </DialogFooter>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!impliedOpen} onOpenChange={(o) => !o && setImpliedOpen(null)}>
+        <DialogContent>
+          {impliedOpen && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {impliedOpen.managerName
+                    ? `${impliedOpen.name} reports to ${impliedOpen.managerName}`
+                    : `${impliedOpen.name} heads ${impliedOpen.unitName}`}
+                </DialogTitle>
+                <DialogDescription>
+                  {impliedOpen.isHead
+                    ? impliedOpen.managerName
+                      ? `${impliedOpen.name} heads ${impliedOpen.unitName}, which is part of ${impliedOpen.managerUnitName}, headed by ${impliedOpen.managerName}.`
+                      : `${impliedOpen.name} heads ${impliedOpen.unitName}, and no unit above it has a head.`
+                    : impliedOpen.managerUnitName === impliedOpen.unitName
+                      ? `${impliedOpen.name} is in ${impliedOpen.unitName}, headed by ${impliedOpen.managerName}.`
+                      : `${impliedOpen.name} is in ${impliedOpen.unitName}, which has no head of its own; the nearest head above it is ${impliedOpen.managerName} of ${impliedOpen.managerUnitName}.`}
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                This line follows from the Units tab and changes with it. To draw it differently,
+                give {impliedOpen.name} a role here: a role's own reporting line replaces this one.
+                {impliedOpen.managerName && !impliedOpen.managerRoleId
+                  ? ` ${impliedOpen.managerName} has no role here yet, so the new role starts at the top.`
+                  : ""}
+              </p>
+              <DialogFooter className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setImpliedOpen(null);
+                    chooseTab("units");
+                  }}
+                >
+                  <Building2 className="mr-1 h-4 w-4" /> Go to Units
+                </Button>
+                <Button type="button" onClick={() => roleFromLine(impliedOpen)}>
+                  <Plus className="mr-1 h-4 w-4" /> Give {impliedOpen.name} a role
+                </Button>
+              </DialogFooter>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -1414,7 +1531,8 @@ function Zone({
 
 function Branch({ parentKey, view }: { parentKey: string; view: View }) {
   const list = view.kids.get(parentKey) ?? [];
-  if (list.length === 0) return null;
+  const implied = view.implied.get(parentKey) ?? [];
+  if (list.length === 0 && implied.length === 0) return null;
   return (
     <ul>
       {list.map((n) => (
@@ -1423,7 +1541,43 @@ function Branch({ parentKey, view }: { parentKey: string; view: View }) {
           <Branch parentKey={n.id} view={view} />
         </li>
       ))}
+      {implied.map((l) => (
+        <li key={l.key}>
+          <ImpliedCard line={l} onOpen={() => view.onOpenImplied(l)} />
+          <Branch parentKey={l.key} view={view} />
+        </li>
+      ))}
     </ul>
+  );
+}
+
+/** Someone shown on Reporting lines because of the units: dashed, and not draggable. */
+function ImpliedCard({ line, onOpen }: { line: ImpliedLine; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      title={
+        line.managerName
+          ? `${line.name} reports to ${line.managerName}, from the Units tab`
+          : `${line.name} heads ${line.unitName}, from the Units tab`
+      }
+      className="block w-44 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2.5 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      <span className="block text-sm font-semibold leading-snug">{line.title}</span>
+      <span className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+        {line.personId ? (
+          <Link2 className="h-3 w-3 shrink-0 text-primary" />
+        ) : (
+          <UserRound className="h-3 w-3 shrink-0" />
+        )}
+        <span className="truncate">{line.name}</span>
+      </span>
+      <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+        <Building2 className="h-3 w-3 shrink-0" />
+        <span className="truncate">From Units</span>
+      </span>
+    </button>
   );
 }
 

@@ -363,6 +363,131 @@ export function childrenOf(nodes: ChartNode[]): Map<string, ChartNode[]> {
   return map;
 }
 
+/**
+ * A reporting line that follows from the units rather than being drawn:
+ * a unit's members report to its head, and a unit's head to the head of the
+ * unit it is part of. Not stored; worked out afresh from the Units tab.
+ */
+export type ImpliedLine = {
+  /** "implied:head:<unit id>" or "implied:member:<member id>". */
+  key: string;
+  /** Where it hangs: "" for the top, a role's id, or another line's key. */
+  parent: string;
+  personId: string | null;
+  name: string;
+  /** "Head of HR" for a head, "HR" for a member. */
+  title: string;
+  unitId: string;
+  unitName: string;
+  isHead: boolean;
+  /** Who they report to, and the unit that person heads; null at the top. */
+  managerName: string | null;
+  managerUnitName: string | null;
+  /** The manager's own role, when they have one on Reporting lines. */
+  managerRoleId: string | null;
+};
+
+const IMPLIED = "implied:";
+export const isImpliedKey = (key: string) => key.startsWith(IMPLIED);
+
+/** Who someone is, across boxes: their People id, or their name as typed. */
+const personKey = (personId: string | null, name: string) =>
+  personId ? `p:${personId}` : `n:${name.replace(/\s+/g, " ").trim().toLowerCase()}`;
+
+/**
+ * The reporting lines the units imply. A line drawn on Reporting lines wins:
+ * someone who holds a role there gets no implied line, and the people who
+ * report to them hang under that role. A unit without a head of its own
+ * reports through the nearest unit above it that has one.
+ */
+export function impliedReporting(
+  nodes: ChartNode[],
+  members: ChartMember[],
+  nameOf: (n: ChartNode) => string | null,
+  memberName: (m: ChartMember) => string,
+): ImpliedLine[] {
+  const units = nodes.filter((n) => n.kind === "unit");
+  const unitById = new Map(units.map((u) => [u.id, u]));
+  const roleOf = new Map<string, ChartNode>();
+  for (const r of nodes) {
+    const name = r.kind === "role" ? nameOf(r) : null;
+    if (name) {
+      const k = personKey(r.person_id, name);
+      if (!roleOf.has(k)) roleOf.set(k, r);
+    }
+  }
+  const headKey = (u: ChartNode) => {
+    const name = nameOf(u);
+    return name ? personKey(u.person_id, name) : null;
+  };
+  /** The unit itself or the nearest one above it with a head other than `except`. */
+  const nearestHeaded = (unitId: string | null, except: string) => {
+    let cur = unitId ? unitById.get(unitId) : undefined;
+    for (let steps = 0; cur && steps < 1000; steps++) {
+      const k = headKey(cur);
+      if (k && k !== except) return cur;
+      cur = cur.parent_id ? unitById.get(cur.parent_id) : undefined;
+    }
+    return null;
+  };
+  const anchorOf = (u: ChartNode) => roleOf.get(headKey(u)!)?.id ?? `${IMPLIED}head:${u.id}`;
+  const manager = (u: ChartNode | null) =>
+    u
+      ? {
+          parent: anchorOf(u),
+          managerName: nameOf(u),
+          managerUnitName: u.role,
+          managerRoleId: roleOf.get(headKey(u)!)?.id ?? null,
+        }
+      : { parent: "", managerName: null, managerUnitName: null, managerRoleId: null };
+
+  const out: ImpliedLine[] = [];
+  const placed = new Set<string>();
+  const sorted = [...units].sort(
+    (a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at),
+  );
+  for (const u of sorted) {
+    const hk = headKey(u);
+    if (!hk || roleOf.has(hk)) continue;
+    const m = manager(nearestHeaded(u.parent_id, hk));
+    placed.add(`${hk}|${m.parent}`);
+    out.push({
+      key: `${IMPLIED}head:${u.id}`,
+      personId: u.person_id,
+      name: nameOf(u)!,
+      title: `Head of ${u.role}`,
+      unitId: u.id,
+      unitName: u.role,
+      isHead: true,
+      ...m,
+    });
+  }
+  for (const u of sorted) {
+    for (const mem of members.filter((x) => x.node_id === u.id)) {
+      const name = memberName(mem);
+      const mk = personKey(mem.person_id, name);
+      if (roleOf.has(mk)) continue;
+      const boss = nearestHeaded(u.id, mk);
+      if (!boss) continue;
+      const m = manager(boss);
+      // Someone already shown under this manager, e.g. as head of a unit within.
+      if (placed.has(`${mk}|${m.parent}`)) continue;
+      placed.add(`${mk}|${m.parent}`);
+      out.push({
+        key: `${IMPLIED}member:${mem.id}`,
+        personId: mem.person_id,
+        name,
+        title: u.role,
+        unitId: u.id,
+        unitName: u.role,
+        isHead: false,
+        ...m,
+      });
+    }
+  }
+  return out;
+}
+
 /** A box and every box below it. */
 export function subtreeIds(nodes: ChartNode[], id: string): Set<string> {
   const kids = childrenOf(nodes);
