@@ -41,10 +41,3 @@ export function clearPendingRating() {
     /* ignore */
   }
 }
-
-/** Where to return after signing in: a path on this site only, never another site. */
-export function safeReturnPath(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return undefined;
-  return value;
-}

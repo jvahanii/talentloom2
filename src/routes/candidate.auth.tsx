@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, useRouter, Link } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 import { SignIn, SignUp, useAuth } from "@clerk/clerk-react";
 import { MarketingShell } from "@/components/MarketingShell";
-import { safeReturnPath } from "@/lib/pendingRating";
+import { safeReturnPath } from "@/lib/safe-return-path";
 
 export const Route = createFileRoute("/candidate/auth")({
   head: () => ({
@@ -17,10 +17,10 @@ export const Route = createFileRoute("/candidate/auth")({
     ],
   }),
   // Where to go after signing in (e.g. back to the job board); paths on this site only.
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
-    const redirect = safeReturnPath(search["redirect"]);
-    return redirect ? { redirect } : {};
-  },
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    // Always set, so a rejected value can't pass through from the URL.
+    redirect: safeReturnPath(search["redirect"]),
+  }),
   component: CandidateAuthPage,
 });
 
@@ -40,7 +40,7 @@ const clerkAppearance = {
 function CandidateAuthPage() {
   const navigate = useNavigate();
   const router = useRouter();
-  const { redirect } = Route.useSearch();
+  const redirect = safeReturnPath(Route.useSearch().redirect);
   const afterSignIn = redirect ?? "/candidate/applications";
   const { isLoaded, isSignedIn } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");

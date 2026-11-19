@@ -6,6 +6,7 @@ import { getClerkToken } from "@/lib/clerk";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
 import { ACCOUNT_TYPE_KEY, CREATE_ORG_INTENT_KEY } from "@/routes/onboarding";
 import { getSignInDestination } from "@/lib/profile.functions";
+import { safeReturnPath } from "@/lib/safe-return-path";
 
 async function waitForBackendToken(maxMs = 5000): Promise<void> {
   const start = Date.now();
@@ -16,19 +17,12 @@ async function waitForBackendToken(maxMs = 5000): Promise<void> {
 }
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>) => {
-    const out: { mode?: "signup"; redirect?: string } = {};
-    if (search.mode === "signup") out.mode = "signup";
-    // Only same-site paths, so the link can't send people to another site.
-    if (
-      typeof search.redirect === "string" &&
-      search.redirect.startsWith("/") &&
-      !search.redirect.startsWith("//")
-    ) {
-      out.redirect = search.redirect;
-    }
-    return out;
-  },
+  // Both keys always set, so a rejected value can't pass through from the URL
+  // (TanStack Router keeps parameters validateSearch leaves out).
+  validateSearch: (search: Record<string, unknown>): { mode?: "signup"; redirect?: string } => ({
+    mode: search.mode === "signup" ? "signup" : undefined,
+    redirect: safeReturnPath(search.redirect),
+  }),
   head: () => ({ meta: [{ title: "Sign in — Talentloom" }] }),
   component: AuthPage,
 });
@@ -50,7 +44,10 @@ function AuthPage() {
   const navigate = useNavigate();
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const { mode: searchMode, redirect: redirectTo } = Route.useSearch();
+  const search = Route.useSearch();
+  const searchMode = search.mode;
+  // Checked again here: only a path on this site, never another site.
+  const redirectTo = safeReturnPath(search.redirect);
   const [mode, setMode] = useState<"signin" | "signup">(searchMode === "signup" ? "signup" : "signin");
   const [invited, setInvited] = useState(false);
 
