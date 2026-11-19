@@ -1284,7 +1284,11 @@ function PersonRow({ person, places }: { person: OrgPerson; places: string[] }) 
   );
 }
 
-/** Shown above the chart while a box is dragged: drop here to put it at the top. */
+/**
+ * Above the chart: a hint, which turns into "drop here to put it at the top"
+ * while a box is dragged. It keeps its size, so the chart doesn't shift under
+ * the pointer when a drag starts.
+ */
 function TopZone({ active }: { active: boolean }) {
   const drop = useDroppable({
     id: "top",
@@ -1294,17 +1298,18 @@ function TopZone({ active }: { active: boolean }) {
   return (
     <div
       ref={drop.setNodeRef}
-      aria-hidden={!active}
       className={
-        "mb-3 rounded-xl border-2 border-dashed px-3 py-2 text-center text-xs transition " +
+        "mb-3 truncate rounded-xl border-2 border-dashed px-3 py-2 text-center text-xs transition " +
         (!active
-          ? "hidden"
+          ? "border-transparent text-muted-foreground"
           : drop.isOver
             ? "border-primary bg-primary/10 text-foreground"
             : "border-border text-muted-foreground")
       }
     >
-      Drop here to put it at the top of the chart
+      {active
+        ? "Drop here to put it at the top of the chart"
+        : "Drag boxes to move them, and people from the People list onto units and roles."}
     </div>
   );
 }
