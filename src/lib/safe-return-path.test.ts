@@ -1,9 +1,10 @@
-import { expect, test } from "bun:test";
+import { test } from "node:test";
+import { strictEqual } from "node:assert";
 import { safeReturnPath } from "./safe-return-path";
 
 test("only paths on this site are accepted", () => {
-  expect(safeReturnPath("/apply")).toBe("/apply");
-  expect(safeReturnPath("/apply/position/abc?x=1")).toBe("/apply/position/abc?x=1");
+  strictEqual(safeReturnPath("/apply"), "/apply");
+  strictEqual(safeReturnPath("/apply/position/abc?x=1"), "/apply/position/abc?x=1");
   const bad = [
     "//evil.example/x",
     String.raw`/\evil.example`,
@@ -14,5 +15,5 @@ test("only paths on this site are accepted", () => {
     undefined,
     5,
   ];
-  for (const value of bad) expect(safeReturnPath(value)).toBeUndefined();
+  for (const value of bad) strictEqual(safeReturnPath(value), undefined);
 });

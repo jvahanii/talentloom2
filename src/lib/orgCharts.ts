@@ -395,6 +395,20 @@ const personKey = (personId: string | null, name: string) =>
   personId ? `p:${personId}` : `n:${name.replace(/\s+/g, " ").trim().toLowerCase()}`;
 
 /**
+ * Whether two entries name the same person: the same person from People, or
+ * the same typed name when neither is from People. Someone is either a unit's
+ * head or one of its members, never both.
+ */
+export function samePerson(
+  a: { person_id: string | null; person_name: string | null },
+  b: { person_id: string | null; person_name: string | null },
+): boolean {
+  if (a.person_id || b.person_id) return a.person_id === b.person_id;
+  const an = (a.person_name ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  return !!an && an === (b.person_name ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/**
  * The reporting lines the units imply. A line drawn on Reporting lines wins:
  * someone who holds a role there gets no implied line, and the people who
  * report to them hang under that role. A unit without a head of its own

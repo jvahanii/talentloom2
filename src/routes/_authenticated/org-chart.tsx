@@ -62,6 +62,7 @@ import {
   planMove,
   renameChart,
   subtreeIds,
+  samePerson,
   updateNode,
   type ChartMember,
   type ChartNode,
@@ -214,6 +215,10 @@ type View = {
   blocked: Set<string>;
   onOpen: (n: ChartNode) => void;
   onAdd: (n: ChartNode) => void;
+  /** Takes someone out of a unit, straight from the chart (with Undo). */
+  onRemoveMember: (m: ChartMember, unit: ChartNode) => void;
+  /** Clears a unit's head, straight from the chart (with Undo). */
+  onRemoveHead: (unit: ChartNode) => void;
 };
 
 function OrgChartPage() {
@@ -402,6 +407,8 @@ function OrgChartPage() {
     if (!boxDialog.fields.role.trim()) return;
     const k = boxDialog.fields.kind;
     const isUnit = k === "unit";
+    // The head is never also listed as a member.
+    const unitMembers = boxDialog.members.filter((m) => !samePerson(m, boxDialog.fields));
     const ok = await run(async () => {
       if (boxDialog.mode === "add") {
         const id = await addNode(
@@ -411,7 +418,7 @@ function OrgChartPage() {
           nextPosition(boxDialog.parentId, k),
           boxDialog.fields,
         );
-        if (isUnit) await addMembers(orgId, chart.id, id, boxDialog.members, 0);
+        if (isUnit) await addMembers(orgId, chart.id, id, unitMembers, 0);
       } else {
         const parent = boxDialog.parent === TOP ? null : boxDialog.parent;
         const moved = parent !== boxDialog.node.parent_id;
@@ -420,7 +427,7 @@ function OrgChartPage() {
           ...(moved ? { parent_id: parent, position: nextPosition(parent, k) } : {}),
         });
         if (isUnit) {
-          const kept = new Set(boxDialog.members.flatMap((m) => (m.id ? [m.id] : [])));
+          const kept = new Set(unitMembers.flatMap((m) => (m.id ? [m.id] : [])));
           await deleteMembers(
             membersOf(boxDialog.node.id)
               .filter((m) => !kept.has(m.id))
@@ -430,7 +437,7 @@ function OrgChartPage() {
             orgId,
             chart.id,
             boxDialog.node.id,
-            boxDialog.members.filter((m) => !m.id),
+            unitMembers.filter((m) => !m.id),
             nextMemberPosition(boxDialog.node.id),
           );
         }
@@ -501,16 +508,22 @@ function OrgChartPage() {
           toast(`${person.name} is already in ${target.role}`);
           return;
         }
+        const wasHead = samePerson(target, { person_id: person.id, person_name: person.name });
         void run(
-          () =>
-            addMembers(
+          async () => {
+            await addMembers(
               orgId,
               chart.id,
               target.id,
               [{ person_id: person.id, person_name: person.name }],
               nextMemberPosition(target.id),
-            ),
-          `Added ${person.name} to ${target.role}`,
+            );
+            // A member now, so no longer the head as well.
+            if (wasHead) await updateNode(target.id, { person_id: null, person_name: "" });
+          },
+          wasHead
+            ? `${person.name} is now a member of ${target.role}, no longer its head`
+            : `Added ${person.name} to ${target.role}`,
         );
       } else if (target.person_id !== person.id) {
         void run(
@@ -538,12 +551,18 @@ function OrgChartPage() {
               : m,
           ),
     );
+    const moving = members.find((m) => m.id === data.memberId);
+    const wasHead = !!moving && samePerson(target, moving);
     void run(
-      () =>
-        already
-          ? deleteMembers([data.memberId])
-          : moveMember(data.memberId, target.id, nextMemberPosition(target.id)),
-      `Moved ${data.label} to ${target.role}`,
+      async () => {
+        if (already) await deleteMembers([data.memberId]);
+        else await moveMember(data.memberId, target.id, nextMemberPosition(target.id));
+        // A member there now, so no longer its head as well.
+        if (wasHead) await updateNode(target.id, { person_id: null, person_name: "" });
+      },
+      wasHead
+        ? `${data.label} is now a member of ${target.role}, no longer its head`
+        : `Moved ${data.label} to ${target.role}`,
     );
   };
 
@@ -577,7 +596,51 @@ function OrgChartPage() {
     });
   };
 
+  const removeMember = (m: ChartMember, unit: ChartNode) => {
+    if (!chart) return;
+    const c = chart;
+    const name = memberName(m);
+    qc.setQueryData<ChartMember[]>(chartMembersKey(c.id), (old) =>
+      old?.filter((x) => x.id !== m.id),
+    );
+    void run(() => deleteMembers([m.id])).then((ok) => {
+      if (!ok) return;
+      toast(`Removed ${name} from ${unit.role}`, {
+        action: {
+          label: "Undo",
+          onClick: () =>
+            void run(() =>
+              addMembers(
+                orgId,
+                c.id,
+                unit.id,
+                [{ person_id: m.person_id, person_name: m.person_name }],
+                m.position,
+              ),
+            ),
+        },
+      });
+    });
+  };
+
+  const removeHead = (unit: ChartNode) => {
+    if (!chart) return;
+    const name = nameOf(unit) ?? "The head";
+    const before = { person_id: unit.person_id, person_name: unit.person_name ?? "" };
+    qc.setQueryData<ChartNode[]>(chartNodesKey(chart.id), (old) =>
+      old?.map((x) => (x.id === unit.id ? { ...x, person_id: null, person_name: null } : x)),
+    );
+    void run(() => updateNode(unit.id, { person_id: null, person_name: "" })).then((ok) => {
+      if (!ok) return;
+      toast(`${name} is no longer head of ${unit.role}`, {
+        action: { label: "Undo", onClick: () => void run(() => updateNode(unit.id, before)) },
+      });
+    });
+  };
+
   const view: View = {
+    onRemoveMember: removeMember,
+    onRemoveHead: removeHead,
     implied,
     onOpenImplied: (l) => {
       if (Date.now() - dragEndedAt.current < 300) return;
@@ -879,9 +942,16 @@ function OrgChartPage() {
                 people={people}
                 loading={peopleQuery.isLoading}
                 onChange={(patch) =>
-                  setBoxDialog((d) =>
-                    d ? ({ ...d, fields: { ...d.fields, ...patch } } as BoxDialog) : d,
-                  )
+                  setBoxDialog((d) => {
+                    if (!d) return d;
+                    const fields = { ...d.fields, ...patch };
+                    // A unit's head isn't also one of its members.
+                    const members =
+                      fields.kind === "unit"
+                        ? d.members.filter((m) => !samePerson(m, fields))
+                        : d.members;
+                    return { ...d, fields, members } as BoxDialog;
+                  })
                 }
               />
               {boxDialog.fields.kind === "role" && (
@@ -926,7 +996,15 @@ function OrgChartPage() {
                   people={people}
                   loading={peopleQuery.isLoading}
                   onChange={(next) =>
-                    setBoxDialog((d) => (d ? ({ ...d, members: next } as BoxDialog) : d))
+                    setBoxDialog((d) => {
+                      if (!d) return d;
+                      // Added as a member: then not the head as well.
+                      const headIsMember = next.some((m) => samePerson(m, d.fields));
+                      const fields = headIsMember
+                        ? { ...d.fields, person_id: null, person_name: "" }
+                        : d.fields;
+                      return { ...d, fields, members: next } as BoxDialog;
+                    })
                   }
                 />
               )}
@@ -1634,7 +1712,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
           >
             {n.role}
           </span>
-          {(!unit || view.nameOf(n)) && (
+          {!unit && (
             <span
               className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground"
               title={n.person_id ? "From People" : undefined}
@@ -1644,9 +1722,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               ) : (
                 <UserRound className="h-3 w-3 shrink-0" />
               )}
-              <span className="truncate">
-                {unit ? `Head: ${view.nameOf(n)}` : view.nameOf(n) || "Open"}
-              </span>
+              <span className="truncate">{view.nameOf(n) || "Open"}</span>
             </span>
           )}
           {!unit && view.unitName(n) && (
@@ -1667,6 +1743,30 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
             </span>
           )}
         </button>
+        {unit && view.nameOf(n) && (
+          // Outside the box's own button, so the head can be removed from here.
+          <div
+            className="-mt-1.5 flex items-center justify-center gap-1 px-3 pb-2 text-xs text-muted-foreground"
+            title={n.person_id ? "From People" : undefined}
+          >
+            {n.person_id ? (
+              <Link2 className="h-3 w-3 shrink-0 text-primary" />
+            ) : (
+              <UserRound className="h-3 w-3 shrink-0" />
+            )}
+            <button
+              type="button"
+              onClick={() => view.onOpen(n)}
+              className="truncate hover:text-foreground"
+            >
+              Head: {view.nameOf(n)}
+            </button>
+            <RemoveButton
+              label={`Remove ${view.nameOf(n)} as head of ${n.role}`}
+              onClick={() => view.onRemoveHead(n)}
+            />
+          </div>
+        )}
         {unit && (
           <div className="border-t border-primary/30 px-2 pb-4 pt-1.5">
             {shown.length === 0 ? (
@@ -1683,7 +1783,9 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
                     key={m.id}
                     m={m}
                     name={view.memberName(m)}
+                    unitName={n.role}
                     onOpen={() => view.onOpen(n)}
+                    onRemove={() => view.onRemoveMember(m, n)}
                   />
                 ))}
                 {shown.length > MEMBERS_SHOWN && (
@@ -1715,8 +1817,38 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   );
 }
 
+/** A small ×: takes someone off the chart without opening the box. */
+function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="shrink-0 rounded-full p-0.5 text-muted-foreground/70 transition hover:bg-destructive/10 hover:text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+    >
+      <X className="h-3 w-3" />
+    </button>
+  );
+}
+
 /** Someone in a unit's box; drag them onto another unit to move them there. */
-function MemberChip({ m, name, onOpen }: { m: ChartMember; name: string; onOpen: () => void }) {
+function MemberChip({
+  m,
+  name,
+  unitName,
+  onOpen,
+  onRemove,
+}: {
+  m: ChartMember;
+  name: string;
+  unitName: string;
+  onOpen: () => void;
+  onRemove: () => void;
+}) {
   const drag = useDraggable({
     id: `member:${m.id}`,
     data: {
@@ -1728,17 +1860,25 @@ function MemberChip({ m, name, onOpen }: { m: ChartMember; name: string; onOpen:
     } satisfies DragData,
   });
   return (
-    <div role="listitem" ref={drag.setNodeRef} className={drag.isDragging ? "opacity-40" : ""}>
+    <div
+      role="listitem"
+      ref={drag.setNodeRef}
+      className={
+        "flex max-w-44 items-center rounded-full border border-border bg-background pr-0.5 text-xs" +
+        (drag.isDragging ? " opacity-40" : "")
+      }
+    >
       <button
         type="button"
         {...drag.listeners}
         onClick={onOpen}
         title={`${name}: drag onto another unit to move`}
-        className="flex max-w-44 cursor-grab touch-manipulation items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs active:cursor-grabbing"
+        className="flex min-w-0 cursor-grab touch-manipulation items-center gap-1 rounded-full py-0.5 pl-2 pr-0.5 active:cursor-grabbing"
       >
         {m.person_id && <Link2 className="h-3 w-3 shrink-0 text-primary" />}
         <span className="truncate">{name}</span>
       </button>
+      <RemoveButton label={`Remove ${name} from ${unitName}`} onClick={onRemove} />
     </div>
   );
 }
