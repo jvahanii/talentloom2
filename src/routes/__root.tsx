@@ -16,6 +16,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk";
 import { Toaster } from "@/components/ui/sonner";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { PeekingFriends } from "@/components/PeekingFriends";
 import { isStaleBuildError, nextAutoReload, reloadFreshPage } from "@/lib/appVersion";
 
 function NotFoundComponent() {
@@ -184,6 +185,7 @@ function RootComponent() {
         <Outlet />
         <Toaster />
         <UpdateBanner />
+        <PeekingFriends />
       </ClerkProvider>
     </QueryClientProvider>
   );

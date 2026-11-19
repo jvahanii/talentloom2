@@ -594,3 +594,26 @@
 .org-tree ul:not(:has(> li:not(.org-implied)))::before {
   border-style: dashed;
 }
+
+/* The cat and the pig (PeekingFriends): a gentle wiggle while they peek. */
+@keyframes peeking-friend-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(8deg);
+  }
+}
+.peeking-friend {
+  transform-origin: 50% 90%;
+  animation: peeking-friend-wiggle 1.4s ease-in-out 0.7s 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .peeking-friend {
+    animation: none;
+  }
+}
