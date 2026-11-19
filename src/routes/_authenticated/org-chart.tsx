@@ -1444,7 +1444,9 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
             {shown.length === 0 ? (
               <p className="text-xs text-muted-foreground">No members yet</p>
             ) : (
-              <ul
+              // Not ul/li: the chart's tree lines are drawn on every list inside it.
+              <div
+                role="list"
                 className="flex flex-wrap justify-center gap-1"
                 aria-label={`Members of ${n.role}`}
               >
@@ -1457,7 +1459,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
                   />
                 ))}
                 {shown.length > MEMBERS_SHOWN && (
-                  <li>
+                  <div role="listitem">
                     <button
                       type="button"
                       onClick={() => view.onOpen(n)}
@@ -1465,9 +1467,9 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
                     >
                       +{shown.length - MEMBERS_SHOWN} more
                     </button>
-                  </li>
+                  </div>
                 )}
-              </ul>
+              </div>
             )}
           </div>
         )}
@@ -1498,7 +1500,7 @@ function MemberChip({ m, name, onOpen }: { m: ChartMember; name: string; onOpen:
     } satisfies DragData,
   });
   return (
-    <li ref={drag.setNodeRef} className={drag.isDragging ? "opacity-40" : ""}>
+    <div role="listitem" ref={drag.setNodeRef} className={drag.isDragging ? "opacity-40" : ""}>
       <button
         type="button"
         {...drag.listeners}
@@ -1509,6 +1511,6 @@ function MemberChip({ m, name, onOpen }: { m: ChartMember; name: string; onOpen:
         {m.person_id && <Link2 className="h-3 w-3 shrink-0 text-primary" />}
         <span className="truncate">{name}</span>
       </button>
-    </li>
+    </div>
   );
 }
