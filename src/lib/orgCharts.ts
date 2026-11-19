@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/app-client";
  * Organisation charts: a feature of their own, not linked to People or Teams.
  * An organisation keeps any number of named charts; each is a tree of boxes,
  * each box a role with, optionally, a person's name and a note, typed by hand.
+ * A box may instead name someone from People (person_id, a member of the
+ * organisation); person_name then keeps their name as it was when picked, so
+ * the box still reads right if they leave, which unlinks them.
  * Every member of the organisation may read and edit them (row-level security
  * on org_charts and org_chart_nodes). The database keeps a box out from under
  * itself, and a deleted box's boxes below go to the top unless moved first.
@@ -14,6 +17,7 @@ export type ChartNode = {
   parent_id: string | null;
   role: string;
   person_name: string | null;
+  person_id: string | null;
   note: string | null;
   position: number;
   created_at: string;
@@ -83,6 +87,7 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
         parent_id: n.parent_id ? newId.get(n.parent_id) : null,
         role: n.role,
         person_name: n.person_name,
+        person_id: n.person_id,
         note: n.note,
         position: n.position,
       })),
@@ -98,7 +103,7 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
 export async function fetchNodes(chartId: string): Promise<ChartNode[]> {
   const { data, error } = await db
     .from("org_chart_nodes")
-    .select("id, parent_id, role, person_name, note, position, created_at")
+    .select("id, parent_id, role, person_name, person_id, note, position, created_at")
     .eq("chart_id", chartId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
@@ -106,13 +111,43 @@ export async function fetchNodes(chartId: string): Promise<ChartNode[]> {
   return (data ?? []) as ChartNode[];
 }
 
-export type NodeFields = { role: string; person_name: string; note: string };
+/** person_id: someone from People, or null for a name typed by hand. */
+export type NodeFields = {
+  role: string;
+  person_name: string;
+  person_id: string | null;
+  note: string;
+};
 
 const tidy = (f: NodeFields) => ({
   role: f.role.trim().slice(0, MAX_ROLE),
   person_name: f.person_name.trim().slice(0, MAX_PERSON) || null,
+  person_id: f.person_id,
   note: f.note.trim().slice(0, MAX_NOTE) || null,
 });
+
+/** Someone in the organisation's People list. */
+export type OrgPerson = { id: string; name: string; email: string | null };
+
+export const orgPeopleKey = (orgId: string | null) => ["org-chart-people", orgId];
+
+export async function fetchOrgPeople(orgId: string): Promise<OrgPerson[]> {
+  const { data: rows, error } = await supabase
+    .from("organization_members")
+    .select("user_id")
+    .eq("org_id", orgId);
+  if (error) throw error;
+  const ids = (rows ?? []).map((r) => r.user_id);
+  if (!ids.length) return [];
+  const { data: profiles, error: pError } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .in("id", ids);
+  if (pError) throw pError;
+  return ((profiles ?? []) as { id: string; full_name: string | null; email: string | null }[])
+    .map((p) => ({ id: p.id, name: p.full_name || p.email || "Unnamed", email: p.email }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export async function addNode(
   orgId: string,
@@ -135,6 +170,7 @@ export async function updateNode(
   if (change.role !== undefined) row.role = change.role.trim().slice(0, MAX_ROLE);
   if (change.person_name !== undefined)
     row.person_name = change.person_name.trim().slice(0, MAX_PERSON) || null;
+  if (change.person_id !== undefined) row.person_id = change.person_id;
   if (change.note !== undefined) row.note = change.note.trim().slice(0, MAX_NOTE) || null;
   if (change.parent_id !== undefined) row.parent_id = change.parent_id;
   if (change.position !== undefined) row.position = change.position;

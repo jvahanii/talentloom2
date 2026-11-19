@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Copy,
+  Link2,
   Pencil,
+  Search,
   Plus,
   Trash2,
   UserRound,
@@ -28,12 +30,15 @@ import {
   deleteNode,
   fetchCharts,
   fetchNodes,
+  fetchOrgPeople,
+  orgPeopleKey,
   renameChart,
   subtreeIds,
   updateNode,
   type ChartNode,
   type NodeFields,
   type OrgChart,
+  type OrgPerson,
 } from "@/lib/orgCharts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,7 +106,7 @@ type BoxDialog =
   | { mode: "edit"; node: ChartNode; fields: NodeFields; parent: string }
   | null;
 
-const emptyFields: NodeFields = { role: "", person_name: "", note: "" };
+const emptyFields: NodeFields = { role: "", person_name: "", person_id: null, note: "" };
 
 function OrgChartPage() {
   const qc = useQueryClient();
@@ -125,6 +130,17 @@ function OrgChartPage() {
   });
   const nodes = nodesQuery.data ?? [];
   const kids = childrenOf(nodes);
+
+  const peopleQuery = useQuery({
+    queryKey: orgPeopleKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchOrgPeople(orgId!),
+  });
+  const people = peopleQuery.data ?? [];
+  const personById = new Map(people.map((p) => [p.id, p]));
+  /** The name a box shows: a linked person's current name, else the one typed. */
+  const nameOf = (n: ChartNode) =>
+    (n.person_id ? personById.get(n.person_id)?.name : null) ?? n.person_name;
 
   const [busy, setBusy] = useState(false);
   const [nameDialog, setNameDialog] = useState<NameDialog>(null);
@@ -321,6 +337,7 @@ function OrgChartPage() {
                   <Branch
                     parentKey=""
                     kids={kids}
+                    nameOf={nameOf}
                     onOpen={(n) =>
                       setBoxDialog({
                         mode: "edit",
@@ -329,6 +346,7 @@ function OrgChartPage() {
                         fields: {
                           role: n.role,
                           person_name: n.person_name ?? "",
+                          person_id: n.person_id,
                           note: n.note ?? "",
                         },
                       })
@@ -410,7 +428,7 @@ function OrgChartPage() {
                 ? `Reports to ${nodes.find((n) => n.id === boxDialog.parentId)?.role ?? "the box above"}.`
                 : boxDialog?.mode === "add"
                   ? "At the top of the chart."
-                  : "Names are typed here; they aren't linked to People."}
+                  : "Pick someone from People, or type a name."}
             </DialogDescription>
           </DialogHeader>
           {boxDialog && (
@@ -438,25 +456,16 @@ function OrgChartPage() {
                   }
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="box-person">Name (optional)</Label>
-                <Input
-                  id="box-person"
-                  placeholder="Who holds the role; leave empty if open"
-                  value={boxDialog.fields.person_name}
-                  maxLength={MAX_PERSON}
-                  onChange={(e) =>
-                    setBoxDialog((d) =>
-                      d
-                        ? ({
-                            ...d,
-                            fields: { ...d.fields, person_name: e.target.value },
-                          } as BoxDialog)
-                        : d,
-                    )
-                  }
-                />
-              </div>
+              <PersonField
+                fields={boxDialog.fields}
+                people={people}
+                loading={peopleQuery.isLoading}
+                onChange={(patch) =>
+                  setBoxDialog((d) =>
+                    d ? ({ ...d, fields: { ...d.fields, ...patch } } as BoxDialog) : d,
+                  )
+                }
+              />
               <div className="space-y-1.5">
                 <Label htmlFor="box-note">Note (optional)</Label>
                 <Textarea
@@ -493,7 +502,7 @@ function OrgChartPage() {
                           .map((n) => (
                             <SelectItem key={n.id} value={n.id}>
                               {n.role}
-                              {n.person_name ? ` — ${n.person_name}` : ""}
+                              {nameOf(n) ? ` — ${nameOf(n)}` : ""}
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -615,14 +624,144 @@ function OrgChartPage() {
   );
 }
 
+/**
+ * Who holds the role: someone picked from People, or a name typed by hand.
+ * Picking stores the person and a copy of their name; the box then shows
+ * their name as it is in People.
+ */
+function PersonField({
+  fields,
+  people,
+  loading,
+  onChange,
+}: {
+  fields: NodeFields;
+  people: OrgPerson[];
+  loading: boolean;
+  onChange: (patch: Partial<NodeFields>) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const [query, setQuery] = useState("");
+  const linked = fields.person_id ? people.find((p) => p.id === fields.person_id) : undefined;
+  const term = query.trim().toLowerCase();
+  const matches = people.filter(
+    (p) =>
+      !term || p.name.toLowerCase().includes(term) || (p.email ?? "").toLowerCase().includes(term),
+  );
+
+  const pick = (p: OrgPerson) => {
+    onChange({ person_id: p.id, person_name: p.name.slice(0, MAX_PERSON) });
+    setPicking(false);
+    setQuery("");
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={fields.person_id ? undefined : "box-person"}>Person (optional)</Label>
+      {fields.person_id ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-border px-3 py-2">
+          <Link2 className="h-4 w-4 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">
+              {linked?.name ?? fields.person_name ?? "Someone from People"}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {linked ? (linked.email ?? "From People") : "No longer in People"}
+            </span>
+          </span>
+          <Button type="button" size="sm" variant="outline" onClick={() => setPicking(true)}>
+            Change
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onChange({ person_id: null, person_name: "" })}
+          >
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="box-person"
+            placeholder="Type a name, or leave empty if open"
+            value={fields.person_name}
+            maxLength={MAX_PERSON}
+            onChange={(e) => onChange({ person_name: e.target.value })}
+            className="min-w-0 flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setPicking((v) => !v)}
+            aria-expanded={picking}
+          >
+            <UserRound className="mr-1 h-4 w-4" /> Pick from People
+          </Button>
+        </div>
+      )}
+      {picking && (
+        <div className="space-y-2 rounded-xl border-2 border-border p-2">
+          <label className="flex items-center gap-2 rounded-lg border border-border px-2 py-1.5">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (matches.length === 1) pick(matches[0]!);
+                }
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setPicking(false);
+                }
+              }}
+              placeholder="Search People"
+              aria-label="Search People"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </label>
+          <ul className="max-h-48 overflow-y-auto" aria-label="People">
+            {loading && <li className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</li>}
+            {!loading && matches.length === 0 && (
+              <li className="px-2 py-1.5 text-sm text-muted-foreground">
+                {people.length === 0 ? "No one in People yet." : "No one matches."}
+              </li>
+            )}
+            {matches.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => pick(p)}
+                  className="flex w-full flex-col rounded-lg px-2 py-1.5 text-left hover:bg-muted"
+                >
+                  <span className="text-sm font-medium">{p.name}</span>
+                  {p.email && p.email !== p.name && (
+                    <span className="text-xs text-muted-foreground">{p.email}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Branch({
   parentKey,
   kids,
+  nameOf,
   onOpen,
   onAdd,
 }: {
   parentKey: string;
   kids: Map<string, ChartNode[]>;
+  nameOf: (n: ChartNode) => string | null;
   onOpen: (n: ChartNode) => void;
   onAdd: (n: ChartNode) => void;
 }) {
@@ -639,9 +778,16 @@ function Branch({
               className="block w-44 rounded-xl border-2 border-border bg-background px-3 py-2.5 text-center shadow-sm transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
             >
               <span className="block text-sm font-semibold leading-snug">{n.role}</span>
-              <span className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-                <UserRound className="h-3 w-3 shrink-0" />
-                <span className="truncate">{n.person_name || "Open"}</span>
+              <span
+                className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+                title={n.person_id ? "From People" : undefined}
+              >
+                {n.person_id ? (
+                  <Link2 className="h-3 w-3 shrink-0 text-primary" />
+                ) : (
+                  <UserRound className="h-3 w-3 shrink-0" />
+                )}
+                <span className="truncate">{nameOf(n) || "Open"}</span>
               </span>
               {n.note && (
                 <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground/80">
@@ -659,7 +805,7 @@ function Branch({
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
-          <Branch parentKey={n.id} kids={kids} onOpen={onOpen} onAdd={onAdd} />
+          <Branch parentKey={n.id} kids={kids} nameOf={nameOf} onOpen={onOpen} onAdd={onAdd} />
         </li>
       ))}
     </ul>
