@@ -74,34 +74,114 @@ interface PositionListRow {
   description: string | null;
 }
 
-export const listOpenPositions = createServerFn({ method: "GET" }).handler(async () => {
+export interface BoardEntry {
+  /** "position": a Talentloom position, applied for here. "ad": a job ad
+   *  imported from a public list, read and applied for at `url`. */
+  kind: "position" | "ad";
+  id: string;
+  title: string;
+  /** What the company filter matches on: an organisation id, or "ad:<name>". */
+  orgId: string;
+  orgName: string;
+  department: string | null;
+  location: string | null;
+  targetStartDate: string | null;
+  deadlineDate: string | null;
+  excerpt: string;
+  /** For sorting by newest: when it was posted. */
+  postedAt: string;
+  url: string | null;
+}
+
+interface ImportedAdRow {
+  id: string;
+  title: string;
+  company: string | null;
+  location: string | null;
+  url: string;
+  deadline_date: string | null;
+  posted_on: string | null;
+  first_seen_at: string;
+}
+
+/** Imported ads still on their list and not past their deadline. */
+async function listImportedAds(): Promise<BoardEntry[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
-  const { data: reqsRaw } = await supabaseAdmin
-    .from("requisitions")
-    .select(
-      "id, title, org_id, department, target_start_date, deadline_date, description, created_at",
-    )
-    .eq("status", "open")
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const reqs = reqsRaw as unknown as PositionListRow[] | null;
-  if (!reqs || reqs.length === 0) return [];
-  const { data: orgs } = await supabaseAdmin
-    .from("organizations")
-    .select("id, name")
-    .in("id", [...new Set(reqs.map((r) => r.org_id))]);
-  const names = new Map((orgs ?? []).map((o) => [o.id, o.name]));
-  return reqs.map((r) => ({
+  // imported_job_ads was created directly on the backend project.
+  const db = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const today = new Date().toISOString().slice(0, 10);
+  const rows: ImportedAdRow[] = [];
+  // The API answers at most 1000 rows a request.
+  for (let from = 0; from < 5000; from += 1000) {
+    const { data, error } = await db
+      .from("imported_job_ads")
+      .select("id, title, company, location, url, deadline_date, posted_on, first_seen_at")
+      .is("removed_at", null)
+      .or(`deadline_date.is.null,deadline_date.gte.${today}`)
+      .order("posted_on", { ascending: false, nullsFirst: false })
+      .order("id")
+      .range(from, from + 999);
+    if (error) {
+      console.error("imported_job_ads:", error.message);
+      break;
+    }
+    rows.push(...((data ?? []) as ImportedAdRow[]));
+    if ((data ?? []).length < 1000) break;
+  }
+  return rows.map((r) => ({
+    kind: "ad" as const,
     id: r.id,
     title: r.title,
-    orgId: r.org_id,
-    orgName: names.get(r.org_id) ?? "A company",
-    department: r.department,
-    targetStartDate: r.target_start_date,
+    orgId: `ad:${(r.company ?? "").toLowerCase()}`,
+    orgName: r.company ?? "",
+    department: null,
+    location: r.location,
+    targetStartDate: null,
     deadlineDate: r.deadline_date,
-    excerpt: (r.description ?? "").slice(0, 220),
+    excerpt: "",
+    postedAt: r.posted_on ?? r.first_seen_at.slice(0, 10),
+    url: r.url,
   }));
-});
+}
+
+export const listOpenPositions = createServerFn({ method: "GET" }).handler(
+  async (): Promise<BoardEntry[]> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
+    const adsPromise = listImportedAds();
+    const { data: reqsRaw } = await supabaseAdmin
+      .from("requisitions")
+      .select(
+        "id, title, org_id, department, target_start_date, deadline_date, description, created_at",
+      )
+      .eq("status", "open")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    const reqs = (reqsRaw ?? []) as unknown as (PositionListRow & { created_at: string })[];
+    let positions: BoardEntry[] = [];
+    if (reqs.length > 0) {
+      const { data: orgs } = await supabaseAdmin
+        .from("organizations")
+        .select("id, name")
+        .in("id", [...new Set(reqs.map((r) => r.org_id))]);
+      const names = new Map((orgs ?? []).map((o) => [o.id, o.name]));
+      positions = reqs.map((r) => ({
+        kind: "position" as const,
+        id: r.id,
+        title: r.title,
+        orgId: r.org_id,
+        orgName: names.get(r.org_id) ?? "A company",
+        department: r.department,
+        location: null,
+        targetStartDate: r.target_start_date,
+        deadlineDate: r.deadline_date,
+        excerpt: (r.description ?? "").slice(0, 220),
+        postedAt: r.created_at.slice(0, 10),
+        url: null,
+      }));
+    }
+    return [...positions, ...(await adsPromise)];
+  },
+);
 
 export const getPosition = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))

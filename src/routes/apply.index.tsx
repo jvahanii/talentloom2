@@ -1,12 +1,31 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, Building2, EyeOff, RotateCcw, Search } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  ExternalLink,
+  EyeOff,
+  MapPin,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { StarRating } from "@/components/StarRating";
 import { usePositionRatings } from "@/hooks/usePositionRatings";
 import { useBoardPrefs } from "@/hooks/useBoardPrefs";
-import { listOpenPositions } from "@/lib/apply.functions";
+import { listOpenPositions, type BoardEntry } from "@/lib/apply.functions";
+
+/** How many cards show at first, and how many more each "Show more" adds. */
+const PAGE = 40;
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www./, "");
+  } catch {
+    return "the original site";
+  }
+}
 
 const SORTS = [
   { value: "newest", label: "Newest" },
@@ -101,9 +120,12 @@ function JobBoard() {
   });
 
   const all = positions ?? [];
-  const companies = [...new Map(all.map((p) => [p.orgId, p.orgName])).entries()].sort((a, b) =>
-    a[1].localeCompare(b[1]),
-  );
+  const companies = [
+    ...new Map(all.filter((p) => p.orgName).map((p) => [p.orgId, p.orgName])).entries(),
+  ].sort((a, b) => a[1].localeCompare(b[1]));
+
+  const [shown, setShown] = useState(PAGE);
+  useEffect(() => setShown(PAGE), [q, org, safeSort, safeView]);
 
   const term = q.trim().toLowerCase().slice(0, 100);
   const filtered = all
@@ -114,7 +136,9 @@ function JobBoard() {
       if (safeView !== "discarded" && discarded) return false;
       if (safeView === "rated" && ratings.ratingOf(p.id) === null) return false;
       if (!term) return true;
-      return [p.title, p.orgName, p.department ?? ""].some((v) => v.toLowerCase().includes(term));
+      return [p.title, p.orgName, p.department ?? "", p.location ?? ""].some((v) =>
+        v.toLowerCase().includes(term),
+      );
     })
     .sort((a, b) => {
       switch (safeSort) {
@@ -127,7 +151,7 @@ function JobBoard() {
         case "company":
           return a.orgName.localeCompare(b.orgName);
         default:
-          return 0;
+          return b.postedAt.localeCompare(a.postedAt);
       }
     });
 
@@ -235,19 +259,23 @@ function JobBoard() {
             </div>
           )}
 
-          {filtered.map((p) => (
-            <Link
-              key={p.id}
-              to="/apply/position/$id"
-              params={{ id: p.id }}
-              className="glass rounded-2xl p-6 transition hover:brightness-105"
-            >
+          {filtered.slice(0, shown).map((p) => (
+            <BoardCard key={p.id} entry={p}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="font-display text-lg font-semibold">{p.title}</h2>
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Building2 className="h-4 w-4" /> {p.orgName}
-                    {p.department ? ` · ${p.department}` : ""}
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                    {p.orgName && (
+                      <>
+                        <Building2 className="h-4 w-4 shrink-0" /> {p.orgName}
+                        {p.department ? ` · ${p.department}` : ""}
+                      </>
+                    )}
+                    {p.location && (
+                      <>
+                        <MapPin className="ml-1 h-4 w-4 shrink-0" /> {p.location}
+                      </>
+                    )}
                   </p>
                 </div>
                 <span className="flex shrink-0 flex-col items-end gap-1">
@@ -267,7 +295,15 @@ function JobBoard() {
                 <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{p.excerpt}</p>
               )}
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-primary">See the role and apply →</span>
+                {p.url ? (
+                  <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                    Read the ad on {hostOf(p.url)} <ExternalLink className="h-3.5 w-3.5" />
+                  </span>
+                ) : (
+                  <span className="text-sm font-semibold text-primary">
+                    See the role and apply →
+                  </span>
+                )}
                 <span className="flex items-center gap-2">
                   <StarRating
                     value={ratings.ratingOf(p.id)}
@@ -298,10 +334,38 @@ function JobBoard() {
                   )}
                 </span>
               </div>
-            </Link>
+            </BoardCard>
           ))}
+
+          {filtered.length > shown && (
+            <button
+              type="button"
+              onClick={() => setShown((n) => n + PAGE)}
+              className="glass mx-auto rounded-full px-5 py-2 text-sm font-semibold transition hover:brightness-105 active:scale-95"
+            >
+              Show more ({filtered.length - shown} left)
+            </button>
+          )}
         </div>
       </section>
     </MarketingShell>
+  );
+}
+
+/** A Talentloom position opens its page here; an imported ad opens the
+ *  original ad in a new tab. */
+function BoardCard({ entry, children }: { entry: BoardEntry; children: ReactNode }) {
+  const className = "glass rounded-2xl p-6 transition hover:brightness-105";
+  if (entry.url) {
+    return (
+      <a href={entry.url} target="_blank" rel="noopener noreferrer nofollow" className={className}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link to="/apply/position/$id" params={{ id: entry.id }} className={className}>
+      {children}
+    </Link>
   );
 }

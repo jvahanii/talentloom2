@@ -29,6 +29,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSkillsRouteImport } from './routes/_authenticated/skills'
 import { Route as AuthenticatedTeamsRouteImport } from './routes/_authenticated/teams'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
+import { Route as ApiImportJobAdsRouteImport } from './routes/api/import-job-ads'
 import { Route as ApplyIndexRouteImport } from './routes/apply.index'
 import { Route as ApplyOrgIdRouteImport } from './routes/apply.$orgId'
 import { Route as CandidateApplicationsRouteImport } from './routes/candidate.applications'
@@ -141,6 +142,11 @@ const AuthenticatedWorkspaceRoute = AuthenticatedWorkspaceRouteImport.update({
   path: '/workspace',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiImportJobAdsRoute = ApiImportJobAdsRouteImport.update({
+  id: '/api/import-job-ads',
+  path: '/api/import-job-ads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApplyIndexRoute = ApplyIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/skills': typeof AuthenticatedSkillsRoute
   '/teams': typeof AuthenticatedTeamsRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
+  '/api/import-job-ads': typeof ApiImportJobAdsRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/candidate/applications': typeof CandidateApplicationsRoute
   '/candidate/auth': typeof CandidateAuthRoute
@@ -251,6 +258,7 @@ export interface FileRoutesByTo {
   '/skills': typeof AuthenticatedSkillsRoute
   '/teams': typeof AuthenticatedTeamsRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
+  '/api/import-job-ads': typeof ApiImportJobAdsRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/candidate/applications': typeof CandidateApplicationsRoute
   '/candidate/auth': typeof CandidateAuthRoute
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/_authenticated/skills': typeof AuthenticatedSkillsRoute
   '/_authenticated/teams': typeof AuthenticatedTeamsRoute
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
+  '/api/import-job-ads': typeof ApiImportJobAdsRoute
   '/apply/$orgId': typeof ApplyOrgIdRoute
   '/candidate/applications': typeof CandidateApplicationsRoute
   '/candidate/auth': typeof CandidateAuthRoute
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/skills'
     | '/teams'
     | '/workspace'
+    | '/api/import-job-ads'
     | '/apply/$orgId'
     | '/candidate/applications'
     | '/candidate/auth'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/skills'
     | '/teams'
     | '/workspace'
+    | '/api/import-job-ads'
     | '/apply/$orgId'
     | '/candidate/applications'
     | '/candidate/auth'
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/_authenticated/skills'
     | '/_authenticated/teams'
     | '/_authenticated/workspace'
+    | '/api/import-job-ads'
     | '/apply/$orgId'
     | '/candidate/applications'
     | '/candidate/auth'
@@ -406,6 +418,7 @@ export interface RootRouteChildren {
   PulseRoute: typeof PulseRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VersionDotjsonRoute: typeof VersionDotjsonRoute
+  ApiImportJobAdsRoute: typeof ApiImportJobAdsRoute
   CandidateApplicationsRoute: typeof CandidateApplicationsRoute
   CandidateAuthRoute: typeof CandidateAuthRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -554,6 +567,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkspaceRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/import-job-ads': {
+      id: '/api/import-job-ads'
+      path: '/api/import-job-ads'
+      fullPath: '/api/import-job-ads'
+      preLoaderRoute: typeof ApiImportJobAdsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/apply/': {
       id: '/apply/'
       path: '/'
@@ -699,6 +719,7 @@ const rootRouteChildren: RootRouteChildren = {
   PulseRoute: PulseRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VersionDotjsonRoute: VersionDotjsonRoute,
+  ApiImportJobAdsRoute: ApiImportJobAdsRoute,
   CandidateApplicationsRoute: CandidateApplicationsRoute,
   CandidateAuthRoute: CandidateAuthRoute,
   InviteTokenRoute: InviteTokenRoute,
