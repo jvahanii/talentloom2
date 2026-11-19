@@ -310,6 +310,11 @@ function OrgChartPage() {
   };
   for (const u of nodes) if (u.kind === "unit") addUnit(u.person_id, u.role);
   for (const m of members) addUnit(m.person_id, nodes.find((n) => n.id === m.node_id)?.role);
+  /** The units each person from People heads, by name. */
+  const headsOf = new Map<string, string[]>();
+  for (const u of nodes)
+    if (u.kind === "unit" && u.person_id)
+      headsOf.set(u.person_id, [...(headsOf.get(u.person_id) ?? []), u.role]);
 
   const [busy, setBusy] = useState(false);
   const [nameDialog, setNameDialog] = useState<NameDialog>(null);
@@ -888,6 +893,7 @@ function OrgChartPage() {
               loading={peopleQuery.isLoading}
               placesOf={placesOf}
               unitsOf={unitsOf}
+              headsOf={headsOf}
               kind={kind}
               canDrop={shown.length > 0}
             />
@@ -1624,6 +1630,7 @@ function PeoplePanel({
   loading,
   placesOf,
   unitsOf,
+  headsOf,
   kind,
   canDrop,
 }: {
@@ -1632,6 +1639,8 @@ function PeoplePanel({
   placesOf: Map<string, string[]>;
   /** The units each person heads or belongs to. */
   unitsOf: Map<string, string[]>;
+  /** The units each person heads. */
+  headsOf: Map<string, string[]>;
   kind: NodeKind;
   canDrop: boolean;
 }) {
@@ -1644,19 +1653,25 @@ function PeoplePanel({
   );
   const unitsFor = (id: string) => [...(unitsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
   const unplaced = people.filter((p) => unitsFor(p.id).length === 0).length;
-  // By unit: those in no unit first, then each unit in turn. Someone in
-  // several units is listed under the first, alphabetically (once, so each
-  // row can be dragged).
+  const headedBy = (id: string) =>
+    [...(headsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
+  // By unit: those in no unit first, then each unit in turn. Each person is
+  // listed once (so each row can be dragged): under the unit they head, or
+  // else the first unit they belong to, alphabetically. A unit's head comes
+  // first under it.
   const NO_UNIT = "";
   const groups: { unit: string; people: OrgPerson[] }[] = [];
   if (sort === "unit") {
     const byUnit = new Map<string, OrgPerson[]>();
     for (const p of matches) {
-      const u = unitsFor(p.id)[0] ?? NO_UNIT;
+      const u = headedBy(p.id)[0] ?? unitsFor(p.id)[0] ?? NO_UNIT;
       byUnit.set(u, [...(byUnit.get(u) ?? []), p]);
     }
-    for (const u of [...byUnit.keys()].sort((a, b) => a.localeCompare(b)))
-      groups.push({ unit: u, people: byUnit.get(u)! });
+    for (const u of [...byUnit.keys()].sort((a, b) => a.localeCompare(b))) {
+      const heads = (p: OrgPerson) => (u && headedBy(p.id).includes(u) ? 0 : 1);
+      // Stable sort: the list's own order (by name) stays within heads and members.
+      groups.push({ unit: u, people: [...byUnit.get(u)!].sort((a, b) => heads(a) - heads(b)) });
+    }
   } else {
     groups.push({ unit: NO_UNIT, people: matches });
   }
