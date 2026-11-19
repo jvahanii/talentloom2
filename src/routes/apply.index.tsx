@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -16,9 +16,6 @@ import { StarRating } from "@/components/StarRating";
 import { usePositionRatings } from "@/hooks/usePositionRatings";
 import { useBoardPrefs } from "@/hooks/useBoardPrefs";
 import { listOpenPositions, type BoardEntry } from "@/lib/apply.functions";
-
-/** How many cards show at first, and how many more each "Show more" adds. */
-const PAGE = 40;
 
 function hostOf(url: string) {
   try {
@@ -128,9 +125,6 @@ function JobBoard() {
   const companies = [
     ...new Map(all.filter((p) => p.orgName).map((p) => [p.orgId, p.orgName])).entries(),
   ].sort((a, b) => a[1].localeCompare(b[1]));
-
-  const [shown, setShown] = useState(PAGE);
-  useEffect(() => setShown(PAGE), [q, org, safeSort, safeView]);
 
   // Several titles at once: "designer, product manager" matches either one.
   const terms = q
@@ -252,7 +246,13 @@ function JobBoard() {
           </p>
         )}
 
-        <div className="mt-6 grid gap-4">
+        {!isLoading && filtered.length > 0 && (
+          <p className="mt-4 text-sm text-muted-foreground" aria-live="polite">
+            {filtered.length === 1 ? "1 role" : `${filtered.length} roles`}
+          </p>
+        )}
+
+        <div className="mt-3 grid gap-4">
           {isLoading &&
             Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="glass h-28 animate-pulse rounded-2xl" />
@@ -276,7 +276,7 @@ function JobBoard() {
             </div>
           )}
 
-          {filtered.slice(0, shown).map((p) => (
+          {filtered.map((p) => (
             <BoardCard key={p.id} entry={p}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -366,16 +366,6 @@ function JobBoard() {
               </div>
             </BoardCard>
           ))}
-
-          {filtered.length > shown && (
-            <button
-              type="button"
-              onClick={() => setShown((n) => n + PAGE)}
-              className="glass mx-auto rounded-full px-5 py-2 text-sm font-semibold transition hover:brightness-105 active:scale-95"
-            >
-              Show more ({filtered.length - shown} left)
-            </button>
-          )}
         </div>
       </section>
     </MarketingShell>
@@ -385,7 +375,10 @@ function JobBoard() {
 /** A Talentloom position opens its page here; an imported ad opens the
  *  original ad in a new tab. */
 function BoardCard({ entry, children }: { entry: BoardEntry; children: ReactNode }) {
-  const className = "glass rounded-2xl p-6 transition hover:brightness-105";
+  // Every match is on the page at once (up to some 1,600), so the browser
+  // skips rendering cards while they are off screen.
+  const className =
+    "glass rounded-2xl p-6 transition hover:brightness-105 [content-visibility:auto] [contain-intrinsic-size:auto_180px]";
   if (entry.url) {
     return (
       <a href={entry.url} target="_blank" rel="noopener noreferrer nofollow" className={className}>
