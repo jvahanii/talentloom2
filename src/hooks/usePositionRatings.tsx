@@ -102,7 +102,13 @@ export function usePositionRatings() {
     setPending(null);
     rate.mutate(
       { positionId: p.positionId, rating: p.rating },
-      { onSuccess: () => toast.success("Your rating is saved") },
+      {
+        onSuccess: () => {
+          // The board's list may have been read before this save landed.
+          void queryClient.invalidateQueries({ queryKey: KEY });
+          toast.success("Your rating is saved");
+        },
+      },
     );
   }, [signedIn, rate]);
 
