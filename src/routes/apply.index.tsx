@@ -132,7 +132,14 @@ function JobBoard() {
   const [shown, setShown] = useState(PAGE);
   useEffect(() => setShown(PAGE), [q, org, safeSort, safeView]);
 
-  const term = q.trim().toLowerCase().slice(0, 100);
+  // Several titles at once: "designer, product manager" matches either one.
+  const terms = q
+    .toLowerCase()
+    .slice(0, 500)
+    .split(/[,;|]/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 20);
   const filtered = all
     .filter((p) => {
       if (org && p.orgId !== org) return false;
@@ -142,9 +149,9 @@ function JobBoard() {
       if (safeView === "rated" && ratings.ratingOf(p.id) === null) return false;
       if (safeView === "active" && p.closed) return false;
       if (safeView === "past" && !p.closed) return false;
-      if (!term) return true;
+      if (terms.length === 0) return true;
       return [p.title, p.orgName, p.department ?? "", p.location ?? ""].some((v) =>
-        v.toLowerCase().includes(term),
+        terms.some((t) => v.toLowerCase().includes(t)),
       );
     })
     .sort((a, b) => {
@@ -181,7 +188,7 @@ function JobBoard() {
             <input
               value={q}
               onChange={(e) => apply({ q: e.target.value })}
-              placeholder="Try “designer”, “engineer” or a company name"
+              placeholder="Try “designer, engineer” — separate titles with commas"
               className="w-full bg-transparent text-sm outline-none"
               aria-label="Search open positions"
             />
@@ -257,7 +264,7 @@ function JobBoard() {
               <h2 className="mt-3 font-display text-lg font-semibold">
                 {all.length === 0
                   ? "Nothing open just yet"
-                  : safeView === "past" && !term && !org
+                  : safeView === "past" && terms.length === 0 && !org
                     ? "No past roles yet"
                     : "No roles match that search"}
               </h2>
