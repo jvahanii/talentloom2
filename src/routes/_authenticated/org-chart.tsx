@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -269,12 +269,24 @@ function OrgChartPage() {
   for (const n of nodes) addPlace(n.person_id, n.kind === "unit" ? `Head of ${n.role}` : n.role);
   for (const m of members) addPlace(m.person_id, nodes.find((n) => n.id === m.node_id)?.role ?? "");
 
+  /** The units each person from People heads or belongs to, by name. */
+  const unitsOf = new Map<string, string[]>();
+  const addUnit = (personId: string | null, unit: string | undefined) => {
+    if (!personId || !unit) return;
+    const list = unitsOf.get(personId) ?? [];
+    if (!list.includes(unit)) unitsOf.set(personId, [...list, unit]);
+  };
+  for (const u of nodes) if (u.kind === "unit") addUnit(u.person_id, u.role);
+  for (const m of members) addUnit(m.person_id, nodes.find((n) => n.id === m.node_id)?.role);
+
   const [busy, setBusy] = useState(false);
   const [nameDialog, setNameDialog] = useState<NameDialog>(null);
   const [boxDialog, setBoxDialog] = useState<BoxDialog>(null);
   const [confirmChartDelete, setConfirmChartDelete] = useState(false);
   const [confirmBoxDelete, setConfirmBoxDelete] = useState<ChartNode | null>(null);
   const [dragging, setDragging] = useState<DragData | null>(null);
+  /** Where the dragged item would land, for the label on the dragged chip. */
+  const [dropAt, setDropAt] = useState<DropData | null>(null);
   const [impliedOpen, setImpliedOpen] = useState<ImpliedLine | null>(null);
   /** A drop can end in a click on the box under it; that click opens nothing. */
   const dragEndedAt = useRef(0);
@@ -446,6 +458,7 @@ function OrgChartPage() {
 
   const onDragEnd = (e: DragEndEvent) => {
     setDragging(null);
+    setDropAt(null);
     dragEndedAt.current = Date.now();
     const data = e.active.data.current as DragData | undefined;
     const drop = e.over?.data.current as DropData | undefined;
@@ -749,7 +762,11 @@ function OrgChartPage() {
           collisionDetection={pointerWithin}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
-          onDragCancel={() => setDragging(null)}
+          onDragOver={(e) => setDropAt((e.over?.data.current as DropData | undefined) ?? null)}
+          onDragCancel={() => {
+            setDragging(null);
+            setDropAt(null);
+          }}
         >
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
             <div className="min-w-0 rounded-2xl border-2 border-border bg-card p-4">
@@ -816,13 +833,14 @@ function OrgChartPage() {
               people={people}
               loading={peopleQuery.isLoading}
               placesOf={placesOf}
+              unitsOf={unitsOf}
               kind={kind}
               canDrop={shown.length > 0}
             />
           </div>
           <DragOverlay dropAnimation={null}>
             {dragging && (
-              <div className="flex max-w-56 items-center gap-1.5 rounded-xl border-2 border-primary bg-background px-3 py-2 text-sm font-medium shadow-lg">
+              <div className="flex max-w-72 items-center gap-1.5 rounded-xl border-2 border-primary bg-background px-3 py-2 text-sm font-medium shadow-lg">
                 {dragging.type === "box" ? (
                   dragging.kind === "unit" ? (
                     <Building2 className="h-4 w-4 shrink-0 text-primary" />
@@ -832,7 +850,21 @@ function OrgChartPage() {
                 ) : (
                   <UserRound className="h-4 w-4 shrink-0 text-primary" />
                 )}
-                <span className="truncate">{dragging.label}</span>
+                <span className="min-w-0">
+                  <span className="block truncate">{dragging.label}</span>
+                  <span
+                    className={
+                      "block truncate text-xs " +
+                      (dropAt ? "font-semibold text-primary" : "text-muted-foreground")
+                    }
+                  >
+                    {!dropAt
+                      ? "Not over a place to drop"
+                      : "top" in dropAt
+                        ? "Put it at the top of the chart"
+                        : dropOutcome(dragging, dropAt.node, dropAt.where, view)}
+                  </span>
+                </span>
               </div>
             )}
           </DragOverlay>
@@ -1452,17 +1484,39 @@ function PeoplePanel({
   people,
   loading,
   placesOf,
+  unitsOf,
   kind,
   canDrop,
 }: {
   people: OrgPerson[];
   loading: boolean;
   placesOf: Map<string, string[]>;
+  /** The units each person heads or belongs to. */
+  unitsOf: Map<string, string[]>;
   kind: NodeKind;
   canDrop: boolean;
 }) {
   const [query, setQuery] = useState("");
   const matches = matchPeople(people, query);
+  const [sort, chooseSort] = useRememberedTab("org-chart-people", ["name", "unit"] as const, "name");
+  const unitsFor = (id: string) => [...(unitsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
+  const unplaced = people.filter((p) => unitsFor(p.id).length === 0).length;
+  // By unit: those in no unit first, then each unit in turn. Someone in
+  // several units is listed under the first, alphabetically (once, so each
+  // row can be dragged).
+  const NO_UNIT = "";
+  const groups: { unit: string; people: OrgPerson[] }[] = [];
+  if (sort === "unit") {
+    const byUnit = new Map<string, OrgPerson[]>();
+    for (const p of matches) {
+      const u = unitsFor(p.id)[0] ?? NO_UNIT;
+      byUnit.set(u, [...(byUnit.get(u) ?? []), p]);
+    }
+    for (const u of [...byUnit.keys()].sort((a, b) => a.localeCompare(b)))
+      groups.push({ unit: u, people: byUnit.get(u)! });
+  } else {
+    groups.push({ unit: NO_UNIT, people: matches });
+  }
   return (
     <aside className="flex min-w-0 flex-col rounded-2xl border-2 border-border bg-card p-4 lg:max-h-[80vh]">
       <h2 className="flex items-center gap-1.5 text-sm font-semibold">
@@ -1477,6 +1531,39 @@ function PeoplePanel({
             ? "Drag someone onto a unit to add them to it."
             : "Drag someone onto a role to give it to them."}
       </p>
+      {people.length > 0 && (
+        <p
+          className={
+            "mt-2 text-xs font-medium " +
+            (unplaced > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
+          }
+        >
+          {unplaced === 0
+            ? "Everyone is in a unit."
+            : unplaced === 1
+              ? "1 person is not in any unit."
+              : `${unplaced} people are not in any unit.`}
+        </p>
+      )}
+      <div className="mt-2 flex items-center gap-1 text-xs" role="group" aria-label="Sort People">
+        <span className="mr-1 text-muted-foreground">Sort:</span>
+        {(["name", "unit"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={sort === v}
+            onClick={() => chooseSort(v)}
+            className={
+              "rounded-full border px-2.5 py-0.5 font-medium transition " +
+              (sort === v
+                ? "border-primary bg-primary/15 text-foreground"
+                : "border-border text-muted-foreground hover:text-foreground")
+            }
+          >
+            {v === "name" ? "Name" : "Unit"}
+          </button>
+        ))}
+      </div>
       <label className="mt-2 flex items-center gap-2 rounded-lg border border-border px-2 py-1.5">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
@@ -1494,15 +1581,45 @@ function PeoplePanel({
             {people.length === 0 ? "No one in People yet." : "No one matches."}
           </li>
         )}
-        {matches.map((p) => (
-          <PersonRow key={p.id} person={p} places={placesOf.get(p.id) ?? []} />
+        {groups.map((g) => (
+          <Fragment key={g.unit || "none"}>
+            {sort === "unit" && (
+              <li
+                className={
+                  "sticky top-0 z-10 flex items-center gap-1 bg-card px-2 pb-0.5 pt-2 text-[11px] font-semibold uppercase tracking-wide " +
+                  (g.unit ? "text-primary" : "text-amber-700 dark:text-amber-400")
+                }
+              >
+                {g.unit ? <Building2 className="h-3 w-3 shrink-0" /> : null}
+                <span className="truncate">{g.unit || "Not in any unit"}</span>
+                <span className="font-normal text-muted-foreground">({g.people.length})</span>
+              </li>
+            )}
+            {g.people.map((p) => (
+              <PersonRow
+                key={p.id}
+                person={p}
+                places={placesOf.get(p.id) ?? []}
+                inUnit={unitsFor(p.id).length > 0}
+              />
+            ))}
+          </Fragment>
         ))}
       </ul>
     </aside>
   );
 }
 
-function PersonRow({ person, places }: { person: OrgPerson; places: string[] }) {
+function PersonRow({
+  person,
+  places,
+  inUnit,
+}: {
+  person: OrgPerson;
+  places: string[];
+  /** Heads or belongs to a unit in this chart. */
+  inUnit: boolean;
+}) {
   const drag = useDraggable({
     id: `person:${person.id}`,
     data: { type: "person", personId: person.id, label: person.name } satisfies DragData,
@@ -1512,16 +1629,24 @@ function PersonRow({ person, places }: { person: OrgPerson; places: string[] }) 
       ref={drag.setNodeRef}
       {...drag.listeners}
       className={
-        "flex cursor-grab touch-manipulation select-none items-start gap-1.5 rounded-lg border border-transparent px-2 py-1.5 hover:border-border hover:bg-muted active:cursor-grabbing " +
+        "flex cursor-grab touch-manipulation select-none items-start gap-1.5 rounded-lg border px-2 py-1.5 hover:bg-muted active:cursor-grabbing " +
+        (inUnit
+          ? "border-transparent hover:border-border "
+          : "border-amber-300 bg-amber-50 dark:border-amber-500/50 dark:bg-amber-500/10 ") +
         (drag.isDragging ? "opacity-40" : "")
       }
     >
       <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">{person.name}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {places.length > 0 ? places.join(", ") : "Not in this chart"}
-        </span>
+        {!inUnit && (
+          <span className="mt-0.5 inline-flex items-center rounded-full bg-amber-200/70 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
+            Not in any unit
+          </span>
+        )}
+        {places.length > 0 && (
+          <span className="block truncate text-xs text-muted-foreground">{places.join(", ")}</span>
+        )}
       </span>
     </li>
   );
@@ -1688,12 +1813,11 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   const beside = dragging?.type === "box" && overHere !== "into" ? overHere : null;
   const unit = n.kind === "unit";
   const shown = unit ? view.membersOf(n.id) : [];
-  // While something is dragged: every box it can land on is outlined, the
-  // rest fade, and the box under the pointer says what a drop there does.
+  // While something is dragged: every box it can land on is outlined and the
+  // rest fade; the dragged chip itself says what a drop would do.
   const self = drag.isDragging;
   const canLand = !!dragging && !self && !view.blocked.has(n.id);
   const faded = !!dragging && !self && !canLand;
-  const outcome = overHere && dragging ? dropOutcome(dragging, n, overHere, view) : null;
 
   return (
     <div
@@ -1701,14 +1825,6 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
       className={"relative transition-opacity " + (self ? "opacity-40" : faded ? "opacity-35" : "")}
     >
       <DropZones node={n} disabled={view.blocked.has(n.id)} />
-      {outcome && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -top-8 left-1/2 z-30 max-w-[16rem] -translate-x-1/2 truncate whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow-md"
-        >
-          {outcome}
-        </span>
-      )}
       {beside && (
         <span
           aria-hidden
@@ -1902,7 +2018,7 @@ function CopyFromChart({
         </Button>
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground">
-        Copies its units, members and reporting lines. The other chart stays as it is.
+        Copies its units, members and reporting lines.
       </p>
     </div>
   );
