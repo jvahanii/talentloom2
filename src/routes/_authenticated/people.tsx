@@ -417,8 +417,8 @@ function PeoplePage() {
             <p className="text-sm font-medium">Or share an invite link</p>
             <p className="text-xs text-muted-foreground">
               The link is copied as soon as it's created. Anyone who opens it and signs in joins
-              with the chosen title, however many people, until it expires in 7 days or you revoke
-              it below. Share it only with people you trust.
+              with the chosen title. It works for any number of people until it expires in 7 days or
+              you revoke it below. Share it only with people you trust.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <select
