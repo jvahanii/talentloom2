@@ -1673,7 +1673,9 @@ function PeoplePanel({
       groups.push({ unit: u, people: [...byUnit.get(u)!].sort((a, b) => heads(a) - heads(b)) });
     }
   } else {
-    groups.push({ unit: NO_UNIT, people: matches });
+    // By name, with the heads of units first.
+    const heads = (p: OrgPerson) => (headedBy(p.id).length > 0 ? 0 : 1);
+    groups.push({ unit: NO_UNIT, people: [...matches].sort((a, b) => heads(a) - heads(b)) });
   }
   return (
     <aside className="flex min-w-0 flex-col rounded-2xl border-2 border-border bg-card p-4 lg:max-h-[80vh]">
