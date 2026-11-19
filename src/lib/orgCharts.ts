@@ -108,14 +108,15 @@ export async function copyIntoEmptyChart(orgId: string, from: string, to: string
   try {
     await copyContents(orgId, from, to);
   } catch (e) {
-    // It was empty: take away whatever part of the copy got in.
+    // It was empty: take away whatever part of the copy got in (dotted lines
+    // go with their roles).
     await db.from("org_chart_members").delete().eq("chart_id", to);
     await db.from("org_chart_nodes").delete().eq("chart_id", to);
     throw e;
   }
 }
 
-/** Copies chart `from`'s boxes and unit members into chart `to`. */
+/** Copies chart `from`'s boxes, unit members and dotted lines into chart `to`. */
 async function copyContents(orgId: string, from: string, to: string) {
   const nodes = await fetchNodes(from);
   if (nodes.length === 0) return;
@@ -123,7 +124,10 @@ async function copyContents(orgId: string, from: string, to: string) {
   // Parents before children, and units before roles, so the box above and
   // a role's unit already exist when each row goes in.
   const down = topDown(nodes);
-  const ordered = [...down.filter((n) => n.kind === "unit"), ...down.filter((n) => n.kind !== "unit")];
+  const ordered = [
+    ...down.filter((n) => n.kind === "unit"),
+    ...down.filter((n) => n.kind !== "unit"),
+  ];
   const { error } = await db.from("org_chart_nodes").insert(
     ordered.map((n) => ({
       id: newId.get(n.id),
@@ -141,18 +145,77 @@ async function copyContents(orgId: string, from: string, to: string) {
   );
   if (error) throw error;
   const members = await fetchMembers(from);
-  if (members.length === 0) return;
-  const { error: mError } = await db.from("org_chart_members").insert(
-    members.map((m) => ({
-      org_id: orgId,
-      chart_id: to,
-      node_id: newId.get(m.node_id),
-      person_id: m.person_id,
-      person_name: m.person_name,
-      position: m.position,
-    })),
-  );
-  if (mError) throw mError;
+  if (members.length > 0) {
+    const { error: mError } = await db.from("org_chart_members").insert(
+      members.map((m) => ({
+        org_id: orgId,
+        chart_id: to,
+        node_id: newId.get(m.node_id),
+        person_id: m.person_id,
+        person_name: m.person_name,
+        position: m.position,
+      })),
+    );
+    if (mError) throw mError;
+  }
+  const dotted = await fetchDotted(from);
+  if (dotted.length > 0) {
+    const { error: dError } = await db.from("org_chart_dotted_lines").insert(
+      dotted.map((d) => ({
+        org_id: orgId,
+        chart_id: to,
+        role_id: newId.get(d.role_id),
+        reports_to_id: newId.get(d.reports_to_id),
+      })),
+    );
+    if (dError) throw dError;
+  }
+}
+
+/**
+ * "Also reports to": a role's extra supervisors besides the role it reports
+ * to, like a dotted line in a matrix organisation. Shown as a label on the
+ * role; not part of the tree, so loops are allowed.
+ */
+export type DottedLine = { id: string; role_id: string; reports_to_id: string };
+
+export const chartDottedKey = (chartId: string | null) => ["org-chart-dotted", chartId];
+
+export async function fetchDotted(chartId: string): Promise<DottedLine[]> {
+  const { data, error } = await db
+    .from("org_chart_dotted_lines")
+    .select("id, role_id, reports_to_id")
+    .eq("chart_id", chartId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as DottedLine[];
+}
+
+/** Sets which roles `roleId` also reports to, adding and removing lines to match. */
+export async function setDotted(
+  orgId: string,
+  chartId: string,
+  roleId: string,
+  current: DottedLine[],
+  targets: string[],
+) {
+  const want = new Set(targets.filter((t) => t !== roleId));
+  const mine = current.filter((d) => d.role_id === roleId);
+  const gone = mine.filter((d) => !want.has(d.reports_to_id)).map((d) => d.id);
+  const have = new Set(mine.map((d) => d.reports_to_id));
+  const added = [...want].filter((t) => !have.has(t));
+  if (gone.length) {
+    const { error } = await db.from("org_chart_dotted_lines").delete().in("id", gone);
+    if (error) throw error;
+  }
+  if (added.length) {
+    const { error } = await db
+      .from("org_chart_dotted_lines")
+      .insert(
+        added.map((t) => ({ org_id: orgId, chart_id: chartId, role_id: roleId, reports_to_id: t })),
+      );
+    if (error) throw error;
+  }
 }
 
 export async function fetchNodes(chartId: string): Promise<ChartNode[]> {

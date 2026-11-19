@@ -42,6 +42,7 @@ import {
   MAX_ROLE,
   addMembers,
   addNode,
+  chartDottedKey,
   chartMembersKey,
   chartNodesKey,
   chartsKey,
@@ -53,6 +54,7 @@ import {
   deleteMembers,
   deleteNode,
   fetchCharts,
+  fetchDotted,
   fetchMembers,
   fetchNodes,
   fetchOrgPeople,
@@ -64,6 +66,7 @@ import {
   subtreeIds,
   samePerson,
   updateNode,
+  setDotted,
   type ChartMember,
   type ChartNode,
   type DropPlace,
@@ -140,14 +143,22 @@ function useRememberedChart(orgId: string | null) {
 type StagedMember = NewMember & { id?: string };
 
 type NameDialog = { mode: "new" | "rename" | "copy"; value: string } | null;
+/** also: for a role, the roles it also reports to (dotted lines). */
 type BoxDialog =
-  | { mode: "add"; parentId: string | null; fields: NodeFields; members: StagedMember[] }
+  | {
+      mode: "add";
+      parentId: string | null;
+      fields: NodeFields;
+      members: StagedMember[];
+      also?: string[];
+    }
   | {
       mode: "edit";
       node: ChartNode;
       fields: NodeFields;
       parent: string;
       members: StagedMember[];
+      also?: string[];
     }
   | null;
 
@@ -186,6 +197,11 @@ type View = {
   unitName: (n: ChartNode) => string | null;
   /** How many roles belong to a unit. */
   roleCount: (unitId: string) => number;
+  /** The roles a role also reports to (dotted lines). */
+  alsoOf: (roleId: string) => ChartNode[];
+  /** Roles lit up while the pointer is on a dotted-line label. */
+  highlight: Set<string>;
+  onHighlight: (ids: string[]) => void;
   /** Reporting lines implied by the units, by where they hang. */
   implied: Map<string, ImpliedLine[]>;
   onOpenImplied: (line: ImpliedLine) => void;
@@ -247,6 +263,22 @@ function OrgChartPage() {
   }
   const membersOf = (nodeId: string) => membersByNode.get(nodeId) ?? [];
 
+  const dottedQuery = useQuery({
+    queryKey: chartDottedKey(chart?.id ?? null),
+    enabled: !!chart,
+    queryFn: () => fetchDotted(chart!.id),
+  });
+  const dotted = dottedQuery.data ?? [];
+  const roleById = new Map(roles.map((r) => [r.id, r]));
+  const alsoIds = (roleId: string) =>
+    dotted.filter((d) => d.role_id === roleId).map((d) => d.reports_to_id);
+  const alsoOf = (roleId: string) =>
+    alsoIds(roleId).flatMap((id) => {
+      const r = roleById.get(id);
+      return r ? [r] : [];
+    });
+  const [highlight, setHighlight] = useState<Set<string>>(new Set());
+
   const peopleQuery = useQuery({
     queryKey: orgPeopleKey(orgId),
     enabled: !!orgId,
@@ -302,6 +334,7 @@ function OrgChartPage() {
     if (chart) {
       await qc.invalidateQueries({ queryKey: chartNodesKey(chart.id) });
       await qc.invalidateQueries({ queryKey: chartMembersKey(chart.id) });
+      await qc.invalidateQueries({ queryKey: chartDottedKey(chart.id) });
     }
   };
 
@@ -351,6 +384,7 @@ function OrgChartPage() {
         note: n.note ?? "",
       },
       members: staged(n),
+      also: n.kind === "role" ? alsoIds(n.id) : [],
     });
   };
   /** A new box of the same kind below n: a sub-unit, or a role reporting to n. */
@@ -408,6 +442,15 @@ function OrgChartPage() {
           boxDialog.fields,
         );
         if (isUnit) await addMembers(orgId, chart.id, id, unitMembers, 0);
+        // The main manager can't also be a dotted line.
+        else
+          await setDotted(
+            orgId,
+            chart.id,
+            id,
+            [],
+            (boxDialog.also ?? []).filter((t) => t !== boxDialog.parentId),
+          );
       } else {
         const parent = boxDialog.parent === TOP ? null : boxDialog.parent;
         const moved = parent !== boxDialog.node.parent_id;
@@ -415,6 +458,14 @@ function OrgChartPage() {
           ...boxDialog.fields,
           ...(moved ? { parent_id: parent, position: nextPosition(parent, k) } : {}),
         });
+        if (!isUnit)
+          await setDotted(
+            orgId,
+            chart.id,
+            boxDialog.node.id,
+            dotted,
+            (boxDialog.also ?? []).filter((t) => t !== parent),
+          );
         if (isUnit) {
           const kept = new Set(unitMembers.flatMap((m) => (m.id ? [m.id] : [])));
           await deleteMembers(
@@ -648,6 +699,9 @@ function OrgChartPage() {
     memberName,
     unitName: (n) => (n.unit_id ? (unitById.get(n.unit_id)?.role ?? null) : null),
     roleCount: (unitId) => roles.filter((r) => r.unit_id === unitId).length,
+    alsoOf,
+    highlight,
+    onHighlight: (ids) => setHighlight(new Set(ids)),
     blocked,
     onOpen: openBox,
     onAdd: addBelow,
@@ -1009,6 +1063,23 @@ function OrgChartPage() {
                       : "The unit the role belongs to. It can differ from the unit of the role it reports to."}
                   </p>
                 </div>
+              )}
+              {boxDialog.fields.kind === "role" && (
+                <AlsoReportsField
+                  value={boxDialog.also ?? []}
+                  roles={roles.filter(
+                    (r) =>
+                      r.id !== (boxDialog.mode === "edit" ? boxDialog.node.id : null) &&
+                      r.id !==
+                        (boxDialog.mode === "edit"
+                          ? boxDialog.parent === TOP
+                            ? null
+                            : boxDialog.parent
+                          : boxDialog.parentId),
+                  )}
+                  nameOf={nameOf}
+                  onChange={(also) => setBoxDialog((d) => (d ? ({ ...d, also } as BoxDialog) : d))}
+                />
               )}
               {boxDialog.fields.kind === "unit" && (
                 <MembersField
@@ -1426,6 +1497,74 @@ function PeoplePicker({
   );
 }
 
+/**
+ * The roles a role also reports to besides its main one (dotted lines).
+ * `roles` already leaves out the role itself and its main manager.
+ */
+function AlsoReportsField({
+  value,
+  roles,
+  nameOf,
+  onChange,
+}: {
+  value: string[];
+  roles: ChartNode[];
+  nameOf: (n: ChartNode) => string | null;
+  onChange: (next: string[]) => void;
+}) {
+  const label = (r: ChartNode) => r.role + (nameOf(r) ? ` — ${nameOf(r)}` : "");
+  const chosen = roles.filter((r) => value.includes(r.id));
+  const left = roles.filter((r) => !value.includes(r.id));
+  return (
+    <div className="space-y-1.5">
+      <Label>Also reports to (optional)</Label>
+      {chosen.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Also reports to">
+          {chosen.map((r) => (
+            <li
+              key={r.id}
+              className="flex items-center gap-1 rounded-full border-2 border-dotted border-primary/60 bg-background py-0.5 pl-2.5 pr-1 text-sm"
+            >
+              <span className="max-w-48 truncate">{label(r)}</span>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((id) => id !== r.id))}
+                aria-label={`Stop reporting to ${r.role}`}
+                className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {left.length > 0 ? (
+        // Picking an option adds it; the list then starts again from "Add a role".
+        <Select value="" onValueChange={(id) => id && onChange([...value, id])}>
+          <SelectTrigger aria-label="Add a role it also reports to">
+            <SelectValue placeholder="Add a role it also reports to" />
+          </SelectTrigger>
+          <SelectContent>
+            {left.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {label(r)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        chosen.length === 0 && (
+          <p className="text-xs text-muted-foreground">There are no other roles to pick yet.</p>
+        )
+      )}
+      <p className="text-xs text-muted-foreground">
+        A dotted line, for example a project or functional manager besides the main one. It shows as
+        a label on the role.
+      </p>
+    </div>
+  );
+}
+
 /** The people in a unit, saved with the unit. */
 function MembersField({
   members,
@@ -1498,7 +1637,11 @@ function PeoplePanel({
 }) {
   const [query, setQuery] = useState("");
   const matches = matchPeople(people, query);
-  const [sort, chooseSort] = useRememberedTab("org-chart-people", ["name", "unit"] as const, "name");
+  const [sort, chooseSort] = useRememberedTab(
+    "org-chart-people",
+    ["name", "unit"] as const,
+    "name",
+  );
   const unitsFor = (id: string) => [...(unitsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
   const unplaced = people.filter((p) => unitsFor(p.id).length === 0).length;
   // By unit: those in no unit first, then each unit in turn. Someone in
@@ -1859,7 +2002,9 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
             ? " ring-2 ring-primary ring-offset-2 ring-offset-card"
             : canLand
               ? " outline-dashed outline-2 outline-offset-4 outline-primary/60"
-              : "")
+              : view.highlight.has(n.id)
+                ? " outline-dotted outline-[3px] outline-offset-4 outline-primary"
+                : "")
         }
       >
         <button
@@ -1897,6 +2042,24 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
             <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               <Building2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{view.unitName(n)}</span>
+            </span>
+          )}
+          {!unit && view.alsoOf(n.id).length > 0 && (
+            // Pointing at it lights up those roles with a dotted outline.
+            <span
+              className="mt-1.5 block rounded-lg border border-dotted border-primary/60 px-1.5 py-0.5 text-[11px] leading-snug text-muted-foreground"
+              onMouseEnter={() => view.onHighlight(view.alsoOf(n.id).map((r) => r.id))}
+              onMouseLeave={() => view.onHighlight([])}
+              title={`Also reports to ${view
+                .alsoOf(n.id)
+                .map((r) => r.role + (view.nameOf(r) ? ` (${view.nameOf(r)})` : ""))
+                .join(", ")}`}
+            >
+              <span className="font-medium text-foreground">Also reports to:</span>{" "}
+              {view
+                .alsoOf(n.id)
+                .map((r) => r.role)
+                .join(", ")}
             </span>
           )}
           {unit && view.roleCount(n.id) > 0 && (
