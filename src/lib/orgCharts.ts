@@ -87,55 +87,72 @@ export async function deleteChart(id: string) {
 
 /** A copy of a chart, boxes and all, under a new name. */
 export async function copyChart(orgId: string, from: string, name: string): Promise<OrgChart> {
-  const nodes = await fetchNodes(from);
   const chart = await createChart(orgId, name);
-  const newId = new Map(nodes.map((n) => [n.id, crypto.randomUUID()]));
-  if (nodes.length > 0) {
-    // Parents before children, and units before roles, so the box above and
-    // a role's unit already exist when each row goes in.
-    const down = topDown(nodes);
-    const ordered = [
-      ...down.filter((n) => n.kind === "unit"),
-      ...down.filter((n) => n.kind !== "unit"),
-    ];
-    const { error } = await db.from("org_chart_nodes").insert(
-      ordered.map((n) => ({
-        id: newId.get(n.id),
-        org_id: orgId,
-        chart_id: chart.id,
-        parent_id: n.parent_id ? newId.get(n.parent_id) : null,
-        kind: n.kind,
-        role: n.role,
-        person_name: n.person_name,
-        person_id: n.person_id,
-        unit_id: n.unit_id ? (newId.get(n.unit_id) ?? null) : null,
-        note: n.note,
-        position: n.position,
-      })),
-    );
-    if (error) {
-      await deleteChart(chart.id).catch(() => undefined);
-      throw error;
-    }
-    const members = await fetchMembers(from);
-    if (members.length > 0) {
-      const { error: mError } = await db.from("org_chart_members").insert(
-        members.map((m) => ({
-          org_id: orgId,
-          chart_id: chart.id,
-          node_id: newId.get(m.node_id),
-          person_id: m.person_id,
-          person_name: m.person_name,
-          position: m.position,
-        })),
-      );
-      if (mError) {
-        await deleteChart(chart.id).catch(() => undefined);
-        throw mError;
-      }
-    }
+  try {
+    await copyContents(orgId, from, chart.id);
+  } catch (e) {
+    await deleteChart(chart.id).catch(() => undefined);
+    throw e;
   }
   return chart;
+}
+
+/**
+ * Fills an empty chart with a copy of another chart's units, roles and unit
+ * members. Refuses a chart that already has boxes, so nothing is mixed or lost.
+ */
+export async function copyIntoEmptyChart(orgId: string, from: string, to: string) {
+  if (from === to) throw new Error("Pick another chart to copy from");
+  if ((await fetchNodes(to)).length > 0)
+    throw new Error("This chart isn't empty any more, so nothing was copied");
+  try {
+    await copyContents(orgId, from, to);
+  } catch (e) {
+    // It was empty: take away whatever part of the copy got in.
+    await db.from("org_chart_members").delete().eq("chart_id", to);
+    await db.from("org_chart_nodes").delete().eq("chart_id", to);
+    throw e;
+  }
+}
+
+/** Copies chart `from`'s boxes and unit members into chart `to`. */
+async function copyContents(orgId: string, from: string, to: string) {
+  const nodes = await fetchNodes(from);
+  if (nodes.length === 0) return;
+  const newId = new Map(nodes.map((n) => [n.id, crypto.randomUUID()]));
+  // Parents before children, and units before roles, so the box above and
+  // a role's unit already exist when each row goes in.
+  const down = topDown(nodes);
+  const ordered = [...down.filter((n) => n.kind === "unit"), ...down.filter((n) => n.kind !== "unit")];
+  const { error } = await db.from("org_chart_nodes").insert(
+    ordered.map((n) => ({
+      id: newId.get(n.id),
+      org_id: orgId,
+      chart_id: to,
+      parent_id: n.parent_id ? newId.get(n.parent_id) : null,
+      kind: n.kind,
+      role: n.role,
+      person_name: n.person_name,
+      person_id: n.person_id,
+      unit_id: n.unit_id ? (newId.get(n.unit_id) ?? null) : null,
+      note: n.note,
+      position: n.position,
+    })),
+  );
+  if (error) throw error;
+  const members = await fetchMembers(from);
+  if (members.length === 0) return;
+  const { error: mError } = await db.from("org_chart_members").insert(
+    members.map((m) => ({
+      org_id: orgId,
+      chart_id: to,
+      node_id: newId.get(m.node_id),
+      person_id: m.person_id,
+      person_name: m.person_name,
+      position: m.position,
+    })),
+  );
+  if (mError) throw mError;
 }
 
 export async function fetchNodes(chartId: string): Promise<ChartNode[]> {

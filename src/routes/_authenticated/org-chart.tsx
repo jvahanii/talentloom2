@@ -47,6 +47,7 @@ import {
   chartsKey,
   childrenOf,
   copyChart,
+  copyIntoEmptyChart,
   createChart,
   deleteChart,
   deleteMembers,
@@ -767,6 +768,18 @@ function OrgChartPage() {
                     <Plus className="mr-1 h-4 w-4" />{" "}
                     {kind === "unit" ? "Add a unit" : "Add the top role"}
                   </Button>
+                  {nodes.length === 0 && list.length > 1 && (
+                    <CopyFromChart
+                      charts={list.filter((c) => c.id !== chart.id)}
+                      busy={busy}
+                      onCopy={(from) =>
+                        void run(
+                          () => copyIntoEmptyChart(orgId!, from.id, chart.id),
+                          `Copied ${from.name} into ${chart.name}`,
+                        )
+                      }
+                    />
+                  )}
                 </div>
               ) : (
                 <>
@@ -1785,6 +1798,45 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
+    </div>
+  );
+}
+
+/** On an empty chart: fill it with a copy of another chart (units, roles and members). */
+function CopyFromChart({
+  charts,
+  busy,
+  onCopy,
+}: {
+  charts: OrgChart[];
+  busy: boolean;
+  onCopy: (from: OrgChart) => void;
+}) {
+  const [fromId, setFromId] = useState<string>("");
+  const from = charts.find((c) => c.id === fromId) ?? null;
+  return (
+    <div className="mx-auto mt-6 max-w-sm border-t border-border pt-4">
+      <p className="text-sm text-muted-foreground">Or start from a copy of another chart:</p>
+      <div className="mt-2 flex items-center justify-center gap-2">
+        <Select value={fromId} onValueChange={setFromId}>
+          <SelectTrigger className="w-48" aria-label="Chart to copy">
+            <SelectValue placeholder="Pick a chart" />
+          </SelectTrigger>
+          <SelectContent>
+            {charts.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" disabled={!from || busy} onClick={() => from && onCopy(from)}>
+          <Copy className="mr-1 h-4 w-4" /> Copy here
+        </Button>
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Copies its units, members and reporting lines. The other chart stays as it is.
+      </p>
     </div>
   );
 }
