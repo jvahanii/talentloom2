@@ -1949,10 +1949,6 @@ function ImpliedCard({ line, onOpen }: { line: ImpliedLine; onOpen: () => void }
         )}
         <span className="truncate">{line.name}</span>
       </span>
-      <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] text-muted-foreground">
-        <Building2 className="h-3 w-3 shrink-0" />
-        <span className="truncate">From Units</span>
-      </span>
     </button>
   );
 }
