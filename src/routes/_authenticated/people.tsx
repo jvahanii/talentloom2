@@ -375,7 +375,7 @@ function PeoplePage() {
       <div>
         <h1 className="text-2xl font-bold">People</h1>
         <p className="text-sm text-muted-foreground">
-          Everyone in {orgName}, and the invites waiting for an answer.
+          Everyone in {orgName}, and the invites and links that are still open.
         </p>
       </div>
 
@@ -384,7 +384,8 @@ function PeoplePage() {
           <p className="font-medium">Add or invite a person</p>
           <p className="text-xs text-muted-foreground">
             If the email already has a Talentloom account, they're added straight away. Otherwise
-            they're emailed an invite that expires in 7 days.
+            they're emailed an invite link that works once, only for that email address, and expires
+            in 7 days.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -415,8 +416,9 @@ function PeoplePage() {
           <div className="border-t border-border pt-3">
             <p className="text-sm font-medium">Or share an invite link</p>
             <p className="text-xs text-muted-foreground">
-              Anyone with the link can join with the chosen title until it expires in 7 days. Share
-              it only with people you trust.
+              The link is copied as soon as it's created. Anyone who opens it and signs in joins
+              with the chosen title, however many people, until it expires in 7 days or you revoke
+              it below. Share it only with people you trust.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <select
@@ -611,7 +613,7 @@ function PeoplePage() {
 
       {can("invite_users") && (invites.data ?? []).length > 0 && (
         <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
-          <p className="font-medium">Waiting for an answer</p>
+          <p className="font-medium">Open invites and links</p>
           <ul className="divide-y divide-border">
             {(invites.data ?? []).map((inv) => (
               <li key={inv.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
