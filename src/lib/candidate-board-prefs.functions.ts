@@ -9,6 +9,8 @@ export interface BoardPrefs {
   org_id: string | null;
   sort: string | null;
   view: string | null;
+  /** Comma-separated words; ads containing any of them are hidden. */
+  exclude: string | null;
 }
 
 const TABLE = "candidate_board_prefs";
@@ -23,7 +25,7 @@ export const getMyBoardPrefs = createServerFn({ method: "GET" })
         };
       };
     };
-    const { data } = await db.from(TABLE).select("q, org_id, sort, view").maybeSingle();
+    const { data } = await db.from(TABLE).select("q, org_id, sort, view, exclude").maybeSingle();
     return (data ?? null) as BoardPrefs | null;
   });
 
@@ -36,6 +38,7 @@ export const saveMyBoardPrefs = createServerFn({ method: "POST" })
         orgId: z.string().uuid().nullable(),
         sort: z.string().max(40).nullable(),
         view: z.string().max(40).nullable(),
+        exclude: z.string().max(200).nullable().optional(),
       })
       .parse(input),
   )
@@ -55,6 +58,7 @@ export const saveMyBoardPrefs = createServerFn({ method: "POST" })
         org_id: data.orgId,
         sort: data.sort,
         view: data.view,
+        exclude: data.exclude ?? null,
       },
       { onConflict: "user_id" },
     );

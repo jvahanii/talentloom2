@@ -16,6 +16,7 @@ export interface BoardSelection {
   org: string;
   sort: string;
   view: string;
+  exclude: string;
 }
 
 /** Persisted per-candidate filter/sort selections for the open positions board. */
@@ -59,12 +60,14 @@ export function useBoardPrefs() {
         orgId: sel.org || null,
         sort: sel.sort || null,
         view: sel.view || null,
+        exclude: sel.exclude ? sel.exclude.slice(0, 200) : null,
       };
       const next: BoardPrefs = {
         q: payload.q,
         org_id: payload.orgId,
         sort: payload.sort,
         view: payload.view,
+        exclude: payload.exclude,
       };
       queryClient.setQueryData(KEY, next);
       if (timer.current) clearTimeout(timer.current);

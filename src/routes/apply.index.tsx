@@ -10,6 +10,7 @@ import {
   MapPin,
   RotateCcw,
   Search,
+  Ban,
 } from "lucide-react";
 import { MarketingShell } from "@/components/MarketingShell";
 import { StarRating } from "@/components/StarRating";
@@ -64,8 +65,9 @@ export const Route = createFileRoute("/apply/")({
   }),
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; org?: string; sort?: string; view?: string } => ({
+  ): { q?: string; x?: string; org?: string; sort?: string; view?: string } => ({
     ...(typeof search["q"] === "string" && search["q"] ? { q: search["q"] as string } : {}),
+    ...(typeof search["x"] === "string" && search["x"] ? { x: search["x"] as string } : {}),
     ...(typeof search["org"] === "string" && search["org"] ? { org: search["org"] as string } : {}),
     ...(typeof search["sort"] === "string" && search["sort"]
       ? { sort: search["sort"] as string }
@@ -78,7 +80,7 @@ export const Route = createFileRoute("/apply/")({
 });
 
 function JobBoard() {
-  const { q = "", org = "", sort = "newest", view = "active" } = Route.useSearch();
+  const { q = "", x = "", org = "", sort = "newest", view = "active" } = Route.useSearch();
   const navigate = useNavigate({ from: "/apply/" });
   const ratings = usePositionRatings();
 
@@ -93,11 +95,12 @@ function JobBoard() {
   useEffect(() => {
     if (restored.current || !boardPrefs.ready) return;
     restored.current = true;
-    const urlHasFilters = !!(search.q || search.org || search.sort || search.view);
+    const urlHasFilters = !!(search.q || search.x || search.org || search.sort || search.view);
     const p = boardPrefs.prefs;
     if (urlHasFilters || !p) return;
     const next = {
       ...(p.q ? { q: p.q } : {}),
+      ...(p.exclude ? { x: p.exclude } : {}),
       ...(p.org_id ? { org: p.org_id } : {}),
       ...(p.sort && SORTS.some((s) => s.value === p.sort) ? { sort: p.sort } : {}),
       ...(p.view && VIEWS.some((v) => v.value === p.view) ? { view: p.view } : {}),
@@ -105,15 +108,19 @@ function JobBoard() {
     if (Object.keys(next).length > 0) navigate({ search: next, replace: true });
   }, [boardPrefs.ready, boardPrefs.prefs, search, navigate]);
 
-  const apply = (patch: Partial<{ q: string; org: string; sort: string; view: string }>) => {
-    const next = { q, org, sort: safeSort, view: safeView, ...patch };
-    navigate({ search: () => next, replace: true });
-    boardPrefs.save(next);
+  const apply = (
+    patch: Partial<{ q: string; x: string; org: string; sort: string; view: string }>,
+  ) => {
+    const next = { q, x, org, sort: safeSort, view: safeView, ...patch };
+    // Empty values stay out of the address.
+    const url = Object.fromEntries(Object.entries(next).filter(([, v]) => v));
+    navigate({ search: () => url, replace: true });
+    boardPrefs.save({ ...next, exclude: next.x });
   };
 
   const resetFilters = () => {
     navigate({ search: () => ({}), replace: true });
-    boardPrefs.save({ q: "", org: "", sort: "newest", view: "active" });
+    boardPrefs.save({ q: "", org: "", sort: "newest", view: "active", exclude: "" });
   };
 
   const { data: positions, isLoading } = useQuery({
@@ -127,13 +134,24 @@ function JobBoard() {
   ].sort((a, b) => a[1].localeCompare(b[1]));
 
   // Several titles at once: "designer, product manager" matches either one.
-  const terms = q
-    .toLowerCase()
-    .slice(0, 500)
-    .split(/[,;|]/)
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, 20);
+  const termsOf = (text: string) =>
+    text
+      .toLowerCase()
+      .slice(0, 500)
+      .split(/[,;|]/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+  const terms = termsOf(q);
+  // Words that hide an ad: "senior, intern" hides any ad mentioning either.
+  const excluded = termsOf(x);
+  const searchable = (p: BoardEntry) =>
+    [p.title, p.orgName, p.department ?? "", p.location ?? "", p.excerpt].map((v) =>
+      v.toLowerCase(),
+    );
+  const isExcluded = (p: BoardEntry) =>
+    excluded.length > 0 && searchable(p).some((v) => excluded.some((t) => v.includes(t)));
+  let hiddenByExclude = 0;
   const filtered = all
     .filter((p) => {
       if (org && p.orgId !== org) return false;
@@ -143,10 +161,18 @@ function JobBoard() {
       if (safeView === "rated" && ratings.ratingOf(p.id) === null) return false;
       if (safeView === "active" && p.closed) return false;
       if (safeView === "past" && !p.closed) return false;
-      if (terms.length === 0) return true;
-      return [p.title, p.orgName, p.department ?? "", p.location ?? ""].some((v) =>
-        terms.some((t) => v.toLowerCase().includes(t)),
-      );
+      if (
+        terms.length > 0 &&
+        ![p.title, p.orgName, p.department ?? "", p.location ?? ""].some((v) =>
+          terms.some((t) => v.toLowerCase().includes(t)),
+        )
+      )
+        return false;
+      if (isExcluded(p)) {
+        hiddenByExclude++;
+        return false;
+      }
+      return true;
     })
     .sort((a, b) => {
       switch (safeSort) {
@@ -185,6 +211,17 @@ function JobBoard() {
               placeholder="Try “designer, engineer” — separate titles with commas"
               className="w-full bg-transparent text-sm outline-none"
               aria-label="Search open positions"
+            />
+          </label>
+          <label className="glass flex items-center gap-2 rounded-xl px-3 py-2 sm:w-56">
+            <Ban className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={x}
+              onChange={(e) => apply({ x: e.target.value })}
+              placeholder="Exclude: senior, intern"
+              className="w-full bg-transparent text-sm outline-none"
+              aria-label="Hide ads containing these words (separate with commas)"
+              title="Hide ads whose title, company or location contains any of these words. Separate words with commas."
             />
           </label>
           <select
@@ -253,6 +290,7 @@ function JobBoard() {
         {!isLoading && filtered.length > 0 && (
           <p className="mt-4 text-sm text-muted-foreground" aria-live="polite">
             {filtered.length === 1 ? "1 role" : `${filtered.length} roles`}
+            {hiddenByExclude > 0 && `, ${hiddenByExclude} hidden by your excluded words`}
           </p>
         )}
 
@@ -275,7 +313,9 @@ function JobBoard() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {all.length === 0
                   ? "New opportunities land here regularly. Check back soon — your next role could be on its way."
-                  : "Try another keyword or broaden your company filter."}
+                  : hiddenByExclude > 0
+                    ? `${hiddenByExclude === 1 ? "1 role is" : `${hiddenByExclude} roles are`} hidden by your excluded words. Remove some to see them.`
+                    : "Try another keyword or broaden your company filter."}
               </p>
             </div>
           )}
