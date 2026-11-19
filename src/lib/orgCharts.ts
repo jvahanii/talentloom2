@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/app-client";
  * An organisation keeps any number of named charts; each is a tree of boxes,
  * each box a role with, optionally, a person's name and a note, typed by hand,
  * or an organisational unit (kind "unit", e.g. Finance) with, optionally, its
- * head; a box's name is in role either way.
+ * head and its members (org_chart_members); a box's name is in role either way.
  * A box may instead name someone from People (person_id, a member of the
  * organisation); person_name then keeps their name as it was when picked, so
  * the box still reads right if they leave, which unlinks them.
@@ -103,6 +103,23 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
       await deleteChart(chart.id).catch(() => undefined);
       throw error;
     }
+    const members = await fetchMembers(from);
+    if (members.length > 0) {
+      const { error: mError } = await db.from("org_chart_members").insert(
+        members.map((m) => ({
+          org_id: orgId,
+          chart_id: chart.id,
+          node_id: newId.get(m.node_id),
+          person_id: m.person_id,
+          person_name: m.person_name,
+          position: m.position,
+        })),
+      );
+      if (mError) {
+        await deleteChart(chart.id).catch(() => undefined);
+        throw mError;
+      }
+    }
   }
   return chart;
 }
@@ -158,17 +175,123 @@ export async function fetchOrgPeople(orgId: string): Promise<OrgPerson[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Adds a box and returns its id. */
 export async function addNode(
   orgId: string,
   chartId: string,
   parentId: string | null,
   position: number,
   fields: NodeFields,
-) {
-  const { error } = await db
+): Promise<string> {
+  const { data, error } = await db
     .from("org_chart_nodes")
-    .insert({ org_id: orgId, chart_id: chartId, parent_id: parentId, position, ...tidy(fields) });
+    .insert({ org_id: orgId, chart_id: chartId, parent_id: parentId, position, ...tidy(fields) })
+    .select("id")
+    .single();
   if (error) throw error;
+  return (data as { id: string }).id;
+}
+
+/**
+ * Someone in a unit: picked from People (person_id) or typed by hand.
+ * person_name keeps their name as it was when added.
+ */
+export type ChartMember = {
+  id: string;
+  node_id: string;
+  person_id: string | null;
+  person_name: string;
+  position: number;
+};
+export type NewMember = { person_id: string | null; person_name: string };
+
+export const chartMembersKey = (chartId: string | null) => ["org-chart-members", chartId];
+
+export async function fetchMembers(chartId: string): Promise<ChartMember[]> {
+  const { data, error } = await db
+    .from("org_chart_members")
+    .select("id, node_id, person_id, person_name, position")
+    .eq("chart_id", chartId)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ChartMember[];
+}
+
+export async function addMembers(
+  orgId: string,
+  chartId: string,
+  nodeId: string,
+  people: NewMember[],
+  firstPosition: number,
+) {
+  const rows = people
+    .map((p) => ({ ...p, person_name: p.person_name.trim().slice(0, MAX_PERSON) }))
+    .filter((p) => p.person_name)
+    .map((p, i) => ({
+      org_id: orgId,
+      chart_id: chartId,
+      node_id: nodeId,
+      person_id: p.person_id,
+      person_name: p.person_name,
+      position: firstPosition + i,
+    }));
+  if (!rows.length) return;
+  const { error } = await db.from("org_chart_members").insert(rows);
+  if (error) throw error;
+}
+
+export async function deleteMembers(ids: string[]) {
+  if (!ids.length) return;
+  const { error } = await db.from("org_chart_members").delete().in("id", ids);
+  if (error) throw error;
+}
+
+/** Moves someone to another unit, at the end of its list. */
+export async function moveMember(id: string, nodeId: string, position: number) {
+  const { data, error } = await db
+    .from("org_chart_members")
+    .update({ node_id: nodeId, position })
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("That person is no longer in the unit");
+}
+
+/** Where a dragged box lands: beside a box, inside it, or at the top. */
+export type DropPlace = { where: "before" | "after" | "into"; target: string } | { where: "top" };
+
+/**
+ * The parent and positions that put box `id` at `place`: the moved box and
+ * every sibling whose position changes. Null if nothing would change.
+ */
+export function planMove(
+  nodes: ChartNode[],
+  id: string,
+  place: DropPlace,
+): { id: string; parent_id: string | null; position: number }[] | null {
+  const node = nodes.find((n) => n.id === id);
+  if (!node) return null;
+  const target = place.where === "top" ? null : nodes.find((n) => n.id === place.target);
+  if (place.where !== "top" && !target) return null;
+  // Onto itself or a box below it: no place to go.
+  if (target && subtreeIds(nodes, id).has(target.id)) return null;
+  const parent =
+    place.where === "top" ? null : place.where === "into" ? target!.id : target!.parent_id;
+  const kids = childrenOf(nodes);
+  const row = (kids.get(parent ?? "") ?? []).filter((n) => n.id !== id);
+  let at = row.length;
+  if (place.where === "before" || place.where === "after") {
+    at = row.findIndex((n) => n.id === target!.id) + (place.where === "after" ? 1 : 0);
+  }
+  row.splice(at, 0, node);
+  const out = row
+    .map((n, position) => ({ id: n.id, parent_id: parent, position }))
+    .filter((u) => {
+      const was = nodes.find((n) => n.id === u.id)!;
+      return was.parent_id !== u.parent_id || was.position !== u.position;
+    });
+  return out.length ? out : null;
 }
 
 export async function updateNode(
