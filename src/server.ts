@@ -85,7 +85,7 @@ const CONTENT_SECURITY_POLICY = [
 ].join("; ");
 
 const SECURITY_HEADERS: Record<string, string> = {
-  "Content-Security-Policy-Report-Only": CONTENT_SECURITY_POLICY,
+  "Content-Security-Policy": CONTENT_SECURITY_POLICY,
   "X-Frame-Options": "SAMEORIGIN",
   "X-Content-Type-Options": "nosniff",
   // Invite and survey links carry their token in the path: keep it on this site.
@@ -93,14 +93,21 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
 };
 
-function withSecurityHeaders(response: Response): Response {
+function withSecurityHeaders(request: Request, response: Response): Response {
+  const headers: Record<string, string> = { ...SECURITY_HEADERS };
+  // Asset paths are cached for a year as immutable, and that rule also hit
+  // "not found" answers: a browser asking for a new build's file a moment
+  // before it was live kept the failure, and that page never loaded again.
+  if (response.status === 404 && new URL(request.url).pathname.startsWith("/assets/")) {
+    headers["Cache-Control"] = "no-store";
+  }
   // Some responses (redirects, fetched ones) have immutable headers: copy them.
   let out = response;
   try {
-    for (const [k, v] of Object.entries(SECURITY_HEADERS)) out.headers.set(k, v);
+    for (const [k, v] of Object.entries(headers)) out.headers.set(k, v);
   } catch {
     out = new Response(response.body, response);
-    for (const [k, v] of Object.entries(SECURITY_HEADERS)) out.headers.set(k, v);
+    for (const [k, v] of Object.entries(headers)) out.headers.set(k, v);
   }
   return out;
 }
@@ -128,6 +135,6 @@ async function handle(request: Request, env: unknown, ctx: unknown): Promise<Res
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
-    return withSecurityHeaders(await handle(request, env, ctx));
+    return withSecurityHeaders(request, await handle(request, env, ctx));
   },
 };
