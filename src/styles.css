@@ -546,6 +546,7 @@
 .org-tree li::before,
 .org-tree li::after {
   content: "";
+  pointer-events: none;
   position: absolute;
   top: 0;
   right: 50%;
@@ -578,6 +579,7 @@
 }
 .org-tree ul ul::before {
   content: "";
+  pointer-events: none;
   position: absolute;
   top: 0;
   left: 50%;

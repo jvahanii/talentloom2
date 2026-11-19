@@ -654,7 +654,7 @@ function Branch({
               onClick={() => onAdd(n)}
               aria-label={`Add a role below ${n.role}`}
               title="Add a role below"
-              className="absolute -bottom-3 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border-2 border-border bg-card text-muted-foreground transition hover:border-primary hover:text-foreground"
+              className="absolute -bottom-3 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border-2 border-border bg-card text-muted-foreground transition hover:border-primary hover:text-foreground"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
