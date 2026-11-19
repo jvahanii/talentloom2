@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
+import { useRememberedTab } from "@/hooks/useRememberedTab";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   MAX_CHART_NAME,
   MAX_NOTE,
@@ -150,9 +152,11 @@ const emptyFields: NodeFields = {
   role: "",
   person_name: "",
   person_id: null,
+  unit_id: null,
   note: "",
 };
 const emptyUnit: NodeFields = { ...emptyFields, kind: "unit" };
+const emptyOf = (k: NodeKind) => (k === "unit" ? emptyUnit : emptyFields);
 
 /** The dialog's wording for each kind of box. */
 const KIND_WORDS: Record<NodeKind, { name: string; placeholder: string; person: string }> = {
@@ -174,6 +178,10 @@ type View = {
   membersOf: (nodeId: string) => ChartMember[];
   nameOf: (n: ChartNode) => string | null;
   memberName: (m: ChartMember) => string;
+  /** A role's unit, by name. */
+  unitName: (n: ChartNode) => string | null;
+  /** How many roles belong to a unit. */
+  roleCount: (unitId: string) => number;
   /** Boxes the item being dragged can't land on. */
   blocked: Set<string>;
   onOpen: (n: ChartNode) => void;
@@ -201,7 +209,18 @@ function OrgChartPage() {
     queryFn: () => fetchNodes(chart!.id),
   });
   const nodes = nodesQuery.data ?? [];
-  const kids = childrenOf(nodes);
+
+  // Two trees per chart, one per tab: units, and roles with their reporting lines.
+  const [tab, chooseTab] = useRememberedTab("org-chart", ["units", "reporting"] as const, "units");
+  const kind: NodeKind = tab === "units" ? "unit" : "role";
+  const units = nodes.filter((n) => n.kind === "unit");
+  const roles = nodes.filter((n) => n.kind === "role");
+  const unitKids = childrenOf(units);
+  const roleKids = childrenOf(roles);
+  const kidsOf = (k: NodeKind) => (k === "unit" ? unitKids : roleKids);
+  const shown = kind === "unit" ? units : roles;
+  const kids = kidsOf(kind);
+  const unitById = new Map(units.map((u) => [u.id, u]));
 
   const membersQuery = useQuery({
     queryKey: chartMembersKey(chart?.id ?? null),
@@ -281,8 +300,8 @@ function OrgChartPage() {
 
   if (!orgId) return null;
 
-  const nextPosition = (parentId: string | null) => {
-    const siblings = kids.get(parentId ?? "") ?? [];
+  const nextPosition = (parentId: string | null, k: NodeKind) => {
+    const siblings = kidsOf(k).get(parentId ?? "") ?? [];
     return siblings.length ? Math.max(...siblings.map((s) => s.position)) + 1 : 0;
   };
   const nextMemberPosition = (nodeId: string) => {
@@ -304,15 +323,23 @@ function OrgChartPage() {
         role: n.role,
         person_name: n.person_name ?? "",
         person_id: n.person_id,
+        unit_id: n.unit_id,
         note: n.note ?? "",
       },
       members: staged(n),
     });
   };
-  const addBelow = (n: ChartNode, fields: NodeFields = emptyFields) =>
-    setBoxDialog({ mode: "add", parentId: n.id, fields, members: [] });
-  const addAtTop = (fields: NodeFields) =>
-    setBoxDialog({ mode: "add", parentId: null, fields, members: [] });
+  /** A new box of the same kind below n: a sub-unit, or a role reporting to n. */
+  const addBelow = (n: ChartNode) =>
+    setBoxDialog({
+      mode: "add",
+      parentId: n.id,
+      // A new role starts in the unit of the role it reports to.
+      fields: { ...emptyOf(n.kind), unit_id: n.kind === "role" ? n.unit_id : null },
+      members: [],
+    });
+  const addAtTop = () =>
+    setBoxDialog({ mode: "add", parentId: null, fields: emptyOf(kind), members: [] });
 
   const saveName = async () => {
     if (!nameDialog) return;
@@ -343,14 +370,15 @@ function OrgChartPage() {
   const saveBox = async () => {
     if (!boxDialog || !chart) return;
     if (!boxDialog.fields.role.trim()) return;
-    const isUnit = boxDialog.fields.kind === "unit";
+    const k = boxDialog.fields.kind;
+    const isUnit = k === "unit";
     const ok = await run(async () => {
       if (boxDialog.mode === "add") {
         const id = await addNode(
           orgId,
           chart.id,
           boxDialog.parentId,
-          nextPosition(boxDialog.parentId),
+          nextPosition(boxDialog.parentId, k),
           boxDialog.fields,
         );
         if (isUnit) await addMembers(orgId, chart.id, id, boxDialog.members, 0);
@@ -359,9 +387,8 @@ function OrgChartPage() {
         const moved = parent !== boxDialog.node.parent_id;
         await updateNode(boxDialog.node.id, {
           ...boxDialog.fields,
-          ...(moved ? { parent_id: parent, position: nextPosition(parent) } : {}),
+          ...(moved ? { parent_id: parent, position: nextPosition(parent, k) } : {}),
         });
-        // A unit turned into a role loses its members in the database.
         if (isUnit) {
           const kept = new Set(boxDialog.members.flatMap((m) => (m.id ? [m.id] : [])));
           await deleteMembers(
@@ -384,7 +411,7 @@ function OrgChartPage() {
 
   /** Swaps a box with its neighbour on the left (-1) or right (+1). */
   const shift = async (node: ChartNode, by: -1 | 1) => {
-    const siblings = kids.get(node.parent_id ?? "") ?? [];
+    const siblings = kidsOf(node.kind).get(node.parent_id ?? "") ?? [];
     const i = siblings.findIndex((s) => s.id === node.id);
     const other = siblings[i + by];
     if (!other) return;
@@ -413,7 +440,11 @@ function OrgChartPage() {
     if (data.type === "box") {
       const place: DropPlace =
         "top" in drop ? { where: "top" } : { where: drop.where, target: drop.node.id };
-      const plan = planMove(nodes, data.id, place);
+      const plan = planMove(
+        nodes.filter((n) => n.kind === data.kind),
+        data.id,
+        place,
+      );
       if (!plan) return;
       // Show the move at once; the refetch afterwards confirms it.
       qc.setQueryData<ChartNode[]>(chartNodesKey(chart.id), (old) =>
@@ -500,31 +531,39 @@ function OrgChartPage() {
     membersOf,
     nameOf,
     memberName,
+    unitName: (n) => (n.unit_id ? (unitById.get(n.unit_id)?.role ?? null) : null),
+    roleCount: (unitId) => roles.filter((r) => r.unit_id === unitId).length,
     blocked,
     onOpen: openBox,
-    onAdd: (n) => addBelow(n),
+    onAdd: addBelow,
   };
 
   const editing = boxDialog?.mode === "edit" ? boxDialog.node : null;
   const blockedParents = editing ? subtreeIds(nodes, editing.id) : new Set<string>();
-  const siblingsOfEditing = editing ? (kids.get(editing.parent_id ?? "") ?? []) : [];
+  const siblingsOfEditing = editing
+    ? (kidsOf(editing.kind).get(editing.parent_id ?? "") ?? [])
+    : [];
   const editingIndex = editing ? siblingsOfEditing.findIndex((s) => s.id === editing.id) : -1;
-  const losingMembers =
-    boxDialog?.mode === "edit" &&
-    boxDialog.node.kind === "unit" &&
-    boxDialog.fields.kind === "role" &&
-    membersOf(boxDialog.node.id).length > 0
-      ? membersOf(boxDialog.node.id).length
-      : 0;
+  const dialogKind: NodeKind = boxDialog?.fields.kind ?? kind;
+  /** Units listed top-down, indented by depth, for the role's Unit select. */
+  const unitOptions: { node: ChartNode; depth: number }[] = [];
+  const walkUnits = (key: string, depth: number) => {
+    for (const u of unitKids.get(key) ?? []) {
+      unitOptions.push({ node: u, depth });
+      walkUnits(u.id, depth + 1);
+    }
+  };
+  walkUnits("", 0);
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold">Org chart</h1>
         <p className="text-sm text-muted-foreground">
-          Draw how {orgName} is organised: units such as Finance and the people in them, the roles,
-          who holds them and who reports to whom. Keep as many charts as you like, for example
-          today's and a planned one. Everyone in the organisation can see and edit them.
+          Draw how {orgName} is organised. <strong>Units</strong> shows what is part of what, such
+          as Finance and Accounting, and who is in each. <strong>Reporting lines</strong> shows the
+          roles and who reports to whom, which can cross units. Keep as many charts as you like, for
+          example today's and a planned one. Everyone in the organisation can see and edit them.
         </p>
       </div>
 
@@ -580,12 +619,25 @@ function OrgChartPage() {
           <Workflow className="mx-auto h-8 w-8 text-muted-foreground" />
           <h2 className="mt-3 text-lg font-semibold">Start your first org chart</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Give it a name, then add the top role and build down from there.
+            Give it a name, then add its units and the roles that report to each other.
           </p>
           <Button className="mt-4" onClick={() => setNameDialog({ mode: "new", value: "" })}>
             <Plus className="mr-1 h-4 w-4" /> New chart
           </Button>
         </div>
+      )}
+
+      {chart && (
+        <Tabs value={tab} onValueChange={chooseTab}>
+          <TabsList className="flex-wrap">
+            <TabsTrigger value="units">
+              <Building2 className="mr-1.5 h-4 w-4" /> Units ({units.length})
+            </TabsTrigger>
+            <TabsTrigger value="reporting">
+              <Workflow className="mr-1.5 h-4 w-4" /> Reporting lines ({roles.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       )}
 
       {chart && (
@@ -600,21 +652,26 @@ function OrgChartPage() {
             <div className="min-w-0 rounded-2xl border-2 border-border bg-card p-4">
               {nodesQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
-              ) : nodes.length === 0 ? (
+              ) : shown.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-muted-foreground">This chart has no boxes yet.</p>
-                  <div className="mt-3 flex flex-wrap justify-center gap-2">
-                    <Button onClick={() => addAtTop(emptyFields)}>
-                      <Plus className="mr-1 h-4 w-4" /> Add the top role
-                    </Button>
-                    <Button variant="outline" onClick={() => addAtTop(emptyUnit)}>
-                      <Building2 className="mr-1 h-4 w-4" /> Add a unit
-                    </Button>
-                  </div>
+                  {kind === "unit" ? (
+                    <Building2 className="mx-auto h-8 w-8 text-muted-foreground" />
+                  ) : (
+                    <Workflow className="mx-auto h-8 w-8 text-muted-foreground" />
+                  )}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {kind === "unit"
+                      ? "No units yet. Start with the whole organisation or its main units, such as Finance and Sales, then add the units within them."
+                      : "No roles yet. Start with the top role, such as CEO, then add the roles that report to it."}
+                  </p>
+                  <Button className="mt-3" onClick={addAtTop}>
+                    <Plus className="mr-1 h-4 w-4" />{" "}
+                    {kind === "unit" ? "Add a unit" : "Add the top role"}
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <TopZone active={dragging?.type === "box"} />
+                  <TopZone active={dragging?.type === "box"} kind={kind} />
                   <div className="overflow-x-auto pb-4">
                     <div className="org-tree mx-auto w-max min-w-full">
                       <Branch parentKey="" view={view} />
@@ -622,17 +679,14 @@ function OrgChartPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                     <p className="text-xs text-muted-foreground">
-                      Drag a box onto another to put it below it, or to its left or right edge to
-                      place it beside it. Click a box to edit it; + adds a role or unit below.
+                      {kind === "unit"
+                        ? "Drag a unit onto another to make it part of it, or to its left or right edge to place it beside it. Click a unit to edit it; + adds a unit within it."
+                        : "Drag a role onto another to make it report to it, or to its left or right edge to place it beside it. Click a role to edit it; + adds a role reporting to it."}
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => addAtTop(emptyFields)}>
-                        <Plus className="mr-1 h-4 w-4" /> Add a role at the top
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => addAtTop(emptyUnit)}>
-                        <Building2 className="mr-1 h-4 w-4" /> Add a unit at the top
-                      </Button>
-                    </div>
+                    <Button size="sm" variant="outline" onClick={addAtTop}>
+                      <Plus className="mr-1 h-4 w-4" />{" "}
+                      {kind === "unit" ? "Add a unit at the top" : "Add a role at the top"}
+                    </Button>
                   </div>
                 </>
               )}
@@ -641,7 +695,8 @@ function OrgChartPage() {
               people={people}
               loading={peopleQuery.isLoading}
               placesOf={placesOf}
-              canDrop={nodes.length > 0}
+              kind={kind}
+              canDrop={shown.length > 0}
             />
           </div>
           <DragOverlay dropAnimation={null}>
@@ -717,7 +772,7 @@ function OrgChartPage() {
             </DialogTitle>
             <DialogDescription>
               {boxDialog?.mode === "add" && boxDialog.parentId
-                ? `Below ${nodes.find((n) => n.id === boxDialog.parentId)?.role ?? "the box above"}.`
+                ? `${dialogKind === "unit" ? "Part of" : "Reports to"} ${nodes.find((n) => n.id === boxDialog.parentId)?.role ?? "the box above"}.`
                 : boxDialog?.mode === "add"
                   ? "At the top of the chart."
                   : "Pick people from People, or type their names."}
@@ -731,46 +786,6 @@ function OrgChartPage() {
               }}
               className="space-y-4"
             >
-              <div>
-                <div
-                  role="radiogroup"
-                  aria-label="Kind of box"
-                  className="grid grid-cols-2 gap-1 rounded-xl border-2 border-border p-1"
-                >
-                  {(["role", "unit"] as const).map((k) => {
-                    const on = boxDialog.fields.kind === k;
-                    const Icon = k === "unit" ? Building2 : UserRound;
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        onClick={() =>
-                          setBoxDialog((d) =>
-                            d ? ({ ...d, fields: { ...d.fields, kind: k } } as BoxDialog) : d,
-                          )
-                        }
-                        className={
-                          "flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition " +
-                          (on
-                            ? "bg-primary text-primary-foreground"
-                            : "text-muted-foreground hover:bg-muted")
-                        }
-                      >
-                        <Icon className="h-4 w-4" />
-                        {k === "unit" ? "Unit, e.g. Finance" : "Role"}
-                      </button>
-                    );
-                  })}
-                </div>
-                {losingMembers > 0 && (
-                  <p className="mt-1.5 text-xs text-destructive">
-                    As a role it can't have members: saving removes its {losingMembers}{" "}
-                    {losingMembers === 1 ? "member" : "members"}.
-                  </p>
-                )}
-              </div>
               <div className="space-y-1.5">
                 <Label htmlFor="box-role">{KIND_WORDS[boxDialog.fields.kind].name}</Label>
                 <Input
@@ -799,6 +814,42 @@ function OrgChartPage() {
                   )
                 }
               />
+              {boxDialog.fields.kind === "role" && (
+                <div className="space-y-1.5">
+                  <Label>Unit (optional)</Label>
+                  <Select
+                    value={boxDialog.fields.unit_id ?? TOP}
+                    onValueChange={(v) =>
+                      setBoxDialog((d) =>
+                        d
+                          ? ({
+                              ...d,
+                              fields: { ...d.fields, unit_id: v === TOP ? null : v },
+                            } as BoxDialog)
+                          : d,
+                      )
+                    }
+                  >
+                    <SelectTrigger aria-label="Unit">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TOP}>No unit</SelectItem>
+                      {unitOptions.map(({ node: u, depth }) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {"  ".repeat(depth)}
+                          {u.role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {units.length === 0
+                      ? "Add units on the Units tab to place roles in them."
+                      : "The unit the role belongs to. It can differ from the unit of the role it reports to."}
+                  </p>
+                </div>
+              )}
               {boxDialog.fields.kind === "unit" && (
                 <MembersField
                   members={boxDialog.members}
@@ -839,13 +890,14 @@ function OrgChartPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={TOP}>Nobody — at the top</SelectItem>
+                        <SelectItem value={TOP}>
+                          {dialogKind === "unit" ? "Nothing — at the top" : "Nobody — at the top"}
+                        </SelectItem>
                         {nodes
-                          .filter((n) => !blockedParents.has(n.id))
+                          .filter((n) => n.kind === dialogKind && !blockedParents.has(n.id))
                           .map((n) => (
                             <SelectItem key={n.id} value={n.id}>
                               {n.role}
-                              {n.kind === "unit" ? " (unit)" : ""}
                               {nameOf(n) ? ` — ${nameOf(n)}` : ""}
                             </SelectItem>
                           ))}
@@ -879,15 +931,10 @@ function OrgChartPage() {
                       variant="outline"
                       onClick={() => addBelow(boxDialog.node)}
                     >
-                      <Plus className="mr-1 h-4 w-4" /> Add a role below
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => addBelow(boxDialog.node, emptyUnit)}
-                    >
-                      <Building2 className="mr-1 h-4 w-4" /> Add a unit below
+                      <Plus className="mr-1 h-4 w-4" />{" "}
+                      {dialogKind === "unit"
+                        ? "Add a unit within it"
+                        : "Add a role reporting to it"}
                     </Button>
                   </div>
                 </>
@@ -947,11 +994,17 @@ function OrgChartPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{confirmBoxDelete?.role}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmBoxDelete && (kids.get(confirmBoxDelete.id) ?? []).length > 0
-                ? "The boxes below it move up to the box above it."
-                : "The box is removed from the chart."}
+              {confirmBoxDelete &&
+              (kidsOf(confirmBoxDelete.kind).get(confirmBoxDelete.id) ?? []).length > 0
+                ? confirmBoxDelete.kind === "unit"
+                  ? "The units within it move up to the unit it is part of."
+                  : "The roles reporting to it move up to report to the role above it."
+                : "It is removed from the chart."}
               {confirmBoxDelete && membersOf(confirmBoxDelete.id).length > 0
-                ? " Its members are removed from the chart with it."
+                ? " Its members are removed with it."
+                : ""}
+              {confirmBoxDelete?.kind === "unit" && view.roleCount(confirmBoxDelete.id) > 0
+                ? " Roles in it stay in Reporting lines, without a unit."
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1216,11 +1269,13 @@ function PeoplePanel({
   people,
   loading,
   placesOf,
+  kind,
   canDrop,
 }: {
   people: OrgPerson[];
   loading: boolean;
   placesOf: Map<string, string[]>;
+  kind: NodeKind;
   canDrop: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -1231,9 +1286,13 @@ function PeoplePanel({
         <Users className="h-4 w-4" /> People
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        {canDrop
-          ? "Drag someone onto a unit to add them to it, or onto a role to give it to them."
-          : "Add a unit or a role, then drag people onto it."}
+        {!canDrop
+          ? kind === "unit"
+            ? "Add a unit, then drag people onto it."
+            : "Add a role, then drag someone onto it."
+          : kind === "unit"
+            ? "Drag someone onto a unit to add them to it."
+            : "Drag someone onto a role to give it to them."}
       </p>
       <label className="mt-2 flex items-center gap-2 rounded-lg border border-border px-2 py-1.5">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -1290,7 +1349,7 @@ function PersonRow({ person, places }: { person: OrgPerson; places: string[] }) 
  * while a box is dragged. It keeps its size, so the chart doesn't shift under
  * the pointer when a drag starts.
  */
-function TopZone({ active }: { active: boolean }) {
+function TopZone({ active, kind }: { active: boolean; kind: NodeKind }) {
   const drop = useDroppable({
     id: "top",
     data: { top: true } satisfies DropData,
@@ -1310,7 +1369,9 @@ function TopZone({ active }: { active: boolean }) {
     >
       {active
         ? "Drop here to put it at the top of the chart"
-        : "Drag boxes to move them, and people from the People list onto units and roles."}
+        : kind === "unit"
+          ? "Drag units to rearrange them, and people from the People list onto units."
+          : "Drag roles to change who reports to whom, and people from the People list onto roles."}
     </div>
   );
 }
@@ -1433,6 +1494,18 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               </span>
             </span>
           )}
+          {!unit && view.unitName(n) && (
+            <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <Building2 className="h-3 w-3 shrink-0" />
+              <span className="truncate">{view.unitName(n)}</span>
+            </span>
+          )}
+          {unit && view.roleCount(n.id) > 0 && (
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              {view.roleCount(n.id)} {view.roleCount(n.id) === 1 ? "role" : "roles"} in Reporting
+              lines
+            </span>
+          )}
           {n.note && (
             <span className="mt-1 line-clamp-2 block text-xs text-muted-foreground/80">
               {n.note}
@@ -1477,8 +1550,8 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
       <button
         type="button"
         onClick={() => view.onAdd(n)}
-        aria-label={`Add a role or unit below ${n.role}`}
-        title="Add a role or unit below"
+        aria-label={unit ? `Add a unit within ${n.role}` : `Add a role reporting to ${n.role}`}
+        title={unit ? "Add a unit within it" : "Add a role reporting to it"}
         className="absolute -bottom-3 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border-2 border-border bg-card text-muted-foreground transition hover:border-primary hover:text-foreground"
       >
         <Plus className="h-3.5 w-3.5" />

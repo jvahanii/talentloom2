@@ -2,11 +2,17 @@ import { supabase } from "@/integrations/supabase/app-client";
 
 /**
  * Organisation charts: a feature of their own, not linked to People or Teams.
- * An organisation keeps any number of named charts; each is a tree of boxes,
- * each box a role with, optionally, a person's name and a note, typed by hand,
- * or an organisational unit (kind "unit", e.g. Finance) with, optionally, its
- * head and its members (org_chart_members); a box's name is in role either way.
- * A box may instead name someone from People (person_id, a member of the
+ * An organisation keeps any number of named charts. Each chart holds two
+ * trees of boxes, shown on two tabs:
+ * - units (kind "unit", e.g. Finance): what is part of what, each with,
+ *   optionally, its head and its members (org_chart_members);
+ * - roles (kind "role"): who reports to whom, each with, optionally, the
+ *   person holding it and the unit it belongs to (unit_id), which need not
+ *   be the unit of the role it reports to.
+ * A box sits only under a box of its own kind, and keeps its kind (database
+ * trigger org_chart_nodes_kinds). A box's name is in role either way, and
+ * either kind may have a note. The person is typed by hand or someone from
+ * People (person_id, a member of the
  * organisation); person_name then keeps their name as it was when picked, so
  * the box still reads right if they leave, which unlinks them.
  * Every member of the organisation may read and edit them (row-level security
@@ -24,6 +30,8 @@ export type ChartNode = {
   role: string;
   person_name: string | null;
   person_id: string | null;
+  /** For a role: the unit it belongs to. */
+  unit_id: string | null;
   note: string | null;
   position: number;
   created_at: string;
@@ -83,8 +91,13 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
   const chart = await createChart(orgId, name);
   const newId = new Map(nodes.map((n) => [n.id, crypto.randomUUID()]));
   if (nodes.length > 0) {
-    // Parents before children, so each row's box above already exists.
-    const ordered = topDown(nodes);
+    // Parents before children, and units before roles, so the box above and
+    // a role's unit already exist when each row goes in.
+    const down = topDown(nodes);
+    const ordered = [
+      ...down.filter((n) => n.kind === "unit"),
+      ...down.filter((n) => n.kind !== "unit"),
+    ];
     const { error } = await db.from("org_chart_nodes").insert(
       ordered.map((n) => ({
         id: newId.get(n.id),
@@ -95,6 +108,7 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
         role: n.role,
         person_name: n.person_name,
         person_id: n.person_id,
+        unit_id: n.unit_id ? (newId.get(n.unit_id) ?? null) : null,
         note: n.note,
         position: n.position,
       })),
@@ -127,7 +141,9 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
 export async function fetchNodes(chartId: string): Promise<ChartNode[]> {
   const { data, error } = await db
     .from("org_chart_nodes")
-    .select("id, parent_id, kind, role, person_name, person_id, note, position, created_at")
+    .select(
+      "id, parent_id, kind, role, person_name, person_id, unit_id, note, position, created_at",
+    )
     .eq("chart_id", chartId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
@@ -141,6 +157,8 @@ export type NodeFields = {
   role: string;
   person_name: string;
   person_id: string | null;
+  /** For a role: the unit it belongs to. */
+  unit_id: string | null;
   note: string;
 };
 
@@ -149,6 +167,7 @@ const tidy = (f: NodeFields) => ({
   role: f.role.trim().slice(0, MAX_ROLE),
   person_name: f.person_name.trim().slice(0, MAX_PERSON) || null,
   person_id: f.person_id,
+  unit_id: f.kind === "role" ? f.unit_id : null,
   note: f.note.trim().slice(0, MAX_NOTE) || null,
 });
 
@@ -309,6 +328,7 @@ export async function updateNode(
   if (change.person_name !== undefined)
     row.person_name = change.person_name.trim().slice(0, MAX_PERSON) || null;
   if (change.person_id !== undefined) row.person_id = change.person_id;
+  if (change.unit_id !== undefined) row.unit_id = change.unit_id;
   if (change.note !== undefined) row.note = change.note.trim().slice(0, MAX_NOTE) || null;
   if (change.parent_id !== undefined) row.parent_id = change.parent_id;
   if (change.position !== undefined) row.position = change.position;
