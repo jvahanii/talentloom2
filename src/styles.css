@@ -586,3 +586,11 @@
   height: 24px;
   border-left: 2px solid var(--org-line);
 }
+/* Reporting lines implied by units: a dashed connector into the box, and a
+   dashed stem above a row made only of them. A row that mixes drawn and
+   implied boxes keeps its stem solid; each implied box's own drop is dashed. */
+.org-tree li.org-implied::before,
+.org-tree li.org-implied::after,
+.org-tree ul:not(:has(> li:not(.org-implied)))::before {
+  border-style: dashed;
+}

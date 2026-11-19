@@ -1542,7 +1542,8 @@ function Branch({ parentKey, view }: { parentKey: string; view: View }) {
         </li>
       ))}
       {implied.map((l) => (
-        <li key={l.key}>
+        // org-implied: its connector is dashed, like the box (styles.css).
+        <li key={l.key} className="org-implied">
           <ImpliedCard line={l} onOpen={() => view.onOpenImplied(l)} />
           <Branch parentKey={l.key} view={view} />
         </li>
