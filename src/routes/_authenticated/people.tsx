@@ -385,7 +385,7 @@ function PeoplePage() {
           <p className="text-xs text-muted-foreground">
             If the email already has a Talentloom account, they're added straight away. Otherwise
             they're emailed an invite link that works once, only for that email address, and expires
-            in 7 days.
+            in 7 days. They are not added to any organisation until they open the link and sign in.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Input
