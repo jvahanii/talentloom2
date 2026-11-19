@@ -93,7 +93,7 @@ function PositionPage() {
               <span className="text-sm font-semibold">Your rating</span>
               <StarRating
                 value={ratings.ratingOf(id)}
-                disabled={!ratings.signedIn}
+                locked={!ratings.signedIn}
                 size="md"
                 onChange={(v) => ratings.setRating(id, v)}
                 label="Your rating for this position"
@@ -115,7 +115,11 @@ function PositionPage() {
                   )}
                 </button>
               ) : (
-                <Link to="/candidate/auth" className="text-xs font-semibold text-primary">
+                <Link
+                  to="/candidate/auth"
+                  search={{ redirect: `/apply/position/${id}` }}
+                  className="text-xs font-semibold text-primary"
+                >
                   Sign in to rate and shortlist
                 </Link>
               )}

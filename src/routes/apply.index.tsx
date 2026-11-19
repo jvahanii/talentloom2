@@ -239,7 +239,11 @@ function JobBoard() {
         </div>
         {!ratings.signedIn && (
           <p className="mt-3 text-center text-sm text-muted-foreground">
-            <Link to="/candidate/auth" className="font-semibold text-primary">
+            <Link
+              to="/candidate/auth"
+              search={{ redirect: "/apply" }}
+              className="font-semibold text-primary"
+            >
               Sign in
             </Link>{" "}
             to save your shortlist and keep your search organised.
@@ -337,7 +341,7 @@ function JobBoard() {
                 <span className="flex items-center gap-2">
                   <StarRating
                     value={ratings.ratingOf(p.id)}
-                    disabled={!ratings.signedIn}
+                    locked={!ratings.signedIn}
                     onChange={(v) => ratings.setRating(p.id, v)}
                     label={`Your rating for ${p.title}`}
                   />

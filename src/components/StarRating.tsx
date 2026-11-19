@@ -5,14 +5,30 @@ interface StarRatingProps {
   value: number | null;
   onChange?: (value: number | null) => void;
   disabled?: boolean;
+  /** The rating can't be saved yet (signed out): stars stay clickable and
+   *  look provisional, and a click is reported as usual so the caller can
+   *  ask the person to sign in. */
+  locked?: boolean;
   size?: "sm" | "md";
   label?: string;
 }
 
-export function StarRating({ value, onChange, disabled, size = "sm", label }: StarRatingProps) {
+export function StarRating({
+  value,
+  onChange,
+  disabled,
+  locked,
+  size = "sm",
+  label,
+}: StarRatingProps) {
   const dim = size === "md" ? "h-6 w-6" : "h-5 w-5";
   return (
-    <div className="flex items-center gap-0.5" role="group" aria-label={label ?? "Your rating"}>
+    <div
+      className="flex items-center gap-0.5"
+      role="group"
+      aria-label={label ?? "Your rating"}
+      title={locked ? "Sign in to save your rating" : undefined}
+    >
       {[1, 2, 3, 4, 5].map((n) => {
         const active = (value ?? 0) >= n;
         return (
@@ -21,9 +37,11 @@ export function StarRating({ value, onChange, disabled, size = "sm", label }: St
             type="button"
             disabled={disabled}
             aria-label={
-              active && value === n
-                ? `Clear rating (${n} stars)`
-                : `Rate ${n} star${n > 1 ? "s" : ""}`
+              locked
+                ? `Rate ${n} star${n > 1 ? "s" : ""} (sign in to save)`
+                : active && value === n
+                  ? `Clear rating (${n} stars)`
+                  : `Rate ${n} star${n > 1 ? "s" : ""}`
             }
             aria-pressed={active}
             onClick={(e) => {
@@ -35,6 +53,7 @@ export function StarRating({ value, onChange, disabled, size = "sm", label }: St
             className={cn(
               "rounded-full p-0.5 transition active:scale-90",
               disabled ? "cursor-not-allowed opacity-50" : "hover:scale-110",
+              locked && !active && "opacity-60",
             )}
           >
             <Star

@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
 import { hasClerkSession } from "@/lib/clerk";
+import {
+  clearPendingRating,
+  keepPendingRating,
+  readPendingRating,
+  type PendingRating,
+} from "@/lib/pendingRating";
 import {
   listMyPositionRatings,
   setPositionDiscarded,
@@ -16,7 +23,14 @@ const KEY = ["my-position-ratings"];
 /** Private per-candidate ratings / discards for open positions. */
 export function usePositionRatings() {
   const [signedIn, setSignedIn] = useState(false);
+  // A rating picked while signed out, shown until it can be saved.
+  const [pending, setPending] = useState<PendingRating | null>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setPending(readPendingRating());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -77,11 +91,43 @@ export function usePositionRatings() {
     },
   });
 
+  // Back from signing in: save the rating chosen before, once.
+  const savedPending = useRef(false);
+  useEffect(() => {
+    if (!signedIn || savedPending.current) return;
+    const p = readPendingRating();
+    if (!p) return;
+    savedPending.current = true;
+    clearPendingRating();
+    setPending(null);
+    rate.mutate(
+      { positionId: p.positionId, rating: p.rating },
+      { onSuccess: () => toast.success("Your rating is saved") },
+    );
+  }, [signedIn, rate]);
+
+  /** Signed out: keep the rating and offer to sign in to save it. */
+  const rateSignedOut = (positionId: string, rating: number | null) => {
+    const p = { positionId, rating };
+    keepPendingRating(p);
+    setPending(p);
+    const returnTo = window.location.pathname + window.location.search;
+    toast("Sign in to save your rating", {
+      description: "We'll keep it and save it to your account once you're signed in.",
+      action: {
+        label: "Sign in",
+        onClick: () => navigate({ to: "/candidate/auth", search: { redirect: returnTo } }),
+      },
+    });
+  };
+
   return {
     signedIn,
-    ratingOf: (id: string) => map.get(id)?.rating ?? null,
+    ratingOf: (id: string) =>
+      !signedIn && pending?.positionId === id ? pending.rating : (map.get(id)?.rating ?? null),
     isDiscarded: (id: string) => map.get(id)?.discarded ?? false,
-    setRating: (positionId: string, rating: number | null) => rate.mutate({ positionId, rating }),
+    setRating: (positionId: string, rating: number | null) =>
+      signedIn ? rate.mutate({ positionId, rating }) : rateSignedOut(positionId, rating),
     setDiscarded: (positionId: string, discarded: boolean) =>
       discard.mutate({ positionId, discarded }),
   };

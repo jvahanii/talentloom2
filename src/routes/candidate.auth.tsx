@@ -1,7 +1,8 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { SignIn, SignUp, useAuth } from "@clerk/clerk-react";
 import { MarketingShell } from "@/components/MarketingShell";
+import { safeReturnPath } from "@/lib/pendingRating";
 
 export const Route = createFileRoute("/candidate/auth")({
   head: () => ({
@@ -15,6 +16,11 @@ export const Route = createFileRoute("/candidate/auth")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  // Where to go after signing in (e.g. back to the job board); paths on this site only.
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+    const redirect = safeReturnPath(search["redirect"]);
+    return redirect ? { redirect } : {};
+  },
   component: CandidateAuthPage,
 });
 
@@ -33,12 +39,17 @@ const clerkAppearance = {
 
 function CandidateAuthPage() {
   const navigate = useNavigate();
+  const router = useRouter();
+  const { redirect } = Route.useSearch();
+  const afterSignIn = redirect ?? "/candidate/applications";
   const { isLoaded, isSignedIn } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) navigate({ to: "/candidate/applications", replace: true });
-  }, [isLoaded, isSignedIn, navigate]);
+    if (!isLoaded || !isSignedIn) return;
+    if (redirect) router.history.replace(redirect);
+    else navigate({ to: "/candidate/applications", replace: true });
+  }, [isLoaded, isSignedIn, navigate, router, redirect]);
 
   return (
     <MarketingShell>
@@ -57,13 +68,13 @@ function CandidateAuthPage() {
                 routing="virtual"
                 withSignUp
                 appearance={clerkAppearance}
-                fallbackRedirectUrl="/candidate/applications"
+                fallbackRedirectUrl={afterSignIn}
               />
             ) : (
               <SignUp
                 routing="virtual"
                 appearance={clerkAppearance}
-                fallbackRedirectUrl="/candidate/applications"
+                fallbackRedirectUrl={afterSignIn}
               />
             )}
           </div>
