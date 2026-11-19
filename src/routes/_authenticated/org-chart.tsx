@@ -35,7 +35,6 @@ import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { useRememberedTab } from "@/hooks/useRememberedTab";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import {
   MAX_CHART_NAME,
   MAX_NOTE,
@@ -134,28 +133,6 @@ function useRememberedChart(orgId: string | null) {
     }
   };
   return [id, choose] as const;
-}
-
-/** An on/off choice remembered in this browser. */
-function useRememberedFlag(key: string, fallback: boolean) {
-  const [on, setOn] = useState(fallback);
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem(key);
-      if (v === "1" || v === "0") setOn(v === "1");
-    } catch {
-      /* keep the fallback */
-    }
-  }, [key]);
-  const choose = (next: boolean) => {
-    setOn(next);
-    try {
-      window.localStorage.setItem(key, next ? "1" : "0");
-    } catch {
-      /* not remembered */
-    }
-  };
-  return [on, choose] as const;
 }
 
 /** A unit member in the dialog: saved ones have an id, new ones don't yet. */
@@ -297,7 +274,6 @@ function OrgChartPage() {
   const [confirmChartDelete, setConfirmChartDelete] = useState(false);
   const [confirmBoxDelete, setConfirmBoxDelete] = useState<ChartNode | null>(null);
   const [dragging, setDragging] = useState<DragData | null>(null);
-  const [showImplied, setShowImplied] = useRememberedFlag("talentloom:org-chart:implied", true);
   const [impliedOpen, setImpliedOpen] = useState<ImpliedLine | null>(null);
   /** A drop can end in a click on the box under it; that click opens nothing. */
   const dragEndedAt = useRef(0);
@@ -575,8 +551,7 @@ function OrgChartPage() {
           )
         : new Set();
 
-  const impliedLines =
-    kind === "role" && showImplied ? impliedReporting(nodes, members, nameOf, memberName) : [];
+  const impliedLines = kind === "role" ? impliedReporting(nodes, members, nameOf, memberName) : [];
   const implied = new Map<string, ImpliedLine[]>();
   for (const l of impliedLines) implied.set(l.parent, [...(implied.get(l.parent) ?? []), l]);
   /** A role for someone shown by an implied line, reporting where the line does. */
@@ -795,18 +770,10 @@ function OrgChartPage() {
                 </div>
               ) : (
                 <>
-                  {kind === "role" && (
-                    <div className="mb-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      {showImplied && impliedLines.length > 0 && (
-                        <span className="flex items-center gap-1.5">
-                          <span className="inline-block h-3 w-5 rounded border-2 border-dashed border-muted-foreground/60" />
-                          Dashed: follows from the Units tab
-                        </span>
-                      )}
-                      <label className="flex items-center gap-2">
-                        <Switch checked={showImplied} onCheckedChange={setShowImplied} />
-                        Show lines implied by units
-                      </label>
+                  {impliedLines.length > 0 && (
+                    <div className="mb-2 flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
+                      <span className="inline-block h-3 w-5 rounded border-2 border-dashed border-muted-foreground/60" />
+                      Dashed: follows from the Units tab
                     </div>
                   )}
                   <TopZone active={dragging?.type === "box"} kind={kind} />
