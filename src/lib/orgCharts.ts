@@ -3,7 +3,9 @@ import { supabase } from "@/integrations/supabase/app-client";
 /**
  * Organisation charts: a feature of their own, not linked to People or Teams.
  * An organisation keeps any number of named charts; each is a tree of boxes,
- * each box a role with, optionally, a person's name and a note, typed by hand.
+ * each box a role with, optionally, a person's name and a note, typed by hand,
+ * or an organisational unit (kind "unit", e.g. Finance) with, optionally, its
+ * head; a box's name is in role either way.
  * A box may instead name someone from People (person_id, a member of the
  * organisation); person_name then keeps their name as it was when picked, so
  * the box still reads right if they leave, which unlinks them.
@@ -12,9 +14,13 @@ import { supabase } from "@/integrations/supabase/app-client";
  * itself, and a deleted box's boxes below go to the top unless moved first.
  */
 export type OrgChart = { id: string; name: string; updated_at: string };
+/** role: a job someone holds; unit: an organisational unit such as Finance. */
+export type NodeKind = "role" | "unit";
+
 export type ChartNode = {
   id: string;
   parent_id: string | null;
+  kind: NodeKind;
   role: string;
   person_name: string | null;
   person_id: string | null;
@@ -85,6 +91,7 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
         org_id: orgId,
         chart_id: chart.id,
         parent_id: n.parent_id ? newId.get(n.parent_id) : null,
+        kind: n.kind,
         role: n.role,
         person_name: n.person_name,
         person_id: n.person_id,
@@ -103,7 +110,7 @@ export async function copyChart(orgId: string, from: string, name: string): Prom
 export async function fetchNodes(chartId: string): Promise<ChartNode[]> {
   const { data, error } = await db
     .from("org_chart_nodes")
-    .select("id, parent_id, role, person_name, person_id, note, position, created_at")
+    .select("id, parent_id, kind, role, person_name, person_id, note, position, created_at")
     .eq("chart_id", chartId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
@@ -113,6 +120,7 @@ export async function fetchNodes(chartId: string): Promise<ChartNode[]> {
 
 /** person_id: someone from People, or null for a name typed by hand. */
 export type NodeFields = {
+  kind: NodeKind;
   role: string;
   person_name: string;
   person_id: string | null;
@@ -120,6 +128,7 @@ export type NodeFields = {
 };
 
 const tidy = (f: NodeFields) => ({
+  kind: f.kind,
   role: f.role.trim().slice(0, MAX_ROLE),
   person_name: f.person_name.trim().slice(0, MAX_PERSON) || null,
   person_id: f.person_id,
@@ -167,6 +176,7 @@ export async function updateNode(
   change: Partial<NodeFields> & { parent_id?: string | null; position?: number },
 ) {
   const row: Record<string, unknown> = {};
+  if (change.kind !== undefined) row.kind = change.kind;
   if (change.role !== undefined) row.role = change.role.trim().slice(0, MAX_ROLE);
   if (change.person_name !== undefined)
     row.person_name = change.person_name.trim().slice(0, MAX_PERSON) || null;
