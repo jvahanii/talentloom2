@@ -91,6 +91,9 @@ export interface BoardEntry {
   /** For sorting by newest: when it was posted. */
   postedAt: string;
   url: string | null;
+  /** Why it is no longer open (deadline passed, or gone from its list), or
+   *  null while it is. */
+  closed: "deadline" | "removed" | null;
 }
 
 interface ImportedAdRow {
@@ -102,22 +105,25 @@ interface ImportedAdRow {
   deadline_date: string | null;
   posted_on: string | null;
   first_seen_at: string;
+  removed_at: string | null;
 }
 
-/** Imported ads still on their list and not past their deadline. */
+const todayUtc = () => new Date().toISOString().slice(0, 10);
+
+/** Imported ads, open and closed: the board shows closed ones under "Past". */
 async function listImportedAds(): Promise<BoardEntry[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   // imported_job_ads was created directly on the backend project.
   const db = supabaseAdmin as unknown as { from: (t: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayUtc();
   const rows: ImportedAdRow[] = [];
   // The API answers at most 1000 rows a request.
   for (let from = 0; from < 5000; from += 1000) {
     const { data, error } = await db
       .from("imported_job_ads")
-      .select("id, title, company, location, url, deadline_date, posted_on, first_seen_at")
-      .is("removed_at", null)
-      .or(`deadline_date.is.null,deadline_date.gte.${today}`)
+      .select(
+        "id, title, company, location, url, deadline_date, posted_on, first_seen_at, removed_at",
+      )
       .order("posted_on", { ascending: false, nullsFirst: false })
       .order("id")
       .range(from, from + 999);
@@ -141,6 +147,11 @@ async function listImportedAds(): Promise<BoardEntry[]> {
     excerpt: "",
     postedAt: r.posted_on ?? r.first_seen_at.slice(0, 10),
     url: r.url,
+    closed: r.removed_at
+      ? ("removed" as const)
+      : r.deadline_date && r.deadline_date < today
+        ? ("deadline" as const)
+        : null,
   }));
 }
 
@@ -177,6 +188,7 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(
         excerpt: (r.description ?? "").slice(0, 220),
         postedAt: r.created_at.slice(0, 10),
         url: null,
+        closed: r.deadline_date && r.deadline_date < todayUtc() ? ("deadline" as const) : null,
       }));
     }
     return [...positions, ...(await adsPromise)];

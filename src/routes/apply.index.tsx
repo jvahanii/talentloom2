@@ -35,10 +35,14 @@ const SORTS = [
   { value: "company", label: "Company A–Z" },
 ] as const;
 
+// "Active", "Past" and "All" leave out what the visitor discarded; "All"
+// is open and closed roles together. Rated and Discarded need signing in.
 const VIEWS = [
-  { value: "active", label: "Active" },
-  { value: "rated", label: "Rated" },
-  { value: "discarded", label: "Discarded" },
+  { value: "active", label: "Active", signedIn: false },
+  { value: "past", label: "Past", signedIn: false },
+  { value: "all", label: "All", signedIn: false },
+  { value: "rated", label: "Rated", signedIn: true },
+  { value: "discarded", label: "Discarded", signedIn: true },
 ] as const;
 
 export const Route = createFileRoute("/apply/")({
@@ -135,6 +139,8 @@ function JobBoard() {
       if (safeView === "discarded" && !discarded) return false;
       if (safeView !== "discarded" && discarded) return false;
       if (safeView === "rated" && ratings.ratingOf(p.id) === null) return false;
+      if (safeView === "active" && p.closed) return false;
+      if (safeView === "past" && !p.closed) return false;
       if (!term) return true;
       return [p.title, p.orgName, p.department ?? "", p.location ?? ""].some((v) =>
         v.toLowerCase().includes(term),
@@ -206,31 +212,30 @@ function JobBoard() {
           </select>
         </div>
 
-        {ratings.signedIn ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {VIEWS.map((v) => (
-              <button
-                key={v.value}
-                type="button"
-                onClick={() => apply({ view: v.value })}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
-                  safeView === v.value
-                    ? "bg-primary text-primary-foreground"
-                    : "glass text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {v.label}
-              </button>
-            ))}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {VIEWS.filter((v) => ratings.signedIn || !v.signedIn).map((v) => (
             <button
+              key={v.value}
               type="button"
-              onClick={resetFilters}
-              className="glass rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+              onClick={() => apply({ view: v.value })}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                safeView === v.value
+                  ? "bg-primary text-primary-foreground"
+                  : "glass text-muted-foreground hover:text-foreground"
+              }`}
             >
-              Reset filters
+              {v.label}
             </button>
-          </div>
-        ) : (
+          ))}
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="glass rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground active:scale-95"
+          >
+            Reset filters
+          </button>
+        </div>
+        {!ratings.signedIn && (
           <p className="mt-3 text-center text-sm text-muted-foreground">
             <Link to="/candidate/auth" className="font-semibold text-primary">
               Sign in
@@ -249,7 +254,11 @@ function JobBoard() {
             <div className="glass rounded-2xl p-10 text-center">
               <Briefcase className="mx-auto h-8 w-8 text-muted-foreground" />
               <h2 className="mt-3 font-display text-lg font-semibold">
-                {all.length === 0 ? "Nothing open just yet" : "No roles match that search"}
+                {all.length === 0
+                  ? "Nothing open just yet"
+                  : safeView === "past" && !term && !org
+                    ? "No past roles yet"
+                    : "No roles match that search"}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {all.length === 0
@@ -284,10 +293,18 @@ function JobBoard() {
                       Starts {p.targetStartDate}
                     </span>
                   )}
-                  {p.deadlineDate && (
-                    <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                      Apply by {p.deadlineDate}
+                  {p.closed ? (
+                    <span className="rounded-full border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                      {p.closed === "removed"
+                        ? "No longer listed"
+                        : `Closed ${p.deadlineDate ?? ""}`.trim()}
                     </span>
+                  ) : (
+                    p.deadlineDate && (
+                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                        Apply by {p.deadlineDate}
+                      </span>
+                    )
                   )}
                 </span>
               </div>
