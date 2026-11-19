@@ -69,7 +69,8 @@ export const addPersonToOrg = createServerFn({ method: "POST" })
     const { data: matches, error: findError } = await admin
       .from("profiles")
       .select("id, full_name, email, clerk_user_id")
-      .ilike("email", data.email)
+      // Only an account that proved it holds this address; otherwise invite it.
+      .ilike("verified_email", data.email)
       .not("clerk_user_id", "is", null)
       .limit(1);
     if (findError) throw new Error(findError.message);

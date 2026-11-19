@@ -73,30 +73,40 @@ export const getAdminOverview = createServerFn({ method: "GET" })
 
     // Sign-in accounts that never got an app record would be invisible here:
     // create the missing records first so every account is listed. Each
-    // record's email is also brought in line with the account's verified
-    // address, so an unverified one stored earlier stops counting.
+    // record's emails are also brought in line with the account: the primary
+    // address to show, and the verified one (or none) that grants access.
     try {
       const { createClerkClient } = await import("@clerk/backend");
       const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
       const { data: known } = await admin
         .from("profiles")
-        .select("id, clerk_user_id, email")
+        .select("id, clerk_user_id, email, verified_email")
         .limit(10000);
-      const byClerkId = new Map<string, { id: string; email: string | null }>(
+      const byClerkId = new Map<
+        string,
+        { id: string; email: string | null; verified_email: string | null }
+      >(
         ((known ?? []) as Loose[])
           .filter((p) => p.clerk_user_id)
-          .map((p) => [p.clerk_user_id as string, { id: p.id, email: p.email }]),
+          .map((p) => [
+            p.clerk_user_id as string,
+            { id: p.id, email: p.email, verified_email: p.verified_email },
+          ]),
       );
-      const { provisionProfileForClerkUser, verifiedEmailOf } =
+      const { provisionProfileForClerkUser, emailOf, verifiedEmailOf } =
         await import("@/integrations/supabase/clerk-sync.server");
       for (let offset = 0; ; offset += 100) {
         const page = await clerk.users.getUserList({ limit: 100, offset });
         for (const u of page.data) {
           const profile = byClerkId.get(u.id);
           if (profile) {
-            const email = verifiedEmailOf(u);
-            if ((profile.email ?? "").toLowerCase() !== (email ?? "")) {
-              const { error } = await admin.from("profiles").update({ email }).eq("id", profile.id);
+            const email = emailOf(u);
+            const verified_email = verifiedEmailOf(u);
+            if (profile.email !== email || profile.verified_email !== verified_email) {
+              const { error } = await admin
+                .from("profiles")
+                .update({ email, verified_email })
+                .eq("id", profile.id);
               if (error) console.error("[admin] could not update email for", u.id, error.message);
             }
           } else {

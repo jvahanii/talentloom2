@@ -135,6 +135,7 @@ interface ProfileRow {
   id: string;
   onboarding_completed_at: string | null;
   email?: string | null;
+  verified_email?: string | null;
   full_name?: string | null;
 }
 
@@ -143,11 +144,21 @@ interface ClerkUserEmails {
   emailAddresses: { id: string; emailAddress: string; verification: { status: string } | null }[];
 }
 
+/** The account's primary email, verified or not: for showing who someone is. */
+export function emailOf(user: ClerkUserEmails): string | null {
+  const email =
+    user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ??
+    user.emailAddresses[0]?.emailAddress ??
+    null;
+  return email ? email.trim() : null;
+}
+
 /**
- * The account's email, counted only once its owner has proved they hold it.
- * Profiles store this address, and it decides who gets survey invitations,
- * survey co-ownership and anonymous applications (with their CVs), so an
- * address someone merely typed in must never count. Primary address first.
+ * The account's email, counted only once its owner has proved they hold it
+ * (profiles.verified_email). It decides who gets survey invitations, survey
+ * co-ownership, anonymous applications (with their CVs) and who an added
+ * email belongs to, so an address someone merely typed in must never count.
+ * Primary address first.
  */
 export function verifiedEmailOf(user: ClerkUserEmails): string | null {
   const verified = user.emailAddresses.filter((e) => e.verification?.status === "verified");
@@ -172,30 +183,35 @@ export async function provisionProfileForClerkUser(clerkUserId: string): Promise
 
   const { data: existing } = await admin
     .from("profiles")
-    .select("id, onboarding_completed_at, email, full_name")
+    .select("id, onboarding_completed_at, email, verified_email, full_name")
     .eq("clerk_user_id", clerkUserId)
     .maybeSingle();
   if (existing) return existing as ProfileRow;
 
   const clerk = createClerkClient({ secretKey: process.env["CLERK_SECRET_KEY"]! });
   const cu = await clerk.users.getUser(clerkUserId);
-  const email = verifiedEmailOf(cu);
+  const email = emailOf(cu);
+  const verifiedEmail = verifiedEmailOf(cu);
   const fullName = [cu.firstName, cu.lastName].filter(Boolean).join(" ") || cu.username || null;
 
   // Link an existing profile (created before the Clerk migration) by email.
-  if (email) {
+  if (verifiedEmail) {
     const { data: byEmail } = await admin
       .from("profiles")
-      .select("id, onboarding_completed_at, email, full_name")
-      .ilike("email", email)
+      .select("id, onboarding_completed_at, email, verified_email, full_name")
+      .ilike("email", verifiedEmail)
       .is("clerk_user_id", null)
       .maybeSingle();
     if (byEmail) {
       await admin
         .from("profiles")
-        .update({ clerk_user_id: clerkUserId, avatar_url: cu.imageUrl ?? undefined })
+        .update({
+          clerk_user_id: clerkUserId,
+          verified_email: verifiedEmail,
+          avatar_url: cu.imageUrl ?? undefined,
+        })
         .eq("id", byEmail.id);
-      return byEmail as ProfileRow;
+      return { ...byEmail, verified_email: verifiedEmail } as ProfileRow;
     }
   }
 
@@ -205,11 +221,12 @@ export async function provisionProfileForClerkUser(clerkUserId: string): Promise
       id: crypto.randomUUID(),
       clerk_user_id: clerkUserId,
       email,
+      verified_email: verifiedEmail,
       full_name: fullName,
       avatar_url: cu.imageUrl ?? null,
       onboarding_step: 1,
     })
-    .select("id, onboarding_completed_at, email, full_name")
+    .select("id, onboarding_completed_at, email, verified_email, full_name")
     .single();
   if (error) {
     // A new user's first page load fires several server calls at once, and each
@@ -218,7 +235,7 @@ export async function provisionProfileForClerkUser(clerkUserId: string): Promise
     if (error.code === "23505") {
       const { data: winner } = await admin
         .from("profiles")
-        .select("id, onboarding_completed_at, email, full_name")
+        .select("id, onboarding_completed_at, email, verified_email, full_name")
         .eq("clerk_user_id", clerkUserId)
         .maybeSingle();
       if (winner) return winner as ProfileRow;

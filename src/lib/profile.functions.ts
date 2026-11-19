@@ -65,7 +65,7 @@ export const getSignInDestination = createServerFn({ method: "POST" }).handler(a
   const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const admin = supabaseAdmin as any;
-  const email = (profile.email ?? "").trim();
+  const email = (profile.verified_email ?? "").trim();
   const count = { count: "exact", head: true } as const;
   const none = Promise.resolve({ count: 0 });
   const [members, superuser, ownSurveys, invitedSurveys, coOwnedSurveys, details] = await Promise.all([

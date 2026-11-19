@@ -135,8 +135,8 @@ export const listPulseAwaiting = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const sb = supabaseAdmin as Loose;
-    const { data: profile } = await sb.from("profiles").select("email").eq("id", context.userId).maybeSingle();
-    const email = (profile?.email as string | null)?.trim();
+    const { data: profile } = await sb.from("profiles").select("verified_email").eq("id", context.userId).maybeSingle();
+    const email = (profile?.verified_email as string | null)?.trim();
     if (!email) return [];
     const { data: people } = await sb
       .from("pulse_respondents")
@@ -603,11 +603,11 @@ export const getPulseResults = createServerFn({ method: "GET" })
       sb.from("pulse_rounds").select("id, number, opens_on").eq("survey_id", data.id).order("number"),
       sb.from("pulse_responses").select("id, round_id, respondent_id, pulse_answers(question_id, value)").eq("survey_id", data.id),
       sb.from("pulse_respondents").select("id, name, email").eq("survey_id", data.id),
-      sb.from("profiles").select("email").eq("id", context.userId).maybeSingle(),
+      sb.from("profiles").select("verified_email").eq("id", context.userId).maybeSingle(),
     ]);
     fail(q.error);
     fail(resp.error);
-    const myEmail = ((me.data?.email as string | null) ?? "").trim().toLowerCase();
+    const myEmail = ((me.data?.verified_email as string | null) ?? "").trim().toLowerCase();
     const questions = (q.data ?? []) as PulseQuestion[];
     const rounds = (r.data ?? []) as { id: string; number: number; opens_on: string }[];
     let responses = (resp.data ?? []) as {

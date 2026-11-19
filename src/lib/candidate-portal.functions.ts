@@ -63,10 +63,11 @@ export const claimMyApplications = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { data: me } = (await context.supabase
       .from("profiles")
-      .select("email")
+      .select("verified_email")
       .eq("id", context.userId)
-      .maybeSingle()) as unknown as { data: { email: string | null } | null };
-    const email = me?.email;
+      .maybeSingle()) as unknown as { data: { verified_email: string | null } | null };
+    // Only an address the person has proved they hold claims applications.
+    const email = me?.verified_email;
     if (!email) return { claimed: 0 };
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const { data } = await supabaseAdmin
