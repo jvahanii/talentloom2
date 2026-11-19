@@ -552,7 +552,9 @@ function OrgChartPage() {
           )
         : new Set();
 
-  const impliedLines = kind === "role" ? impliedReporting(nodes, members, nameOf, memberName) : [];
+  // Worked out on either tab, so the Reporting lines tab can count them; drawn only there.
+  const allImplied = impliedReporting(nodes, members, nameOf, memberName);
+  const impliedLines = kind === "role" ? allImplied : [];
   const implied = new Map<string, ImpliedLine[]>();
   for (const l of impliedLines) implied.set(l.parent, [...(implied.get(l.parent) ?? []), l]);
   /** A role for someone shown by an implied line, reporting where the line does. */
@@ -734,7 +736,8 @@ function OrgChartPage() {
               <Building2 className="mr-1.5 h-4 w-4" /> Units ({units.length})
             </TabsTrigger>
             <TabsTrigger value="reporting">
-              <Workflow className="mr-1.5 h-4 w-4" /> Reporting lines ({roles.length})
+              <Workflow className="mr-1.5 h-4 w-4" /> Reporting lines (
+              {roles.length + allImplied.length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
