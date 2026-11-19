@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/app-client";
 import { AppShell } from "@/components/AppShell";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
+import { redeemInvite } from "@/lib/invite";
 import { getClerkToken, waitForClerk } from "@/lib/clerk";
 import { isPreviewDesignMode } from "@/lib/preview-design-mode";
 import { ensureMyProfile } from "@/lib/profile.functions";
@@ -73,20 +74,22 @@ export const Route = createFileRoute("/_authenticated")({
       throw new Error(`Could not load your account: ${message}`);
     }
 
-    // Accept a pending workspace invite (user clicked an invite link before signing in).
+    // Use a pending invite (the person opened an invite link before signing in). A
+    // sign-up link only asks to join, so show them that page instead of the app.
+    let waitingInvite: string | null = null;
     try {
       const inviteToken = window.sessionStorage.getItem(PENDING_INVITE_KEY);
       if (inviteToken) {
-        const { data: orgId, error: inviteError } = await supabase.rpc("accept_invite", {
-          _token: inviteToken,
-        });
-        if (!inviteError && orgId) {
-          window.sessionStorage.removeItem(PENDING_INVITE_KEY);
-          window.localStorage.setItem("talently:current-org", orgId as string);
-        }
+        const result = await redeemInvite(inviteToken);
+        window.sessionStorage.removeItem(PENDING_INVITE_KEY);
+        if (result.joined) window.localStorage.setItem("talently:current-org", result.orgId);
+        else waitingInvite = inviteToken;
       }
     } catch {
       /* invite issues are non-fatal */
+    }
+    if (waitingInvite) {
+      throw redirect({ to: "/invite/$token", params: { token: waitingInvite } });
     }
 
     // Enforce onboarding completion before entering the app.

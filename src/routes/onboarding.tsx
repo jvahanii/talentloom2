@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { STAGES, type Stage } from "@/lib/constants";
 import { ensureOrg } from "@/lib/org";
 import { PENDING_INVITE_KEY } from "@/routes/invite.$token";
+import { redeemInvite } from "@/lib/invite";
 import { ArrowLeft, ArrowRight, Check, LogOut, Upload, Sparkles, Download } from "lucide-react";
 import { RequiredIndicator } from "@/components/ui/label";
 
@@ -126,14 +127,17 @@ function Onboarding() {
       try {
         const token = window.sessionStorage.getItem(PENDING_INVITE_KEY);
         if (token) {
-          const { data: joinedOrg, error } = await supabase.rpc("accept_invite", { _token: token });
-          if (!error && joinedOrg) {
-            window.sessionStorage.removeItem(PENDING_INVITE_KEY);
-            window.localStorage.setItem("talently:current-org", joinedOrg as string);
-            setOrgId(joinedOrg as string);
-            joinedViaInvite = true;
-            toast.success("You joined the organisation");
+          const result = await redeemInvite(token);
+          window.sessionStorage.removeItem(PENDING_INVITE_KEY);
+          if (!result.joined) {
+            // A sign-up link: the account exists, but an admin adds them to the organisation.
+            navigate({ to: "/invite/$token", params: { token } });
+            return;
           }
+          window.localStorage.setItem("talently:current-org", result.orgId);
+          setOrgId(result.orgId);
+          joinedViaInvite = true;
+          toast.success("You joined the organisation");
         }
       } catch {
         /* invite issues are non-fatal here */

@@ -178,17 +178,33 @@ function PeoplePage() {
     }
   }, [titles.data, titleId]);
 
-  // Shareable invite link
-  const [linkTitleId, setLinkTitleId] = useState("");
+  // Sign-up link: creates accounts; an admin then adds each person by hand.
   const [creatingLink, setCreatingLink] = useState(false);
   const [lastLink, setLastLink] = useState<string | null>(null);
-  useEffect(() => {
-    if (!linkTitleId && titles.data?.length) {
-      setLinkTitleId(
-        (titles.data.find((t) => t.name === "Member") ?? titles.data[titles.data.length - 1]).id,
-      );
-    }
-  }, [titles.data, linkTitleId]);
+
+  const joinRequests = useQuery({
+    queryKey: ["org-join-requests", orgId],
+    enabled: !!orgId && can("invite_users"),
+    queryFn: async () => {
+      // list_join_requests lives in the external database; the generated types don't know it.
+      const client = supabase as unknown as {
+        rpc: (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>;
+      };
+      const { data, error } = await client.rpc("list_join_requests", { _org: orgId });
+      if (error) throw new Error(error.message);
+      return (data ?? []) as {
+        id: string;
+        user_id: string;
+        full_name: string | null;
+        email: string | null;
+        created_at: string;
+      }[];
+    },
+  });
+  const [requestTitles, setRequestTitles] = useState<Record<string, string>>({});
 
   // Name and skill editing
   const [names, setNames] = useState<Record<string, string>>({});
@@ -200,16 +216,13 @@ function PeoplePage() {
     void qc.invalidateQueries({ queryKey: ["org-people", orgId] });
     void qc.invalidateQueries({ queryKey: ["org-members", orgId] });
     void qc.invalidateQueries({ queryKey: ["org-invites", orgId] });
+    void qc.invalidateQueries({ queryKey: ["org-join-requests", orgId] });
   };
 
   if (!orgId) return null;
   const titleName = new Map((titles.data ?? []).map((t) => [t.id, t.name]));
   const assignable = (titles.data ?? []).filter((t) => isOwner || !isProtected(t.name));
-  // A link anyone can use never grants Owner, and grants Admin only when an owner makes it.
-  const linkable = assignable.filter((t) => t.name !== "Owner");
-
   const createLink = async () => {
-    if (!linkTitleId) return;
     setCreatingLink(true);
     try {
       const me = await getMyProfileId();
@@ -219,7 +232,6 @@ function PeoplePage() {
         .insert({
           org_id: orgId,
           email: null as unknown as string,
-          title_id: linkTitleId,
           invited_by: me,
         })
         .select("token")
@@ -236,6 +248,38 @@ function PeoplePage() {
     }
   };
 
+  const dismissRequest = async (id: string) => {
+    // The table lives in the external database; the generated types don't know it.
+    const db = supabase as unknown as {
+      from: (t: string) => {
+        delete: () => {
+          eq: (c: string, v: string) => Promise<{ error: { message: string } | null }>;
+        };
+      };
+    };
+    const { error } = await db.from("organization_join_requests").delete().eq("id", id);
+    if (error) return void toast.error(error.message);
+    reload();
+  };
+
+  const addRequest = async (r: { id: string; email: string | null; full_name: string | null }) => {
+    const chosen = requestTitles[r.id] ?? titleId;
+    if (!r.email || !chosen) return;
+    setBusy(r.id);
+    try {
+      const res = await addPersonToOrg({ data: { orgId, email: r.email, titleId: chosen } });
+      if (res.status === "invited") toast.info(`${r.email} was emailed an invite`);
+      else if (res.status === "already") {
+        toast.info(`${r.full_name || r.email} is already in ${orgName}`);
+        await dismissRequest(r.id);
+      } else toast.success(`${r.full_name || r.email} added to ${orgName}`);
+      reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add the person");
+    } finally {
+      setBusy(null);
+    }
+  };
   const addPerson = async () => {
     if (!email.trim() || !titleId) return;
     setAdding(true);
@@ -375,7 +419,8 @@ function PeoplePage() {
       <div>
         <h1 className="text-2xl font-bold">People</h1>
         <p className="text-sm text-muted-foreground">
-          Everyone in {orgName}, and the invites and links that are still open.
+          Everyone in {orgName}, people who signed up with a link, and the invites and links that
+          are still open.
         </p>
       </div>
 
@@ -416,28 +461,11 @@ function PeoplePage() {
           <div className="border-t border-border pt-3">
             <p className="text-sm font-medium">Or share an invite link</p>
             <p className="text-xs text-muted-foreground">
-              Anyone who opens it and signs in joins with the chosen title. It works for any number
-              of people until it expires in 7 days or you revoke it below. Share it only with people
-              you trust.
+              Send this link to anyone you want to invite. They create a Talentloom account with it,
+              but they don't join this organisation until you add them here.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <select
-                className={selectCls}
-                value={linkTitleId}
-                onChange={(e) => setLinkTitleId(e.target.value)}
-                aria-label="Title for people joining with the link"
-              >
-                {linkable.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                variant="outline"
-                onClick={createLink}
-                disabled={creatingLink || !linkTitleId}
-              >
+              <Button variant="outline" onClick={createLink} disabled={creatingLink}>
                 <Link2 className="mr-1 h-4 w-4" /> {creatingLink ? "Creating…" : "Create link"}
               </Button>
             </div>
@@ -611,6 +639,55 @@ function PeoplePage() {
         </ul>
       </div>
 
+      {can("invite_users") && (joinRequests.data ?? []).length > 0 && (
+        <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
+          <p className="font-medium">Signed up with a link</p>
+          <p className="text-xs text-muted-foreground">
+            They have a Talentloom account but aren't in {orgName}. Choose a title and add them, or
+            dismiss them.
+          </p>
+          <ul className="divide-y divide-border">
+            {(joinRequests.data ?? []).map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
+                <span className="min-w-0 flex-1 truncate">
+                  {r.full_name || r.email}
+                  {r.full_name && r.email ? ` · ${r.email}` : ""} · signed up{" "}
+                  {formatDate(r.created_at)}
+                </span>
+                <select
+                  className={selectCls}
+                  value={requestTitles[r.id] ?? titleId}
+                  onChange={(e) => setRequestTitles((m) => ({ ...m, [r.id]: e.target.value }))}
+                  aria-label={`Title for ${r.full_name || r.email}`}
+                >
+                  {assignable.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  onClick={() => void addRequest(r)}
+                  disabled={busy === r.id || !r.email}
+                >
+                  <UserPlus className="mr-1 h-4 w-4" /> Add
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => void dismissRequest(r.id)}
+                  title="Dismiss"
+                  aria-label={`Dismiss ${r.full_name || r.email}`}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {can("invite_users") && (invites.data ?? []).length > 0 && (
         <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
           <p className="font-medium">Open invites and links</p>
@@ -618,9 +695,10 @@ function PeoplePage() {
             {(invites.data ?? []).map((inv) => (
               <li key={inv.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">
-                  {inv.email ?? "Shareable link"} ·{" "}
-                  {inv.title_id ? (titleName.get(inv.title_id) ?? "Title") : "No title"} · expires{" "}
-                  {formatDate(inv.expires_at)}
+                  {inv.email
+                    ? `${inv.email} · ${inv.title_id ? (titleName.get(inv.title_id) ?? "Title") : "No title"}`
+                    : "Sign-up link"}{" "}
+                  · expires {formatDate(inv.expires_at)}
                 </span>
                 {inv.email && (
                   <Button

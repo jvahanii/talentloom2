@@ -454,10 +454,11 @@ function Docs() {
                     <>
                       To bring someone in, enter their email and a title on the People page. Someone
                       who already has an account is added straight away; anyone else gets an
-                      invitation email that only they can use, once. Or create an invite link anyone
-                      can use — it never grants Owner, and grants Admin only when an owner makes it.
-                      Invites expire after 7 days; you can email one again, copy its link, or revoke
-                      it.
+                      invitation email that only they can use, once. Or share an invite link: anyone
+                      who opens it can create an account, but they join only when someone adds them
+                      from <strong>Signed up with a link</strong>, choosing their title. Invites and
+                      links expire after 7 days; you can email an invite again, copy its link, or
+                      revoke it.
                     </>
                   ),
                 },
