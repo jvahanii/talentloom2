@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Briefcase,
   Building2,
+  CalendarPlus,
   ExternalLink,
   EyeOff,
   MapPin,
@@ -283,6 +284,11 @@ function JobBoard() {
                     {p.location && (
                       <>
                         <MapPin className="ml-1 h-4 w-4 shrink-0" /> {p.location}
+                      </>
+                    )}
+                    {p.addedOn && (
+                      <>
+                        <CalendarPlus className="ml-1 h-4 w-4 shrink-0" /> Added {p.addedOn}
                       </>
                     )}
                   </p>

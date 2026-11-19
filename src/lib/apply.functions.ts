@@ -90,6 +90,9 @@ export interface BoardEntry {
   excerpt: string;
   /** For sorting by newest: when it was posted. */
   postedAt: string;
+  /** The day it was added: an imported ad's creation date on its list (in
+   *  Agilefant), a position's creation date here. Null when the list gave none. */
+  addedOn: string | null;
   url: string | null;
   /** Why it is no longer open (deadline passed, or gone from its list), or
    *  null while it is. */
@@ -146,6 +149,7 @@ async function listImportedAds(): Promise<BoardEntry[]> {
     deadlineDate: r.deadline_date,
     excerpt: "",
     postedAt: r.posted_on ?? r.first_seen_at.slice(0, 10),
+    addedOn: r.posted_on,
     url: r.url,
     closed: r.removed_at
       ? ("removed" as const)
@@ -187,6 +191,7 @@ export const listOpenPositions = createServerFn({ method: "GET" }).handler(
         deadlineDate: r.deadline_date,
         excerpt: (r.description ?? "").slice(0, 220),
         postedAt: r.created_at.slice(0, 10),
+        addedOn: r.created_at.slice(0, 10),
         url: null,
         closed: r.deadline_date && r.deadline_date < todayUtc() ? ("deadline" as const) : null,
       }));
