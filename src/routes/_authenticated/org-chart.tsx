@@ -1546,8 +1546,8 @@ function TopZone({ active, kind }: { active: boolean; kind: NodeKind }) {
         (!active
           ? "border-transparent text-muted-foreground"
           : drop.isOver
-            ? "border-primary bg-primary/10 text-foreground"
-            : "border-border text-muted-foreground")
+            ? "border-primary bg-primary/20 font-semibold text-foreground"
+            : "border-primary/60 bg-primary/5 font-medium text-primary")
       }
     >
       {active
@@ -1557,6 +1557,32 @@ function TopZone({ active, kind }: { active: boolean; kind: NodeKind }) {
           : "Drag roles to change who reports to whom, and people from the People list onto roles."}
     </div>
   );
+}
+
+/** What dropping `d` on this part of box `n` does, in a few words. */
+function dropOutcome(
+  d: DragData,
+  n: ChartNode,
+  where: "before" | "after" | "into",
+  view: View,
+): string {
+  const unit = n.kind === "unit";
+  if (d.type === "box") {
+    if (where === "before") return `Place left of ${n.role}`;
+    if (where === "after") return `Place right of ${n.role}`;
+    return unit ? `Make it part of ${n.role}` : `Report to ${n.role}`;
+  }
+  if (d.type === "person") {
+    if (unit) {
+      return view.membersOf(n.id).some((m) => m.person_id === d.personId)
+        ? `Already in ${n.role}`
+        : `Add ${d.label} to ${n.role}`;
+    }
+    const holder = view.nameOf(n);
+    if (n.person_id === d.personId) return `Already ${n.role}`;
+    return holder ? `Replace ${holder} as ${n.role}` : `Make ${d.label} ${n.role}`;
+  }
+  return `Move ${d.label} to ${n.role}`;
 }
 
 /** The three parts of a box a dragged box can land on: left edge, middle, right edge. */
@@ -1662,24 +1688,62 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   const beside = dragging?.type === "box" && overHere !== "into" ? overHere : null;
   const unit = n.kind === "unit";
   const shown = unit ? view.membersOf(n.id) : [];
+  // While something is dragged: every box it can land on is outlined, the
+  // rest fade, and the box under the pointer says what a drop there does.
+  const self = drag.isDragging;
+  const canLand = !!dragging && !self && !view.blocked.has(n.id);
+  const faded = !!dragging && !self && !canLand;
+  const outcome = overHere && dragging ? dropOutcome(dragging, n, overHere, view) : null;
 
   return (
-    <div ref={drag.setNodeRef} className={"relative " + (drag.isDragging ? "opacity-40" : "")}>
+    <div
+      ref={drag.setNodeRef}
+      className={"relative transition-opacity " + (self ? "opacity-40" : faded ? "opacity-35" : "")}
+    >
       <DropZones node={n} disabled={view.blocked.has(n.id)} />
+      {outcome && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-8 left-1/2 z-30 max-w-[16rem] -translate-x-1/2 truncate whitespace-nowrap rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow-md"
+        >
+          {outcome}
+        </span>
+      )}
       {beside && (
         <span
           aria-hidden
           className={
-            "absolute inset-y-0 w-1 rounded-full bg-primary " +
-            (beside === "before" ? "-left-2" : "-right-2")
+            "pointer-events-none absolute -inset-y-1 z-20 w-1.5 rounded-full bg-primary ring-4 ring-primary/25 " +
+            (beside === "before" ? "-left-3" : "-right-3")
           }
         />
+      )}
+      {dragging?.type === "box" && overHere && (
+        // The three places a box can go: left of it, inside it, right of it.
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 grid grid-cols-[1fr_2fr_1fr] overflow-hidden rounded-xl"
+        >
+          {(["before", "into", "after"] as const).map((w) => (
+            <span
+              key={w}
+              className={
+                "border-dashed border-primary/40 first:border-r-2 last:border-l-2 " +
+                (overHere === w ? "bg-primary/20" : "")
+              }
+            />
+          ))}
+        </div>
       )}
       <div
         className={
           "rounded-xl border-2 text-center shadow-sm transition " +
           (unit ? "w-52 border-primary/50 bg-primary/10" : "w-44 border-border bg-background") +
-          (asChild ? " ring-2 ring-primary ring-offset-2 ring-offset-card" : "")
+          (asChild
+            ? " ring-2 ring-primary ring-offset-2 ring-offset-card"
+            : canLand
+              ? " outline-dashed outline-2 outline-offset-4 outline-primary/60"
+              : "")
         }
       >
         <button
