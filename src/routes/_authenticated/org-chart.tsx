@@ -71,6 +71,7 @@ import {
   type SalaryEntry,
 } from "@/lib/salaries";
 import { BulkSalaryAdjustDialog } from "@/components/BulkSalaryAdjustDialog";
+import { TeamsPanel } from "@/components/teams/TeamsPanel";
 import {
   addSalaryPlans,
   chartSalaryPlansKey,
@@ -175,7 +176,10 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/org-chart")({
-  head: () => ({ meta: [{ title: "Org chart — Talentloom" }] }),
+  head: () => ({ meta: [{ title: "Org chart & teams — Talentloom" }] }),
+  validateSearch: (search: Record<string, unknown>): { section?: "teams" } => ({
+    section: search["section"] === "teams" ? "teams" : undefined,
+  }),
   component: OrgChartPage,
 });
 
@@ -359,6 +363,18 @@ function OrgChartPage() {
     "units",
   );
   const tab = REPORTING_LINES_ENABLED ? savedTab : "units";
+  // Teams (organisation-wide, not per chart) is a tab of its own beside the
+  // chart's tabs; the chart picker and the chart show only on those.
+  const [section, chooseSection] = useRememberedTab(
+    "org-chart-section",
+    ["chart", "teams"] as const,
+    "chart",
+  );
+  const linkedSection = Route.useSearch().section;
+  useEffect(() => {
+    if (linkedSection === "teams") chooseSection("teams");
+  }, [linkedSection, chooseSection]);
+  const onTeams = section === "teams";
   const kind: NodeKind = tab === "units" ? "unit" : "role";
   const units = useMemo(() => nodes.filter((n) => n.kind === "unit"), [nodes]);
   const roles = nodes.filter((n) => n.kind === "role");
@@ -1467,7 +1483,7 @@ function OrgChartPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Org chart</h1>
+        <h1 className="text-2xl font-bold">Org chart &amp; teams</h1>
         <p className="text-sm text-muted-foreground">
           {REPORTING_LINES_ENABLED ? (
             <>
@@ -1482,425 +1498,451 @@ function OrgChartPage() {
             </>
           )}{" "}
           Keep as many charts as you like, for example today's and a planned one. Everyone in the
-          organisation can see and edit them.
+          organisation can see and edit them. <strong>Teams</strong> lists the organisation's teams
+          and who is in each.
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:items-center">
-        {list.length > 0 && chart ? (
-          <Select value={chart.id} onValueChange={(v) => remember(v)}>
-            <SelectTrigger className="sm:max-w-xs" aria-label="Chart">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {list.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                  <span className="ml-1.5 text-xs text-muted-foreground">
-                    · {CHART_STATUS_LABELS[c.status]}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {charts.isLoading ? "Loading…" : "No charts yet."}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          {chart && (
-            <label
-              htmlFor="org-chart-show-salaries"
-              className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60"
-            >
-              <Switch
-                id="org-chart-show-salaries"
-                checked={showCosts}
-                onCheckedChange={setShowSalaries}
-              />
-              <span>Show salaries</span>
-            </label>
-          )}
-          <Button size="sm" onClick={() => setNameDialog({ mode: "new", value: "" })}>
-            <Plus className="mr-1 h-4 w-4" /> New chart
-          </Button>
-          {chart && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setNameDialog({ mode: "rename", value: chart.name })}
-              >
-                <Pencil className="mr-1 h-4 w-4" /> Rename
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setNameDialog({ mode: "copy", value: `${chart.name} (copy)` })}
-              >
-                <Copy className="mr-1 h-4 w-4" /> Copy
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setConfirmChartDelete(true)}>
-                <Trash2 className="mr-1 h-4 w-4" /> Delete
-              </Button>
-              {list.length > 1 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (!compareWith || compareWith === chart.id)
-                      setCompareWith(list.find((c) => c.id !== chart.id)?.id ?? "");
-                    setCompareOpen(true);
-                  }}
-                >
-                  <GitCompare className="mr-1 h-4 w-4" /> Compare
-                </Button>
-              )}
-              <Button size="sm" variant="outline" onClick={printChart}>
-                <Printer className="mr-1 h-4 w-4" /> Print / PDF
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {chart && (
-        <ChartStatusBar
-          chart={chart}
-          activeName={list.find((c) => c.status === "active")?.name ?? null}
-          planCount={plans.length}
-          canEditPay={canEditSalaries}
-          busy={busy}
-          onMakeActive={() => setConfirmActivate(true)}
-          onMark={(status) =>
-            void run(
-              () => setChartStatus(chart.id, status),
-              `Marked ${chart.name} as ${CHART_STATUS_LABELS[status].toLowerCase()}`,
-            )
+      <Tabs
+        value={onTeams ? "teams" : tab}
+        onValueChange={(v) => {
+          if (v === "teams") chooseSection("teams");
+          else {
+            chooseSection("chart");
+            chooseTab(v);
           }
-          onDiscardPlans={() =>
-            void run(async () => {
-              await deleteSalaryPlans(plans.map((p) => p.id));
-              await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(chart.id) });
-            }, "Discarded the planned pay changes")
-          }
-        />
-      )}
-
-      {!charts.isLoading && list.length === 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
-          <Workflow className="mx-auto h-8 w-8 text-muted-foreground" />
-          <h2 className="mt-3 text-lg font-semibold">Start your first org chart</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Give it a name, then add its units and the roles that report to each other.
-          </p>
-          <Button className="mt-4" onClick={() => setNameDialog({ mode: "new", value: "" })}>
-            <Plus className="mr-1 h-4 w-4" /> New chart
-          </Button>
-        </div>
-      )}
-
-      {chart && REPORTING_LINES_ENABLED && (
-        <Tabs value={tab} onValueChange={chooseTab}>
-          <TabsList className="flex-wrap">
-            <TabsTrigger value="units">
-              <Building2 className="mr-1.5 h-4 w-4" /> Units ({units.length})
-            </TabsTrigger>
+        }}
+      >
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="units">
+            <Building2 className="mr-1.5 h-4 w-4" /> Units{chart ? ` (${units.length})` : ""}
+          </TabsTrigger>
+          {REPORTING_LINES_ENABLED && (
             <TabsTrigger value="reporting">
-              <Workflow className="mr-1.5 h-4 w-4" /> Reporting lines (
-              {roles.length + allImplied.length})
+              <Workflow className="mr-1.5 h-4 w-4" /> Reporting lines
+              {chart ? ` (${roles.length + allImplied.length})` : ""}
             </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+          )}
+          <TabsTrigger value="teams">
+            <Users className="mr-1.5 h-4 w-4" /> Teams
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      {chart && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={pointerWithin}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-          onDragOver={(e) => setDropAt((e.over?.data.current as DropData | undefined) ?? null)}
-          onDragCancel={() => {
-            setDragging(null);
-            setDropAt(null);
-          }}
-        >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
-            <div
-              id="org-chart-print"
-              className="min-w-0 rounded-2xl border-2 border-border bg-card p-4"
-            >
-              <h2 className="mb-3 hidden text-lg font-bold print:block">
-                {chart.name} — {kind === "unit" ? "Units" : "Reporting lines"}
-              </h2>
-              {nodesQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
-              ) : shown.length === 0 && impliedLines.length === 0 ? (
-                <div className="py-8 text-center">
-                  {kind === "unit" ? (
-                    <Building2 className="mx-auto h-8 w-8 text-muted-foreground" />
-                  ) : (
-                    <Workflow className="mx-auto h-8 w-8 text-muted-foreground" />
-                  )}
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {kind === "unit"
-                      ? "No units yet. Start with the whole organisation or its main units, such as Finance and Sales, then add the units within them."
-                      : "No roles yet. Start with the top role, such as CEO, then add the roles that report to it."}
-                  </p>
-                  <Button className="mt-3" onClick={addAtTop}>
-                    <Plus className="mr-1 h-4 w-4" />{" "}
-                    {kind === "unit" ? "Add a unit" : "Add the top role"}
-                  </Button>
-                  {nodes.length === 0 && list.length > 1 && (
-                    <CopyFromChart
-                      charts={list.filter((c) => c.id !== chart.id)}
-                      busy={busy}
-                      onCopy={(from) =>
-                        void run(
-                          () => copyIntoEmptyChart(orgId!, from.id, chart.id),
-                          `Copied ${from.name} into ${chart.name}`,
-                        )
-                      }
-                    />
-                  )}
-                </div>
-              ) : (
+      {onTeams ? (
+        <TeamsPanel />
+      ) : (
+        <>
+          <div className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:items-center">
+            {list.length > 0 && chart ? (
+              <Select value={chart.id} onValueChange={(v) => remember(v)}>
+                <SelectTrigger className="sm:max-w-xs" aria-label="Chart">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {list.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        · {CHART_STATUS_LABELS[c.status]}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {charts.isLoading ? "Loading…" : "No charts yet."}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+              {chart && (
+                <label
+                  htmlFor="org-chart-show-salaries"
+                  className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60"
+                >
+                  <Switch
+                    id="org-chart-show-salaries"
+                    checked={showCosts}
+                    onCheckedChange={setShowSalaries}
+                  />
+                  <span>Show salaries</span>
+                </label>
+              )}
+              <Button size="sm" onClick={() => setNameDialog({ mode: "new", value: "" })}>
+                <Plus className="mr-1 h-4 w-4" /> New chart
+              </Button>
+              {chart && (
                 <>
-                  {isLivePreview && (
-                    <LiveSalaryPreviewBanner
-                      draft={bulkDraft}
-                      plan={bulkPlan}
-                      busy={bulkSaving}
-                      onEdit={() => setBulkDialogOpen(true)}
-                      onDiscard={() => setBulkPreviewActive(false)}
-                      onApply={() => void applyBulkAdjustment()}
-                      planning={planning}
-                    />
-                  )}
-                  {showCosts && (
-                    <CompanyCostsBanner
-                      orgName={orgName}
-                      companyCost={companyCost}
-                      companyCostDelta={companyCostDelta}
-                      chartCost={chartCost}
-                      chartCostDelta={chartCostDelta}
-                      hasUnits={units.length > 0}
-                      hasMultiUnitPeople={hasMultiUnitPeople}
-                      isLivePreview={isLivePreview}
-                      canEditSalaries={canEditSalaries}
-                      onOpenBulkAdjust={() => openBulkAdjust()}
-                    />
-                  )}
-                  <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
-                    <label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-border px-2 py-1">
-                      <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <input
-                        value={findText}
-                        onChange={(e) => setFindText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && firstFound.current) jumpTo(firstFound.current);
-                        }}
-                        placeholder={
-                          kind === "unit" ? "Find a unit or person" : "Find a role or person"
-                        }
-                        aria-label="Find in the chart"
-                        className="w-full bg-transparent text-sm outline-none"
-                      />
-                      {findWords.length > 0 && (
-                        <span className="shrink-0 text-xs text-muted-foreground" aria-live="polite">
-                          {found.size === 0 ? "None found" : `${found.size} found`}
-                        </span>
-                      )}
-                    </label>
-                    <div
-                      className="flex items-center rounded-lg border border-border"
-                      role="group"
-                      aria-label="Layout"
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setNameDialog({ mode: "rename", value: chart.name })}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" /> Rename
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setNameDialog({ mode: "copy", value: `${chart.name} (copy)` })}
+                  >
+                    <Copy className="mr-1 h-4 w-4" /> Copy
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmChartDelete(true)}>
+                    <Trash2 className="mr-1 h-4 w-4" /> Delete
+                  </Button>
+                  {list.length > 1 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (!compareWith || compareWith === chart.id)
+                          setCompareWith(list.find((c) => c.id !== chart.id)?.id ?? "");
+                        setCompareOpen(true);
+                      }}
                     >
-                      {(["tree", "list"] as const).map((v) => (
-                        <button
-                          key={v}
-                          type="button"
-                          aria-pressed={layout === v}
-                          onClick={() => chooseLayout(v)}
-                          className={
-                            "flex items-center gap-1 px-2 py-1 text-xs font-medium first:rounded-l-lg last:rounded-r-lg " +
-                            (layout === v
-                              ? "bg-primary/15 text-foreground"
-                              : "text-muted-foreground hover:text-foreground")
-                          }
-                        >
-                          {v === "tree" ? (
-                            <Network className="h-3.5 w-3.5" />
-                          ) : (
-                            <List className="h-3.5 w-3.5" />
-                          )}
-                          {v === "tree" ? "Tree" : "List"}
-                        </button>
-                      ))}
-                    </div>
-                    {layout === "tree" && (
-                      <div
-                        className="flex items-center rounded-lg border border-border"
-                        role="group"
-                        aria-label="Zoom"
-                      >
-                        <button
-                          type="button"
-                          aria-label="Zoom out"
-                          onClick={() =>
-                            setZoom((z) => Math.max(0.3, Math.round((z - 0.1) * 10) / 10))
-                          }
-                          className="px-2 py-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setZoom(1)}
-                          title="Back to 100%"
-                          className="w-12 py-1 text-center text-xs tabular-nums text-muted-foreground hover:text-foreground"
-                        >
-                          {Math.round(zoom * 100)}%
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="Zoom in"
-                          onClick={() =>
-                            setZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10))
-                          }
-                          className="px-2 py-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={fitToWidth}
-                          title="Fit the chart to the width"
-                          className="flex items-center gap-1 border-l border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          <Maximize2 className="h-3.5 w-3.5" /> Fit
-                        </button>
-                      </div>
-                    )}
-                    {foldable.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs"
-                        onClick={() =>
-                          saveCollapsed(collapsed.size > 0 ? new Set() : new Set(foldable))
-                        }
-                      >
-                        {collapsed.size > 0 ? (
-                          <>
-                            <ChevronsUpDown className="mr-1 h-3.5 w-3.5" /> Expand all
-                          </>
-                        ) : (
-                          <>
-                            <ChevronsDownUp className="mr-1 h-3.5 w-3.5" /> Collapse all
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  {kind === "role" && (
-                    <ReportingSummary
-                      conflictCount={conflictCount}
-                      conflicts={[...conflicts.entries()].flatMap(([id, notes]) => {
-                        const r = nodeById.get(id);
-                        return r ? [{ role: r, notes }] : [];
-                      })}
-                      showNotes={showNotes}
-                      onShowNotes={setShowNotes}
-                      openCount={openRoles.length}
-                      markOpen={markOpen}
-                      onMarkOpen={setMarkOpen}
-                      impliedCount={impliedLines.length}
-                      onMakeAll={() => setConfirmMakeAll(true)}
-                      busy={busy}
-                      nameOf={nameOf}
-                      onJump={jumpTo}
-                    />
-                  )}
-                  {impliedLines.length > 0 && (
-                    <div className="mb-2 flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
-                      <span className="inline-block h-3 w-5 rounded border-2 border-dashed border-muted-foreground/60" />
-                      Dashed: follows from the Units tab
-                    </div>
-                  )}
-                  {layout === "tree" ? (
-                    <>
-                      <TopZone active={dragging?.type === "box"} kind={kind} />
-                      <div ref={scrollRef} className="overflow-x-auto pb-4 print:overflow-visible">
-                        <div ref={treeRef} className="org-tree mx-auto w-max" style={{ zoom }}>
-                          <Branch parentKey="" view={view} />
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <OutlineList parentKey="" view={view} depth={0} />
-                  )}
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-                    <p className="text-xs text-muted-foreground">
-                      {kind === "unit"
-                        ? "Drag a unit onto another to make it part of it, or to its left or right edge to place it beside it. Click a unit to edit it; + adds a unit within it."
-                        : "Drag a role onto another to make it report to it, or to its left or right edge to place it beside it. Click a role to edit it; + adds a role reporting to it."}
-                    </p>
-                    <Button size="sm" variant="outline" onClick={addAtTop}>
-                      <Plus className="mr-1 h-4 w-4" />{" "}
-                      {kind === "unit" ? "Add a unit at the top" : "Add a role at the top"}
+                      <GitCompare className="mr-1 h-4 w-4" /> Compare
                     </Button>
-                  </div>
+                  )}
+                  <Button size="sm" variant="outline" onClick={printChart}>
+                    <Printer className="mr-1 h-4 w-4" /> Print / PDF
+                  </Button>
                 </>
               )}
             </div>
-            <PeoplePanel
-              people={people}
-              loading={peopleQuery.isLoading}
-              placesOf={placesOf}
-              unitsOf={unitsOf}
-              headsOf={headsOf}
-              kind={kind}
-              canDrop={shown.length > 0}
-              showCosts={showCosts}
-              personCost={personCost}
-              personPreviewDelta={personPreviewDelta}
-            />
           </div>
-          <DragOverlay dropAnimation={null}>
-            {dragging && (
-              <div className="flex max-w-72 items-center gap-1.5 rounded-xl border-2 border-primary bg-background px-3 py-2 text-sm font-medium shadow-lg">
-                {dragging.type === "box" ? (
-                  dragging.kind === "unit" ? (
-                    <Building2 className="h-4 w-4 shrink-0 text-primary" />
+
+          {chart && (
+            <ChartStatusBar
+              chart={chart}
+              activeName={list.find((c) => c.status === "active")?.name ?? null}
+              planCount={plans.length}
+              canEditPay={canEditSalaries}
+              busy={busy}
+              onMakeActive={() => setConfirmActivate(true)}
+              onMark={(status) =>
+                void run(
+                  () => setChartStatus(chart.id, status),
+                  `Marked ${chart.name} as ${CHART_STATUS_LABELS[status].toLowerCase()}`,
+                )
+              }
+              onDiscardPlans={() =>
+                void run(async () => {
+                  await deleteSalaryPlans(plans.map((p) => p.id));
+                  await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(chart.id) });
+                }, "Discarded the planned pay changes")
+              }
+            />
+          )}
+
+          {!charts.isLoading && list.length === 0 && (
+            <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
+              <Workflow className="mx-auto h-8 w-8 text-muted-foreground" />
+              <h2 className="mt-3 text-lg font-semibold">Start your first org chart</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Give it a name, then add its units and the roles that report to each other.
+              </p>
+              <Button className="mt-4" onClick={() => setNameDialog({ mode: "new", value: "" })}>
+                <Plus className="mr-1 h-4 w-4" /> New chart
+              </Button>
+            </div>
+          )}
+
+          {chart && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={pointerWithin}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDragOver={(e) => setDropAt((e.over?.data.current as DropData | undefined) ?? null)}
+              onDragCancel={() => {
+                setDragging(null);
+                setDropAt(null);
+              }}
+            >
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                <div
+                  id="org-chart-print"
+                  className="min-w-0 rounded-2xl border-2 border-border bg-card p-4"
+                >
+                  <h2 className="mb-3 hidden text-lg font-bold print:block">
+                    {chart.name} — {kind === "unit" ? "Units" : "Reporting lines"}
+                  </h2>
+                  {nodesQuery.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading…</p>
+                  ) : shown.length === 0 && impliedLines.length === 0 ? (
+                    <div className="py-8 text-center">
+                      {kind === "unit" ? (
+                        <Building2 className="mx-auto h-8 w-8 text-muted-foreground" />
+                      ) : (
+                        <Workflow className="mx-auto h-8 w-8 text-muted-foreground" />
+                      )}
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {kind === "unit"
+                          ? "No units yet. Start with the whole organisation or its main units, such as Finance and Sales, then add the units within them."
+                          : "No roles yet. Start with the top role, such as CEO, then add the roles that report to it."}
+                      </p>
+                      <Button className="mt-3" onClick={addAtTop}>
+                        <Plus className="mr-1 h-4 w-4" />{" "}
+                        {kind === "unit" ? "Add a unit" : "Add the top role"}
+                      </Button>
+                      {nodes.length === 0 && list.length > 1 && (
+                        <CopyFromChart
+                          charts={list.filter((c) => c.id !== chart.id)}
+                          busy={busy}
+                          onCopy={(from) =>
+                            void run(
+                              () => copyIntoEmptyChart(orgId!, from.id, chart.id),
+                              `Copied ${from.name} into ${chart.name}`,
+                            )
+                          }
+                        />
+                      )}
+                    </div>
                   ) : (
-                    <Workflow className="h-4 w-4 shrink-0 text-primary" />
-                  )
-                ) : (
-                  <UserRound className="h-4 w-4 shrink-0 text-primary" />
-                )}
-                <span className="min-w-0">
-                  <span className="block truncate">{dragging.label}</span>
-                  <span
-                    className={
-                      "block truncate text-xs " +
-                      (dropAt ? "font-semibold text-primary" : "text-muted-foreground")
-                    }
-                  >
-                    {!dropAt
-                      ? "Not over a place to drop"
-                      : "top" in dropAt
-                        ? "Put it at the top of the chart"
-                        : dropOutcome(dragging, dropAt.node, dropAt.where, view)}
-                  </span>
-                </span>
+                    <>
+                      {isLivePreview && (
+                        <LiveSalaryPreviewBanner
+                          draft={bulkDraft}
+                          plan={bulkPlan}
+                          busy={bulkSaving}
+                          onEdit={() => setBulkDialogOpen(true)}
+                          onDiscard={() => setBulkPreviewActive(false)}
+                          onApply={() => void applyBulkAdjustment()}
+                          planning={planning}
+                        />
+                      )}
+                      {showCosts && (
+                        <CompanyCostsBanner
+                          orgName={orgName}
+                          companyCost={companyCost}
+                          companyCostDelta={companyCostDelta}
+                          chartCost={chartCost}
+                          chartCostDelta={chartCostDelta}
+                          hasUnits={units.length > 0}
+                          hasMultiUnitPeople={hasMultiUnitPeople}
+                          isLivePreview={isLivePreview}
+                          canEditSalaries={canEditSalaries}
+                          onOpenBulkAdjust={() => openBulkAdjust()}
+                        />
+                      )}
+                      <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
+                        <label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-border px-2 py-1">
+                          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <input
+                            value={findText}
+                            onChange={(e) => setFindText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && firstFound.current)
+                                jumpTo(firstFound.current);
+                            }}
+                            placeholder={
+                              kind === "unit" ? "Find a unit or person" : "Find a role or person"
+                            }
+                            aria-label="Find in the chart"
+                            className="w-full bg-transparent text-sm outline-none"
+                          />
+                          {findWords.length > 0 && (
+                            <span
+                              className="shrink-0 text-xs text-muted-foreground"
+                              aria-live="polite"
+                            >
+                              {found.size === 0 ? "None found" : `${found.size} found`}
+                            </span>
+                          )}
+                        </label>
+                        <div
+                          className="flex items-center rounded-lg border border-border"
+                          role="group"
+                          aria-label="Layout"
+                        >
+                          {(["tree", "list"] as const).map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              aria-pressed={layout === v}
+                              onClick={() => chooseLayout(v)}
+                              className={
+                                "flex items-center gap-1 px-2 py-1 text-xs font-medium first:rounded-l-lg last:rounded-r-lg " +
+                                (layout === v
+                                  ? "bg-primary/15 text-foreground"
+                                  : "text-muted-foreground hover:text-foreground")
+                              }
+                            >
+                              {v === "tree" ? (
+                                <Network className="h-3.5 w-3.5" />
+                              ) : (
+                                <List className="h-3.5 w-3.5" />
+                              )}
+                              {v === "tree" ? "Tree" : "List"}
+                            </button>
+                          ))}
+                        </div>
+                        {layout === "tree" && (
+                          <div
+                            className="flex items-center rounded-lg border border-border"
+                            role="group"
+                            aria-label="Zoom"
+                          >
+                            <button
+                              type="button"
+                              aria-label="Zoom out"
+                              onClick={() =>
+                                setZoom((z) => Math.max(0.3, Math.round((z - 0.1) * 10) / 10))
+                              }
+                              className="px-2 py-1 text-muted-foreground hover:text-foreground"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setZoom(1)}
+                              title="Back to 100%"
+                              className="w-12 py-1 text-center text-xs tabular-nums text-muted-foreground hover:text-foreground"
+                            >
+                              {Math.round(zoom * 100)}%
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Zoom in"
+                              onClick={() =>
+                                setZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10))
+                              }
+                              className="px-2 py-1 text-muted-foreground hover:text-foreground"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={fitToWidth}
+                              title="Fit the chart to the width"
+                              className="flex items-center gap-1 border-l border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              <Maximize2 className="h-3.5 w-3.5" /> Fit
+                            </button>
+                          </div>
+                        )}
+                        {foldable.length > 0 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs"
+                            onClick={() =>
+                              saveCollapsed(collapsed.size > 0 ? new Set() : new Set(foldable))
+                            }
+                          >
+                            {collapsed.size > 0 ? (
+                              <>
+                                <ChevronsUpDown className="mr-1 h-3.5 w-3.5" /> Expand all
+                              </>
+                            ) : (
+                              <>
+                                <ChevronsDownUp className="mr-1 h-3.5 w-3.5" /> Collapse all
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      {kind === "role" && (
+                        <ReportingSummary
+                          conflictCount={conflictCount}
+                          conflicts={[...conflicts.entries()].flatMap(([id, notes]) => {
+                            const r = nodeById.get(id);
+                            return r ? [{ role: r, notes }] : [];
+                          })}
+                          showNotes={showNotes}
+                          onShowNotes={setShowNotes}
+                          openCount={openRoles.length}
+                          markOpen={markOpen}
+                          onMarkOpen={setMarkOpen}
+                          impliedCount={impliedLines.length}
+                          onMakeAll={() => setConfirmMakeAll(true)}
+                          busy={busy}
+                          nameOf={nameOf}
+                          onJump={jumpTo}
+                        />
+                      )}
+                      {impliedLines.length > 0 && (
+                        <div className="mb-2 flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
+                          <span className="inline-block h-3 w-5 rounded border-2 border-dashed border-muted-foreground/60" />
+                          Dashed: follows from the Units tab
+                        </div>
+                      )}
+                      {layout === "tree" ? (
+                        <>
+                          <TopZone active={dragging?.type === "box"} kind={kind} />
+                          <div
+                            ref={scrollRef}
+                            className="overflow-x-auto pb-4 print:overflow-visible"
+                          >
+                            <div ref={treeRef} className="org-tree mx-auto w-max" style={{ zoom }}>
+                              <Branch parentKey="" view={view} />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <OutlineList parentKey="" view={view} depth={0} />
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground">
+                          {kind === "unit"
+                            ? "Drag a unit onto another to make it part of it, or to its left or right edge to place it beside it. Click a unit to edit it; + adds a unit within it."
+                            : "Drag a role onto another to make it report to it, or to its left or right edge to place it beside it. Click a role to edit it; + adds a role reporting to it."}
+                        </p>
+                        <Button size="sm" variant="outline" onClick={addAtTop}>
+                          <Plus className="mr-1 h-4 w-4" />{" "}
+                          {kind === "unit" ? "Add a unit at the top" : "Add a role at the top"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <PeoplePanel
+                  people={people}
+                  loading={peopleQuery.isLoading}
+                  placesOf={placesOf}
+                  unitsOf={unitsOf}
+                  headsOf={headsOf}
+                  kind={kind}
+                  canDrop={shown.length > 0}
+                  showCosts={showCosts}
+                  personCost={personCost}
+                  personPreviewDelta={personPreviewDelta}
+                />
               </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+              <DragOverlay dropAnimation={null}>
+                {dragging && (
+                  <div className="flex max-w-72 items-center gap-1.5 rounded-xl border-2 border-primary bg-background px-3 py-2 text-sm font-medium shadow-lg">
+                    {dragging.type === "box" ? (
+                      dragging.kind === "unit" ? (
+                        <Building2 className="h-4 w-4 shrink-0 text-primary" />
+                      ) : (
+                        <Workflow className="h-4 w-4 shrink-0 text-primary" />
+                      )
+                    ) : (
+                      <UserRound className="h-4 w-4 shrink-0 text-primary" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="block truncate">{dragging.label}</span>
+                      <span
+                        className={
+                          "block truncate text-xs " +
+                          (dropAt ? "font-semibold text-primary" : "text-muted-foreground")
+                        }
+                      >
+                        {!dropAt
+                          ? "Not over a place to drop"
+                          : "top" in dropAt
+                            ? "Put it at the top of the chart"
+                            : dropOutcome(dragging, dropAt.node, dropAt.where, view)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
+          )}
+        </>
       )}
 
       <Dialog open={!!nameDialog} onOpenChange={(o) => !o && setNameDialog(null)}>
