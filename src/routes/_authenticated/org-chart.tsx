@@ -18,12 +18,14 @@ import {
 import {
   AlertTriangle,
   Building2,
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Coins,
   Copy,
+  Eye,
   GitCompare,
   GripVertical,
   Link2,
@@ -32,6 +34,7 @@ import {
   Minus,
   Network,
   Pencil,
+  Percent,
   Printer,
   Search,
   Plus,
@@ -45,19 +48,37 @@ import {
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { useRememberedTab } from "@/hooks/useRememberedTab";
+import { formatDate } from "@/lib/utils";
 import {
+  addSalaryEntriesBulk,
   aggregateSalaryCosts,
   currentSalaryOf,
+  deleteSalaryEntriesBulk,
   fetchOrgSalaries,
   formatCostMoney,
   formatCostTotals,
+  formatSignedCostTotals,
+  formatSignedMoney,
+  formatSignedPct,
   groupSalariesByUser,
   hoursPerYearFromWorkSettings,
   orgSalariesKey,
   salaryToMonthlyAnnual,
+  subtractCurrencyTotals,
+  todayIsoDate,
   type CostSummary,
   type CurrencyCost,
+  type SalaryEntry,
 } from "@/lib/salaries";
+import { BulkSalaryAdjustDialog } from "@/components/BulkSalaryAdjustDialog";
+import {
+  buildBulkSalaryNote,
+  computeBulkSalaryPlan,
+  createInitialBulkDraft,
+  type BulkSalaryDraft,
+  type BulkSalaryPlan,
+  type BulkSalaryScope,
+} from "@/lib/bulkSalaryPlan";
 import { fetchWorkSettings, workSettingsKey } from "@/lib/workVacations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -273,11 +294,15 @@ type View = {
   showCosts: boolean;
   /** Monthly & annual salary for one employee (by People user_id), or null if unset. */
   personCost: (personId: string | null) => CurrencyCost | null;
-  /** Direct and subtree-rolled-up salary costs for a unit. */
+  /** Signed monthly/annual delta for one employee during live salary preview, or null. */
+  personPreviewDelta: (personId: string | null) => CurrencyCost | null;
+  /** Direct and subtree-rolled-up salary costs for a unit (plus optional live preview deltas). */
   unitCost: (unitId: string) => {
     direct: CostSummary;
     total: CostSummary;
     hasSubUnits: boolean;
+    directDelta: CurrencyCost[];
+    totalDelta: CurrencyCost[];
   };
 };
 
@@ -288,7 +313,8 @@ const boxDomId = (key: string) => `org-box-${key}`;
 
 function OrgChartPage() {
   const qc = useQueryClient();
-  const { orgId, orgs } = useOrg();
+  const { orgId, orgs, can } = useOrg();
+  const canEditSalaries = can("change_titles");
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "your organisation";
   const [remembered, remember] = useRememberedChart(orgId);
 
@@ -306,7 +332,7 @@ function OrgChartPage() {
     enabled: !!chart,
     queryFn: () => fetchNodes(chart!.id),
   });
-  const nodes = nodesQuery.data ?? [];
+  const nodes = useMemo(() => nodesQuery.data ?? [], [nodesQuery.data]);
 
   // Two trees per chart, one per tab: units, and roles with their reporting lines.
   const [savedTab, chooseTab] = useRememberedTab(
@@ -316,7 +342,7 @@ function OrgChartPage() {
   );
   const tab = REPORTING_LINES_ENABLED ? savedTab : "units";
   const kind: NodeKind = tab === "units" ? "unit" : "role";
-  const units = nodes.filter((n) => n.kind === "unit");
+  const units = useMemo(() => nodes.filter((n) => n.kind === "unit"), [nodes]);
   const roles = nodes.filter((n) => n.kind === "role");
   const unitKids = childrenOf(units);
   const roleKids = childrenOf(roles);
@@ -330,7 +356,7 @@ function OrgChartPage() {
     enabled: !!chart,
     queryFn: () => fetchMembers(chart!.id),
   });
-  const members = membersQuery.data ?? [];
+  const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
   const membersByNode = new Map<string, ChartMember[]>();
   for (const m of members) {
     const l = membersByNode.get(m.node_id) ?? [];
@@ -399,17 +425,112 @@ function OrgChartPage() {
     }
   };
 
-  const personCost = (personId: string | null): CurrencyCost | null => {
-    if (!personId) return null;
-    const cur = currentSalaryOf(salariesByUser.get(personId) ?? []);
-    return cur ? salaryToMonthlyAnnual(cur.entry, hoursPerYear) : null;
-  };
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkDraft, setBulkDraft] = useState<BulkSalaryDraft>(() => createInitialBulkDraft());
+  const [bulkPreviewActive, setBulkPreviewActive] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  useEffect(() => {
+    setBulkDialogOpen(false);
+    setBulkPreviewActive(false);
+    setBulkDraft(createInitialBulkDraft());
+  }, [orgId]);
 
   /** The name a box shows: a linked person's current name, else the one typed. */
   const nameOf = (n: ChartNode) =>
     (n.person_id ? personById.get(n.person_id)?.name : null) ?? n.person_name;
   const memberName = (m: ChartMember) =>
     (m.person_id ? personById.get(m.person_id)?.name : null) ?? m.person_name;
+
+  /** Where each person from People appears in this chart. */
+  const placesOf = new Map<string, string[]>();
+  const addPlace = (personId: string | null, place: string) => {
+    if (!personId) return;
+    placesOf.set(personId, [...(placesOf.get(personId) ?? []), place]);
+  };
+  for (const n of nodes) {
+    if (n.kind === "unit") addPlace(n.person_id, `Head of ${n.role}`);
+    else if (REPORTING_LINES_ENABLED) addPlace(n.person_id, n.role);
+  }
+  for (const m of members) addPlace(m.person_id, nodes.find((n) => n.id === m.node_id)?.role ?? "");
+
+  /** The units each person from People heads or belongs to, by name. */
+  const unitsOf = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const addUnit = (personId: string | null, unit: string | undefined) => {
+      if (!personId || !unit) return;
+      const list = map.get(personId) ?? [];
+      if (!list.includes(unit)) map.set(personId, [...list, unit]);
+    };
+    for (const u of nodes) if (u.kind === "unit") addUnit(u.person_id, u.role);
+    for (const m of members) addUnit(m.person_id, nodes.find((n) => n.id === m.node_id)?.role);
+    return map;
+  }, [nodes, members]);
+
+  /** The units each person from People heads, by name. */
+  const headsOf = new Map<string, string[]>();
+  for (const u of nodes)
+    if (u.kind === "unit" && u.person_id)
+      headsOf.set(u.person_id, [...(headsOf.get(u.person_id) ?? []), u.role]);
+
+  const bulkPlan = useMemo(
+    () =>
+      computeBulkSalaryPlan({
+        draft: bulkDraft,
+        people,
+        units,
+        members,
+        salariesByUser,
+        unitsOf,
+        hoursPerYear,
+      }),
+    [bulkDraft, people, units, members, salariesByUser, unitsOf, hoursPerYear],
+  );
+
+  const isLivePreview =
+    bulkPreviewActive &&
+    bulkPlan.signedPct !== null &&
+    !bulkPlan.pctError &&
+    bulkPlan.selectedRows.length > 0;
+
+  const { effectiveSalariesByUser, previewDeltaByUser } = useMemo(() => {
+    if (!isLivePreview) {
+      return {
+        effectiveSalariesByUser: salariesByUser,
+        previewDeltaByUser: new Map<string, CurrencyCost>(),
+      };
+    }
+    const nextMap = new Map<string, SalaryEntry[]>(salariesByUser);
+    const deltaMap = new Map<string, CurrencyCost>();
+    const today = todayIsoDate();
+    for (const row of bulkPlan.selectedRows) {
+      const virtualEntry: SalaryEntry = {
+        ...row.current,
+        id: `preview:${row.userId}`,
+        amount: row.newAmount,
+        effective_date: today,
+        created_at: "9999-12-31T23:59:59.999Z",
+      };
+      nextMap.set(row.userId, [virtualEntry, ...(salariesByUser.get(row.userId) ?? [])]);
+      const baseCost = salaryToMonthlyAnnual(row.current, hoursPerYear);
+      const nextCost = salaryToMonthlyAnnual(virtualEntry, hoursPerYear);
+      deltaMap.set(row.userId, {
+        currency: baseCost.currency,
+        monthly: Math.round((nextCost.monthly - baseCost.monthly) * 100) / 100,
+        annual: Math.round((nextCost.annual - baseCost.annual) * 100) / 100,
+      });
+    }
+    return { effectiveSalariesByUser: nextMap, previewDeltaByUser: deltaMap };
+  }, [isLivePreview, salariesByUser, bulkPlan.selectedRows, hoursPerYear]);
+
+  const personCost = (personId: string | null): CurrencyCost | null => {
+    if (!personId) return null;
+    const cur = currentSalaryOf(effectiveSalariesByUser.get(personId) ?? []);
+    return cur ? salaryToMonthlyAnnual(cur.entry, hoursPerYear) : null;
+  };
+
+  const personPreviewDelta = (personId: string | null): CurrencyCost | null =>
+    personId ? (previewDeltaByUser.get(personId) ?? null) : null;
 
   const costPersonRef = (personId: string | null, name: string | null) => {
     if (personId) return { key: `p:${personId}`, personId };
@@ -432,7 +553,13 @@ function OrgChartPage() {
   const unitCostMap = useMemo(() => {
     const out = new Map<
       string,
-      { direct: CostSummary; total: CostSummary; hasSubUnits: boolean }
+      {
+        direct: CostSummary;
+        total: CostSummary;
+        hasSubUnits: boolean;
+        directDelta: CurrencyCost[];
+        totalDelta: CurrencyCost[];
+      }
     >();
     for (const u of units) {
       const directRefs = directPeopleInUnit(u);
@@ -442,33 +569,65 @@ function OrgChartPage() {
         const subUnit = unitById.get(sid);
         if (subUnit) subRefs.push(...directPeopleInUnit(subUnit));
       }
+      const direct = aggregateSalaryCosts(directRefs, effectiveSalariesByUser, hoursPerYear);
+      const total = aggregateSalaryCosts(subRefs, effectiveSalariesByUser, hoursPerYear);
+      const directDelta = isLivePreview
+        ? subtractCurrencyTotals(
+            direct.totals,
+            aggregateSalaryCosts(directRefs, salariesByUser, hoursPerYear).totals,
+          )
+        : [];
+      const totalDelta = isLivePreview
+        ? subtractCurrencyTotals(
+            total.totals,
+            aggregateSalaryCosts(subRefs, salariesByUser, hoursPerYear).totals,
+          )
+        : [];
       out.set(u.id, {
-        direct: aggregateSalaryCosts(directRefs, salariesByUser, hoursPerYear),
-        total: aggregateSalaryCosts(subRefs, salariesByUser, hoursPerYear),
+        direct,
+        total,
         hasSubUnits: (unitKids.get(u.id)?.length ?? 0) > 0,
+        directDelta,
+        totalDelta,
       });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [units, members, salariesByUser, hoursPerYear, people]);
+  }, [
+    units,
+    members,
+    salariesByUser,
+    effectiveSalariesByUser,
+    isLivePreview,
+    hoursPerYear,
+    people,
+  ]);
 
   const emptyCost: CostSummary = { totals: [], peopleCount: 0, pricedCount: 0 };
   const unitCost = (unitId: string) =>
-    unitCostMap.get(unitId) ?? { direct: emptyCost, total: emptyCost, hasSubUnits: false };
+    unitCostMap.get(unitId) ?? {
+      direct: emptyCost,
+      total: emptyCost,
+      hasSubUnits: false,
+      directDelta: [],
+      totalDelta: [],
+    };
 
   /** Whole company total: every unique person in the organisation's People list. */
-  const companyCost = useMemo(
-    () =>
-      aggregateSalaryCosts(
-        people.map((p) => ({ key: `p:${p.id}`, personId: p.id })),
-        salariesByUser,
-        hoursPerYear,
-      ),
-    [people, salariesByUser, hoursPerYear],
-  );
+  const { companyCost, companyCostDelta } = useMemo(() => {
+    const refs = people.map((p) => ({ key: `p:${p.id}`, personId: p.id }));
+    const next = aggregateSalaryCosts(refs, effectiveSalariesByUser, hoursPerYear);
+    const delta = isLivePreview
+      ? subtractCurrencyTotals(
+          next.totals,
+          aggregateSalaryCosts(refs, salariesByUser, hoursPerYear).totals,
+        )
+      : [];
+    return { companyCost: next, companyCostDelta: delta };
+  }, [people, salariesByUser, effectiveSalariesByUser, isLivePreview, hoursPerYear]);
 
   /** Total of unique people placed in this chart's units (no double-counting across units). */
-  const { chartCost, hasMultiUnitPeople } = useMemo(() => {
+  const { chartCost, chartCostDelta, hasMultiUnitPeople } = useMemo(() => {
     const refs: { key: string; personId: string | null }[] = [];
     const seen = new Set<string>();
     let multi = false;
@@ -483,39 +642,115 @@ function OrgChartPage() {
         refs.push(r);
       }
     }
+    const next = aggregateSalaryCosts(refs, effectiveSalariesByUser, hoursPerYear);
+    const delta = isLivePreview
+      ? subtractCurrencyTotals(
+          next.totals,
+          aggregateSalaryCosts(refs, salariesByUser, hoursPerYear).totals,
+        )
+      : [];
     return {
-      chartCost: aggregateSalaryCosts(refs, salariesByUser, hoursPerYear),
+      chartCost: next,
+      chartCostDelta: delta,
       hasMultiUnitPeople: multi,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [units, members, salariesByUser, hoursPerYear, people]);
+  }, [
+    units,
+    members,
+    salariesByUser,
+    effectiveSalariesByUser,
+    isLivePreview,
+    hoursPerYear,
+    people,
+  ]);
 
-  /** Where each person from People appears in this chart. */
-  const placesOf = new Map<string, string[]>();
-  const addPlace = (personId: string | null, place: string) => {
-    if (!personId) return;
-    placesOf.set(personId, [...(placesOf.get(personId) ?? []), place]);
+  const openBulkAdjust = (scope?: BulkSalaryScope) => {
+    if (!canEditSalaries) return;
+    if (scope) {
+      setBulkDraft((prev) => ({
+        ...(bulkPreviewActive ? prev : createInitialBulkDraft(scope)),
+        scope,
+        excludedIds: [],
+      }));
+    } else if (!bulkPreviewActive) {
+      setBulkDraft(createInitialBulkDraft({ kind: "company" }));
+    }
+    setBulkDialogOpen(true);
   };
-  for (const n of nodes) {
-    if (n.kind === "unit") addPlace(n.person_id, `Head of ${n.role}`);
-    else if (REPORTING_LINES_ENABLED) addPlace(n.person_id, n.role);
-  }
-  for (const m of members) addPlace(m.person_id, nodes.find((n) => n.id === m.node_id)?.role ?? "");
 
-  /** The units each person from People heads or belongs to, by name. */
-  const unitsOf = new Map<string, string[]>();
-  const addUnit = (personId: string | null, unit: string | undefined) => {
-    if (!personId || !unit) return;
-    const list = unitsOf.get(personId) ?? [];
-    if (!list.includes(unit)) unitsOf.set(personId, [...list, unit]);
+  const previewBulkOnChart = () => {
+    if (bulkPlan.signedPct === null || bulkPlan.pctError || bulkPlan.selectedRows.length === 0) {
+      return;
+    }
+    if (!showCosts) setShowSalaries(true);
+    setBulkPreviewActive(true);
+    setBulkDialogOpen(false);
   };
-  for (const u of nodes) if (u.kind === "unit") addUnit(u.person_id, u.role);
-  for (const m of members) addUnit(m.person_id, nodes.find((n) => n.id === m.node_id)?.role);
-  /** The units each person from People heads, by name. */
-  const headsOf = new Map<string, string[]>();
-  for (const u of nodes)
-    if (u.kind === "unit" && u.person_id)
-      headsOf.set(u.person_id, [...(headsOf.get(u.person_id) ?? []), u.role]);
+
+  const applyBulkAdjustment = async () => {
+    if (!orgId || !canEditSalaries) return;
+    if (bulkPlan.signedPct === null || bulkPlan.pctError || bulkPlan.selectedRows.length === 0) {
+      toast.error("Select at least one person and enter a valid percentage.");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bulkDraft.effectiveDate)) {
+      toast.error("Choose a valid effective date.");
+      return;
+    }
+    const note = buildBulkSalaryNote(bulkDraft, bulkPlan);
+    const count = bulkPlan.selectedRows.length;
+    const pctLabel = formatSignedPct(bulkPlan.signedPct);
+    const effDate = bulkDraft.effectiveDate;
+    setBulkSaving(true);
+    try {
+      const created = await addSalaryEntriesBulk(
+        orgId,
+        bulkPlan.selectedRows.map((row) => ({
+          userId: row.userId,
+          input: {
+            amount: row.newAmount,
+            currency: row.current.currency,
+            period: row.current.period,
+            effective_date: effDate,
+            note,
+          },
+        })),
+      );
+      await qc.invalidateQueries({ queryKey: orgSalariesKey(orgId) });
+      setBulkDialogOpen(false);
+      setBulkPreviewActive(false);
+      const createdIds = created.map((e) => e.id).filter(Boolean);
+      const scheduled = effDate > todayIsoDate();
+      toast.success(
+        scheduled
+          ? `Scheduled ${pctLabel} salary change for ${count} ${count === 1 ? "person" : "people"} (${formatDate(effDate)})`
+          : `Applied ${pctLabel} salary change to ${count} ${count === 1 ? "person" : "people"}`,
+        createdIds.length > 0
+          ? {
+              duration: 10000,
+              action: {
+                label: "Undo",
+                onClick: () => {
+                  void deleteSalaryEntriesBulk(orgId, createdIds)
+                    .then(() => qc.invalidateQueries({ queryKey: orgSalariesKey(orgId) }))
+                    .then(() => toast.success("Bulk salary adjustment undone"))
+                    .catch((err) =>
+                      toast.error(
+                        err instanceof Error ? err.message : "Could not undo salary adjustment",
+                      ),
+                    );
+                },
+              },
+            }
+          : undefined,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not apply salary adjustment");
+    } finally {
+      setBulkSaving(false);
+    }
+  };
 
   const [busy, setBusy] = useState(false);
   const [nameDialog, setNameDialog] = useState<NameDialog>(null);
@@ -1119,6 +1354,7 @@ function OrgChartPage() {
     onAdd: addBelow,
     showCosts,
     personCost,
+    personPreviewDelta,
     unitCost,
   };
 
@@ -1313,13 +1549,28 @@ function OrgChartPage() {
                 </div>
               ) : (
                 <>
+                  {isLivePreview && (
+                    <LiveSalaryPreviewBanner
+                      draft={bulkDraft}
+                      plan={bulkPlan}
+                      busy={bulkSaving}
+                      onEdit={() => setBulkDialogOpen(true)}
+                      onDiscard={() => setBulkPreviewActive(false)}
+                      onApply={() => void applyBulkAdjustment()}
+                    />
+                  )}
                   {showCosts && (
                     <CompanyCostsBanner
                       orgName={orgName}
                       companyCost={companyCost}
+                      companyCostDelta={companyCostDelta}
                       chartCost={chartCost}
+                      chartCostDelta={chartCostDelta}
                       hasUnits={units.length > 0}
                       hasMultiUnitPeople={hasMultiUnitPeople}
+                      isLivePreview={isLivePreview}
+                      canEditSalaries={canEditSalaries}
+                      onOpenBulkAdjust={() => openBulkAdjust()}
                     />
                   )}
                   <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
@@ -1496,6 +1747,7 @@ function OrgChartPage() {
               canDrop={shown.length > 0}
               showCosts={showCosts}
               personCost={personCost}
+              personPreviewDelta={personPreviewDelta}
             />
           </div>
           <DragOverlay dropAnimation={null}>
@@ -1752,6 +2004,30 @@ function OrgChartPage() {
                   </div>
                 </>
               )}
+              {boxDialog.mode === "edit" && boxDialog.fields.kind === "unit" && canEditSalaries && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground">
+                      Bulk adjust unit salaries
+                    </p>
+                    <p className="text-[11px] text-foreground/75">
+                      Apply a percentage increase or decrease to this unit (and optional sub-units).
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const targetId = boxDialog.node.id;
+                      setBoxDialog(null);
+                      openBulkAdjust({ kind: "unit", unitId: targetId, includeSubUnits: true });
+                    }}
+                  >
+                    <Percent className="mr-1 h-3.5 w-3.5" /> Adjust unit %
+                  </Button>
+                </div>
+              )}
               {/* Stays in view at the bottom of the dialog however long the form gets. */}
               <DialogFooter className="sticky -bottom-6 z-10 -mx-6 -mb-6 gap-2 border-t border-border bg-background px-6 py-3">
                 {boxDialog.mode === "edit" && (
@@ -1775,6 +2051,21 @@ function OrgChartPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {canEditSalaries && (
+        <BulkSalaryAdjustDialog
+          open={bulkDialogOpen}
+          draft={bulkDraft}
+          plan={bulkPlan}
+          unitOptions={unitOptions}
+          busy={bulkSaving}
+          isLivePreview={isLivePreview}
+          onChangeDraft={setBulkDraft}
+          onClose={() => setBulkDialogOpen(false)}
+          onPreviewOnChart={previewBulkOnChart}
+          onApply={() => void applyBulkAdjustment()}
+        />
+      )}
 
       <Dialog open={!!impliedOpen} onOpenChange={(o) => !o && setImpliedOpen(null)}>
         <DialogContent>
@@ -2271,6 +2562,7 @@ function PeoplePanel({
   canDrop,
   showCosts,
   personCost,
+  personPreviewDelta,
 }: {
   people: OrgPerson[];
   loading: boolean;
@@ -2283,6 +2575,7 @@ function PeoplePanel({
   canDrop: boolean;
   showCosts: boolean;
   personCost: (personId: string | null) => CurrencyCost | null;
+  personPreviewDelta: (personId: string | null) => CurrencyCost | null;
 }) {
   const [query, setQuery] = useState("");
   const matches = matchPeople(people, query);
@@ -2405,6 +2698,7 @@ function PeoplePanel({
                 places={placesOf.get(p.id) ?? []}
                 inUnit={unitsFor(p.id).length > 0}
                 cost={showCosts ? personCost(p.id) : null}
+                previewDelta={showCosts ? personPreviewDelta(p.id) : null}
               />
             ))}
           </Fragment>
@@ -2419,12 +2713,14 @@ function PersonRow({
   places,
   inUnit,
   cost,
+  previewDelta,
 }: {
   person: OrgPerson;
   places: string[];
   /** Heads or belongs to a unit in this chart. */
   inUnit: boolean;
   cost: CurrencyCost | null;
+  previewDelta: CurrencyCost | null;
 }) {
   const drag = useDraggable({
     id: `person:${person.id}`,
@@ -2457,6 +2753,18 @@ function PersonRow({
           <span className="mt-0.5 block text-[11px] font-medium tabular-nums text-foreground/85">
             {formatCostMoney(cost.monthly, cost.currency)}/mo ·{" "}
             {formatCostMoney(cost.annual, cost.currency)}/yr
+            {previewDelta && (
+              <span
+                className={
+                  "ml-1 font-semibold " +
+                  (previewDelta.monthly >= 0
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-rose-700 dark:text-rose-400")
+                }
+              >
+                ({formatSignedMoney(previewDelta.monthly, previewDelta.currency)}/mo)
+              </span>
+            )}
           </span>
         )}
       </span>
@@ -2837,12 +3145,20 @@ function OutlineList({ parentKey, view, depth }: { parentKey: string; view: View
                           Total: {formatCostTotals(unitCosts.total.totals, "monthly", true)} ·{" "}
                           {formatCostTotals(unitCosts.total.totals, "annual", true)}
                         </span>
+                        {unitCosts.totalDelta.length > 0 && (
+                          <DeltaBadge deltas={unitCosts.totalDelta} compact />
+                        )}
                       </>
                     ) : (
-                      <span className="font-semibold text-foreground">
-                        {formatCostTotals(unitCosts.direct.totals, "monthly", true)} ·{" "}
-                        {formatCostTotals(unitCosts.direct.totals, "annual", true)}
-                      </span>
+                      <>
+                        <span className="font-semibold text-foreground">
+                          {formatCostTotals(unitCosts.direct.totals, "monthly", true)} ·{" "}
+                          {formatCostTotals(unitCosts.direct.totals, "annual", true)}
+                        </span>
+                        {unitCosts.directDelta.length > 0 && (
+                          <DeltaBadge deltas={unitCosts.directDelta} compact />
+                        )}
+                      </>
                     )}
                   </span>
                 )}
@@ -2851,12 +3167,25 @@ function OutlineList({ parentKey, view, depth }: { parentKey: string; view: View
               <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-foreground/80">
                 {unitMembers.map((m) => {
                   const mc = view.personCost(m.person_id);
+                  const md = view.personPreviewDelta(m.person_id);
                   return (
                     <span key={m.id} className="tabular-nums">
                       {view.memberName(m)}
                       {mc
                         ? `: ${formatCostMoney(mc.monthly, mc.currency)}/mo · ${formatCostMoney(mc.annual, mc.currency)}/yr`
                         : ""}
+                      {md && (
+                        <span
+                          className={
+                            "ml-1 font-semibold " +
+                            (md.monthly >= 0
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-rose-700 dark:text-rose-400")
+                          }
+                        >
+                          ({formatSignedMoney(md.monthly, md.currency)}/mo)
+                        </span>
+                      )}
                     </span>
                   );
                 })}
@@ -3033,6 +3362,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   const finding = view.found.size > 0;
   const dimmed = finding && !view.found.has(n.id) && !view.foundChain.has(n.id);
   const headCost = view.showCosts ? view.personCost(n.person_id) : null;
+  const headPreviewDelta = view.showCosts ? view.personPreviewDelta(n.person_id) : null;
   const unitCosts = unit && view.showCosts ? view.unitCost(n.id) : null;
 
   return (
@@ -3230,6 +3560,18 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               <p className="mt-0.5 text-[11px] font-medium tabular-nums text-foreground/85">
                 {formatCostMoney(headCost.monthly, headCost.currency)}/mo ·{" "}
                 {formatCostMoney(headCost.annual, headCost.currency)}/yr
+                {headPreviewDelta && (
+                  <span
+                    className={
+                      "ml-1 font-semibold " +
+                      (headPreviewDelta.monthly >= 0
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : "text-rose-700 dark:text-rose-400")
+                    }
+                  >
+                    ({formatSignedMoney(headPreviewDelta.monthly, headPreviewDelta.currency)}/mo)
+                  </span>
+                )}
               </p>
             )}
           </div>
@@ -3254,6 +3596,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
                     name={view.memberName(m)}
                     unitName={n.role}
                     cost={view.showCosts ? view.personCost(m.person_id) : null}
+                    previewDelta={view.showCosts ? view.personPreviewDelta(m.person_id) : null}
                     onOpen={() => view.onOpen(n)}
                     onRemove={() => view.onRemoveMember(m, n)}
                   />
@@ -3352,6 +3695,7 @@ function MemberChip({
   name,
   unitName,
   cost,
+  previewDelta,
   onOpen,
   onRemove,
 }: {
@@ -3359,6 +3703,7 @@ function MemberChip({
   name: string;
   unitName: string;
   cost: CurrencyCost | null;
+  previewDelta: CurrencyCost | null;
   onOpen: () => void;
   onRemove: () => void;
 }) {
@@ -3377,7 +3722,12 @@ function MemberChip({
       role="listitem"
       ref={drag.setNodeRef}
       className={
-        "flex items-center border border-border bg-background text-xs " +
+        "flex items-center border bg-background text-xs " +
+        (previewDelta
+          ? previewDelta.monthly >= 0
+            ? "border-emerald-400 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-950/30 "
+            : "border-rose-400 bg-rose-50/50 dark:border-rose-700 dark:bg-rose-950/30 "
+          : "border-border ") +
         (cost
           ? "w-full justify-between rounded-xl px-2 py-1 text-left"
           : "max-w-44 rounded-full pr-0.5") +
@@ -3404,6 +3754,18 @@ function MemberChip({
           <span className="text-[11px] font-normal tabular-nums text-foreground/80">
             {formatCostMoney(cost.monthly, cost.currency)}/mo ·{" "}
             {formatCostMoney(cost.annual, cost.currency)}/yr
+            {previewDelta && (
+              <span
+                className={
+                  "ml-1 font-semibold " +
+                  (previewDelta.monthly >= 0
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-rose-700 dark:text-rose-400")
+                }
+              >
+                ({formatSignedMoney(previewDelta.monthly, previewDelta.currency)}/mo)
+              </span>
+            )}
           </span>
         )}
       </button>
@@ -3412,14 +3774,41 @@ function MemberChip({
   );
 }
 
+/** Compact signed delta indicator shown during live bulk salary preview. */
+function DeltaBadge({ deltas, compact = false }: { deltas: CurrencyCost[]; compact?: boolean }) {
+  if (!deltas.length) return null;
+  const positive = deltas[0]!.annual >= 0;
+  return (
+    <span
+      className={
+        "inline-flex items-center rounded-md px-1.5 py-0.5 font-semibold tabular-nums " +
+        (compact ? "text-[10px] " : "text-xs ") +
+        (positive
+          ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200"
+          : "bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200")
+      }
+    >
+      {formatSignedCostTotals(deltas, "monthly", true)}
+      {!compact && ` · ${formatSignedCostTotals(deltas, "annual", true)}`}
+    </span>
+  );
+}
+
 /** Salary cost summary shown at the bottom of each Unit card (monthly & annual). */
 function UnitCostFooter({
   unitCosts,
 }: {
-  unitCosts: { direct: CostSummary; total: CostSummary; hasSubUnits: boolean };
+  unitCosts: {
+    direct: CostSummary;
+    total: CostSummary;
+    hasSubUnits: boolean;
+    directDelta: CurrencyCost[];
+    totalDelta: CurrencyCost[];
+  };
 }) {
-  const { direct, total, hasSubUnits } = unitCosts;
+  const { direct, total, hasSubUnits, directDelta, totalDelta } = unitCosts;
   const activeSummary = hasSubUnits ? total : direct;
+  const activeDelta = hasSubUnits ? totalDelta : directDelta;
 
   return (
     <div className="rounded-b-[10px] border-t border-primary/25 bg-background/80 px-2.5 pb-4 pt-2 text-left text-[11px]">
@@ -3435,12 +3824,19 @@ function UnitCostFooter({
               )}
             </div>
             {direct.totals.length > 0 ? (
-              <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground/90">
-                <span className="font-semibold">
-                  {formatCostTotals(direct.totals, "monthly", true)}
-                </span>
-                <span>{formatCostTotals(direct.totals, "annual", true)}</span>
-              </div>
+              <>
+                <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground/90">
+                  <span className="font-semibold">
+                    {formatCostTotals(direct.totals, "monthly", true)}
+                  </span>
+                  <span>{formatCostTotals(direct.totals, "annual", true)}</span>
+                </div>
+                {directDelta.length > 0 && (
+                  <div className="mt-0.5">
+                    <DeltaBadge deltas={directDelta} compact />
+                  </div>
+                )}
+              </>
             ) : (
               <p className="mt-0.5 text-foreground/65">No salaries set</p>
             )}
@@ -3455,12 +3851,21 @@ function UnitCostFooter({
               )}
             </div>
             {total.totals.length > 0 ? (
-              <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground">
-                <span className="font-bold">{formatCostTotals(total.totals, "monthly", true)}</span>
-                <span className="font-semibold">
-                  {formatCostTotals(total.totals, "annual", true)}
-                </span>
-              </div>
+              <>
+                <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground">
+                  <span className="font-bold">
+                    {formatCostTotals(total.totals, "monthly", true)}
+                  </span>
+                  <span className="font-semibold">
+                    {formatCostTotals(total.totals, "annual", true)}
+                  </span>
+                </div>
+                {totalDelta.length > 0 && (
+                  <div className="mt-0.5">
+                    <DeltaBadge deltas={totalDelta} compact />
+                  </div>
+                )}
+              </>
             ) : (
               <p className="mt-0.5 text-foreground/65">No salaries set</p>
             )}
@@ -3477,14 +3882,21 @@ function UnitCostFooter({
             )}
           </div>
           {activeSummary.totals.length > 0 ? (
-            <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground">
-              <span className="font-bold">
-                {formatCostTotals(activeSummary.totals, "monthly", true)}
-              </span>
-              <span className="font-medium text-foreground/85">
-                {formatCostTotals(activeSummary.totals, "annual", true)}
-              </span>
-            </div>
+            <>
+              <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground">
+                <span className="font-bold">
+                  {formatCostTotals(activeSummary.totals, "monthly", true)}
+                </span>
+                <span className="font-medium text-foreground/85">
+                  {formatCostTotals(activeSummary.totals, "annual", true)}
+                </span>
+              </div>
+              {activeDelta.length > 0 && (
+                <div className="mt-0.5">
+                  <DeltaBadge deltas={activeDelta} compact />
+                </div>
+              )}
+            </>
           ) : (
             <p className="mt-0.5 text-foreground/65">No salaries set</p>
           )}
@@ -3494,19 +3906,92 @@ function UnitCostFooter({
   );
 }
 
+/** Active what-if banner above the chart while previewing a bulk salary adjustment. */
+function LiveSalaryPreviewBanner({
+  draft,
+  plan,
+  busy,
+  onEdit,
+  onDiscard,
+  onApply,
+}: {
+  draft: BulkSalaryDraft;
+  plan: BulkSalaryPlan;
+  busy: boolean;
+  onEdit: () => void;
+  onDiscard: () => void;
+  onApply: () => void;
+}) {
+  const isIncrease = (plan.signedPct ?? 0) >= 0;
+  return (
+    <div
+      className={
+        "mb-3 rounded-xl border-2 px-3.5 py-2.5 print:hidden " +
+        (isIncrease
+          ? "border-emerald-400 bg-emerald-50/75 dark:border-emerald-700 dark:bg-emerald-950/35"
+          : "border-rose-400 bg-rose-50/75 dark:border-rose-700 dark:bg-rose-950/35")
+      }
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <p className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-foreground">
+            <Eye className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span>
+              Live salary preview · {plan.signedPct !== null ? formatSignedPct(plan.signedPct) : ""}
+            </span>
+            <span className="font-medium text-foreground/80">
+              · {plan.scopeLabel} · {plan.selectedRows.length}{" "}
+              {plan.selectedRows.length === 1 ? "person" : "people"} · effective{" "}
+              {formatDate(draft.effectiveDate)}
+            </span>
+          </p>
+          <p className="flex flex-wrap items-center gap-2 text-xs text-foreground">
+            <span className="font-medium">Total impact:</span>
+            <DeltaBadge deltas={plan.deltaTotals} />
+            <span className="text-foreground/75">Not saved yet — figures below are projected.</span>
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={onEdit} disabled={busy}>
+            <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onDiscard} disabled={busy}>
+            Discard
+          </Button>
+          <Button type="button" size="sm" onClick={onApply} disabled={busy}>
+            <Check className="mr-1 h-3.5 w-3.5" />
+            {busy ? "Applying…" : "Apply changes"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Company-wide and chart-wide monthly & annual salary totals above the org chart. */
 function CompanyCostsBanner({
   orgName,
   companyCost,
+  companyCostDelta,
   chartCost,
+  chartCostDelta,
   hasUnits,
   hasMultiUnitPeople,
+  isLivePreview,
+  canEditSalaries,
+  onOpenBulkAdjust,
 }: {
   orgName: string;
   companyCost: CostSummary;
+  companyCostDelta: CurrencyCost[];
   chartCost: CostSummary;
+  chartCostDelta: CurrencyCost[];
   hasUnits: boolean;
   hasMultiUnitPeople: boolean;
+  isLivePreview: boolean;
+  canEditSalaries: boolean;
+  onOpenBulkAdjust: () => void;
 }) {
   const showChartBreakdown =
     hasUnits &&
@@ -3519,16 +4004,19 @@ function CompanyCostsBanner({
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
             <Coins className="h-3.5 w-3.5 text-primary" />
-            <span>Company salary costs · {orgName}</span>
+            <span>
+              {isLivePreview ? "Preview · " : ""}Company salary costs · {orgName}
+            </span>
           </p>
           {companyCost.totals.length > 0 ? (
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 tabular-nums">
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1 tabular-nums">
               <span className="text-base font-bold text-foreground">
                 {formatCostTotals(companyCost.totals, "monthly")}
               </span>
               <span className="text-sm font-semibold text-foreground/85">
                 {formatCostTotals(companyCost.totals, "annual")}
               </span>
+              {companyCostDelta.length > 0 && <DeltaBadge deltas={companyCostDelta} />}
               <span className="text-xs text-foreground/75">
                 {companyCost.pricedCount === companyCost.peopleCount
                   ? `${companyCost.peopleCount} ${companyCost.peopleCount === 1 ? "person" : "people"}`
@@ -3547,30 +4035,46 @@ function CompanyCostsBanner({
           )}
         </div>
 
-        {showChartBreakdown && (
-          <div className="border-t border-border/70 pt-2 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
-              Placed in this chart
-            </p>
-            {chartCost.totals.length > 0 ? (
-              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 tabular-nums">
-                <span className="text-sm font-bold text-foreground">
-                  {formatCostTotals(chartCost.totals, "monthly")}
-                </span>
-                <span className="text-xs font-semibold text-foreground/85">
-                  {formatCostTotals(chartCost.totals, "annual")}
-                </span>
-                <span className="text-xs text-foreground/75">
-                  ({chartCost.pricedCount}/{chartCost.peopleCount})
-                </span>
-              </div>
-            ) : (
-              <p className="mt-0.5 text-xs text-foreground/70">
-                0/{chartCost.peopleCount} with salary
+        <div className="flex flex-wrap items-center gap-3">
+          {showChartBreakdown && (
+            <div className="border-t border-border/70 pt-2 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
+                Placed in this chart
               </p>
-            )}
-          </div>
-        )}
+              {chartCost.totals.length > 0 ? (
+                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 tabular-nums">
+                  <span className="text-sm font-bold text-foreground">
+                    {formatCostTotals(chartCost.totals, "monthly")}
+                  </span>
+                  <span className="text-xs font-semibold text-foreground/85">
+                    {formatCostTotals(chartCost.totals, "annual")}
+                  </span>
+                  {chartCostDelta.length > 0 && <DeltaBadge deltas={chartCostDelta} compact />}
+                  <span className="text-xs text-foreground/75">
+                    ({chartCost.pricedCount}/{chartCost.peopleCount})
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-0.5 text-xs text-foreground/70">
+                  0/{chartCost.peopleCount} with salary
+                </p>
+              )}
+            </div>
+          )}
+
+          {canEditSalaries && !isLivePreview && companyCost.pricedCount > 0 && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onOpenBulkAdjust}
+              className="bg-background print:hidden"
+            >
+              <Percent className="mr-1.5 h-3.5 w-3.5" />
+              Bulk adjust %
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -338,9 +338,9 @@ export function aggregateSalaryCosts(
   return { totals, peopleCount, pricedCount };
 }
 
-/** Formats a cost figure cleanly (rounds amounts >= 100 to whole currency units). */
+/** Formats a cost figure cleanly (rounds to 2 decimal places, omitting .00 for whole numbers). */
 export function formatCostMoney(amount: number, currency: SalaryCurrency): string {
-  const rounded = Math.abs(amount) >= 100 ? Math.round(amount) : Math.round(amount * 100) / 100;
+  const rounded = Math.round(amount * 100) / 100;
   return formatMoney(rounded, currency);
 }
 
@@ -353,6 +353,47 @@ export function formatCostTotals(
   if (!totals.length) return "—";
   const suffix = period === "monthly" ? (compact ? "/mo" : " / mo") : compact ? "/yr" : " / yr";
   return totals.map((t) => `${formatCostMoney(t[period], t.currency)}${suffix}`).join(" + ");
+}
+
+/** Applies a signed percentage (e.g. +3.5 or -5) and rounds to 2 decimal places. */
+export function applySalaryPercentage(amount: number, signedPct: number): number {
+  const raw = amount * (1 + signedPct / 100);
+  const rounded = Math.round(raw * 100) / 100;
+  return Math.max(0.01, rounded);
+}
+
+/** Computes signed per-currency difference (next - base) for monthly and annual totals. */
+export function subtractCurrencyTotals(next: CurrencyCost[], base: CurrencyCost[]): CurrencyCost[] {
+  const currencies = new Set<SalaryCurrency>();
+  const nextMap = new Map(next.map((c) => [c.currency, c]));
+  const baseMap = new Map(base.map((c) => [c.currency, c]));
+  for (const c of next) currencies.add(c.currency);
+  for (const c of base) currencies.add(c.currency);
+
+  const out: CurrencyCost[] = [];
+  for (const currency of currencies) {
+    const n = nextMap.get(currency) ?? { currency, monthly: 0, annual: 0 };
+    const b = baseMap.get(currency) ?? { currency, monthly: 0, annual: 0 };
+    const monthly = Math.round((n.monthly - b.monthly) * 100) / 100;
+    const annual = Math.round((n.annual - b.annual) * 100) / 100;
+    if (Math.abs(monthly) >= 0.005 || Math.abs(annual) >= 0.005) {
+      out.push({ currency, monthly, annual });
+    }
+  }
+  return out.sort((a, b) => Math.abs(b.annual) - Math.abs(a.annual));
+}
+
+/** Formats signed single- or multi-currency deltas (e.g. "+€1,250.50 / mo"). */
+export function formatSignedCostTotals(
+  deltas: CurrencyCost[],
+  period: "monthly" | "annual",
+  compact = false,
+): string {
+  if (!deltas.length) return "0";
+  const suffix = period === "monthly" ? (compact ? "/mo" : " / mo") : compact ? "/yr" : " / yr";
+  return deltas
+    .map((d) => `${formatSignedMoney(Math.round(d[period] * 100) / 100, d.currency)}${suffix}`)
+    .join(" · ");
 }
 
 export async function fetchOrgSalaries(orgId: string): Promise<SalaryEntry[]> {
@@ -439,6 +480,69 @@ export async function addSalaryEntry(
   return entry;
 }
 
+/** Inserts multiple salary history entries at once (used for bulk % adjustments). */
+export async function addSalaryEntriesBulk(
+  orgId: string,
+  items: { userId: string; input: SalaryInput }[],
+): Promise<SalaryEntry[]> {
+  if (items.length === 0) return [];
+  for (const { input } of items) {
+    if (!Number.isFinite(input.amount) || input.amount <= 0) {
+      throw new Error("Every salary amount must be greater than zero");
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.effective_date)) {
+      throw new Error("Choose a valid effective date");
+    }
+  }
+  const me = await getMyProfileId();
+  const payload = items.map(({ userId, input }) => ({
+    org_id: orgId,
+    user_id: userId,
+    amount: Math.round(input.amount * 100) / 100,
+    currency: input.currency,
+    period: input.period,
+    effective_date: input.effective_date,
+    note: input.note?.trim() ? input.note.trim().slice(0, 240) : null,
+    created_by: me,
+  }));
+
+  if (!useLocalFallback) {
+    const { data, error } = await db
+      .from(TABLE)
+      .insert(payload)
+      .select(
+        "id, org_id, user_id, amount, currency, period, effective_date, note, created_by, created_at",
+      );
+    if (!error && Array.isArray(data)) {
+      return (data as unknown[]).map(normalizeRow).filter((x): x is SalaryEntry => x !== null);
+    } else if (error && !isMissingTableError(error)) {
+      throw new Error(error.message || "Could not save the salary adjustments");
+    } else if (error) {
+      useLocalFallback = true;
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const created: SalaryEntry[] = payload.map((row, idx) => ({
+    id:
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `sal_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 9)}`,
+    org_id: row.org_id,
+    user_id: row.user_id,
+    amount: row.amount,
+    currency: row.currency,
+    period: row.period,
+    effective_date: row.effective_date,
+    note: row.note,
+    created_by: row.created_by,
+    created_at: nowIso,
+  }));
+  const next = sortSalariesDesc([...readLocal(orgId), ...created]);
+  writeLocal(orgId, next);
+  return created;
+}
+
 export async function updateSalaryEntry(
   orgId: string,
   entryId: string,
@@ -497,5 +601,22 @@ export async function deleteSalaryEntry(orgId: string, entryId: string): Promise
   }
 
   const rows = readLocal(orgId).filter((r) => r.id !== entryId);
+  writeLocal(orgId, rows);
+}
+
+/** Deletes a batch of salary entries (used to undo a bulk adjustment). */
+export async function deleteSalaryEntriesBulk(orgId: string, entryIds: string[]): Promise<void> {
+  if (entryIds.length === 0) return;
+  if (!useLocalFallback) {
+    const { error } = await db.from(TABLE).delete().in("id", entryIds).eq("org_id", orgId);
+    if (!error) return;
+    if (!isMissingTableError(error)) {
+      throw new Error(error.message || "Could not undo the salary adjustments");
+    }
+    useLocalFallback = true;
+  }
+
+  const drop = new Set(entryIds);
+  const rows = readLocal(orgId).filter((r) => !drop.has(r.id));
   writeLocal(orgId, rows);
 }
