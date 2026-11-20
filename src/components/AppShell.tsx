@@ -60,7 +60,7 @@ const NAV = [
   { to: "/skills", label: "Skills", icon: Sparkles, org: true },
   { to: "/career-paths", label: "Career paths", icon: TrendingUp, org: true },
   { to: "/compensation", label: "Compensation", icon: Wallet, org: true },
-  { to: "/surveys", label: "My surveys", icon: Activity, org: false },
+  { to: "/surveys", label: "Surveys", icon: Activity, org: false },
   { to: "/import", label: "Import", icon: Upload, org: true },
   { to: "/export", label: "Export", icon: Download, org: true },
   { to: "/settings", label: "Settings", icon: Settings, org: false },
