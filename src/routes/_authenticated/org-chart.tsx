@@ -113,6 +113,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -377,7 +378,26 @@ function OrgChartPage() {
     () => groupSalariesByUser(salariesQuery.data ?? []),
     [salariesQuery.data],
   );
+  const showSalariesKey = orgId ? `talentloom:org-chart:show-salaries:${orgId}` : null;
   const [showCosts, setShowCosts] = useState(true);
+  useEffect(() => {
+    if (!showSalariesKey) return;
+    try {
+      const raw = window.localStorage.getItem(showSalariesKey);
+      if (raw === "false") setShowCosts(false);
+      else if (raw === "true") setShowCosts(true);
+    } catch {
+      /* ignore */
+    }
+  }, [showSalariesKey]);
+  const setShowSalaries = (next: boolean) => {
+    setShowCosts(next);
+    try {
+      if (showSalariesKey) window.localStorage.setItem(showSalariesKey, String(next));
+    } catch {
+      /* ignore */
+    }
+  };
 
   const personCost = (personId: string | null): CurrencyCost | null => {
     if (!personId) return null;
@@ -1156,7 +1176,20 @@ function OrgChartPage() {
             {charts.isLoading ? "Loading…" : "No charts yet."}
           </p>
         )}
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          {chart && (
+            <label
+              htmlFor="org-chart-show-salaries"
+              className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted/60"
+            >
+              <Switch
+                id="org-chart-show-salaries"
+                checked={showCosts}
+                onCheckedChange={setShowSalaries}
+              />
+              <span>Show salaries</span>
+            </label>
+          )}
           <Button size="sm" onClick={() => setNameDialog({ mode: "new", value: "" })}>
             <Plus className="mr-1 h-4 w-4" /> New chart
           </Button>
@@ -1381,20 +1414,6 @@ function OrgChartPage() {
                         </button>
                       </div>
                     )}
-                    <button
-                      type="button"
-                      aria-pressed={showCosts}
-                      onClick={() => setShowCosts((v) => !v)}
-                      title="Show or hide salary costs"
-                      className={
-                        "flex h-7 items-center gap-1 rounded-lg border px-2 text-xs font-medium transition " +
-                        (showCosts
-                          ? "border-primary/50 bg-primary/15 text-foreground"
-                          : "border-border text-muted-foreground hover:text-foreground")
-                      }
-                    >
-                      <Coins className="h-3.5 w-3.5" /> Costs
-                    </button>
                     {foldable.length > 0 && (
                       <Button
                         size="sm"
