@@ -72,6 +72,7 @@ import {
 } from "@/lib/salaries";
 import { BulkSalaryAdjustDialog } from "@/components/BulkSalaryAdjustDialog";
 import { TeamsPanel } from "@/components/teams/TeamsPanel";
+import { PlannedPayDialog } from "@/components/PlannedPayDialog";
 import { SupervisorsPanel } from "@/components/supervisors/SupervisorsPanel";
 import {
   addSalaryPlans,
@@ -311,6 +312,10 @@ type View = {
   showCosts: boolean;
   /** Monthly & annual salary for one employee (by People user_id), or null if unset. */
   personCost: (personId: string | null) => CurrencyCost | null;
+  /** On a past or planned chart, for those who may change pay: plan someone's pay. */
+  onEditPay?: (personId: string, name: string) => void;
+  /** Whether this chart has planned pay for someone. */
+  hasPlan: (personId: string | null) => boolean;
   /** Signed monthly/annual delta for one employee during live salary preview, or null. */
   personPreviewDelta: (personId: string | null) => CurrencyCost | null;
   /** Direct and subtree-rolled-up salary costs for a unit (plus optional live preview deltas). */
@@ -878,6 +883,7 @@ function OrgChartPage() {
   const [boxDialog, setBoxDialog] = useState<BoxDialog>(null);
   const [confirmChartDelete, setConfirmChartDelete] = useState(false);
   const [confirmActivate, setConfirmActivate] = useState(false);
+  const [payPerson, setPayPerson] = useState<{ id: string; name: string } | null>(null);
   const [confirmBoxDelete, setConfirmBoxDelete] = useState<ChartNode | null>(null);
   const [dragging, setDragging] = useState<DragData | null>(null);
   /** Where the dragged item would land, for the label on the dragged chip. */
@@ -1488,6 +1494,8 @@ function OrgChartPage() {
     onAdd: addBelow,
     showCosts,
     personCost,
+    onEditPay: planning && canEditSalaries ? (id, name) => setPayPerson({ id, name }) : undefined,
+    hasPlan: (id) => !!id && plans.some((p) => p.user_id === id),
     personPreviewDelta,
     unitCost,
   };
@@ -2376,6 +2384,37 @@ function OrgChartPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {chart && planning && (
+        <PlannedPayDialog
+          person={payPerson}
+          chartName={chart.name}
+          realEntries={
+            payPerson ? (groupSalariesByUser(salariesQuery.data ?? []).get(payPerson.id) ?? []) : []
+          }
+          plans={payPerson ? plans.filter((p) => p.user_id === payPerson.id) : []}
+          busy={busy}
+          onClose={() => setPayPerson(null)}
+          onSave={(input) => {
+            if (!payPerson) return;
+            const who = payPerson;
+            const c = chart;
+            void run(async () => {
+              await addSalaryPlans(orgId, c.id, [{ userId: who.id, input }]);
+              await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(c.id) });
+            }, `Planned ${who.name}'s pay on ${c.name}. Real pay is unchanged.`).then((ok) => {
+              if (ok) setPayPerson(null);
+            });
+          }}
+          onDelete={(id) => {
+            const c = chart;
+            void run(async () => {
+              await deleteSalaryPlans([id]);
+              await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(c.id) });
+            }, "Removed the planned pay");
+          }}
+        />
+      )}
 
       <AlertDialog open={confirmActivate} onOpenChange={setConfirmActivate}>
         <AlertDialogContent>
@@ -3796,6 +3835,12 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               >
                 Head: {view.nameOf(n)}
               </button>
+              {view.onEditPay && n.person_id && (
+                <PayButton
+                  name={view.nameOf(n) ?? ""}
+                  onClick={() => view.onEditPay!(n.person_id!, view.nameOf(n) ?? "")}
+                />
+              )}
               <RemoveButton
                 label={`Remove ${view.nameOf(n)} as head of ${n.role}`}
                 onClick={() => view.onRemoveHead(n)}
@@ -3805,6 +3850,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               <p className="mt-0.5 text-[11px] font-medium tabular-nums text-foreground/85">
                 {formatCostMoney(headCost.monthly, headCost.currency)}/mo ·{" "}
                 {formatCostMoney(headCost.annual, headCost.currency)}/yr
+                {view.hasPlan(n.person_id) && <PlannedTag />}
                 {headPreviewDelta && (
                   <span
                     className={
@@ -3844,6 +3890,12 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
                     previewDelta={view.showCosts ? view.personPreviewDelta(m.person_id) : null}
                     onOpen={() => view.onOpen(n)}
                     onRemove={() => view.onRemoveMember(m, n)}
+                    planned={view.hasPlan(m.person_id)}
+                    onEditPay={
+                      view.onEditPay && m.person_id
+                        ? () => view.onEditPay!(m.person_id!, view.memberName(m))
+                        : undefined
+                    }
                   />
                 ))}
                 {shown.length > MEMBERS_SHOWN && (
@@ -3985,6 +4037,33 @@ function CopyFromChart({
   );
 }
 
+/** On a past or planned chart: opens someone's planned pay. */
+function PayButton({ name, onClick }: { name: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Plan ${name}'s pay`}
+      title={`Plan ${name}'s pay (real pay doesn't change)`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="shrink-0 rounded-full p-0.5 text-muted-foreground/70 transition hover:bg-primary/10 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary print:hidden"
+    >
+      <Coins className="h-3 w-3" />
+    </button>
+  );
+}
+
+/** Marks pay that comes from this chart's plan, not from real pay. */
+function PlannedTag() {
+  return (
+    <span className="ml-1 rounded-full bg-amber-200/80 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
+      planned
+    </span>
+  );
+}
+
 /** A small ×: takes someone off the chart without opening the box. */
 function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -4012,6 +4091,8 @@ function MemberChip({
   previewDelta,
   onOpen,
   onRemove,
+  planned = false,
+  onEditPay,
 }: {
   m: ChartMember;
   name: string;
@@ -4020,6 +4101,10 @@ function MemberChip({
   previewDelta: CurrencyCost | null;
   onOpen: () => void;
   onRemove: () => void;
+  /** The pay shown comes from this chart's plan. */
+  planned?: boolean;
+  /** On a past or planned chart: plan this person's pay. */
+  onEditPay?: () => void;
 }) {
   const drag = useDraggable({
     id: `member:${m.id}`,
@@ -4068,6 +4153,7 @@ function MemberChip({
           <span className="text-[11px] font-normal tabular-nums text-foreground/80">
             {formatCostMoney(cost.monthly, cost.currency)}/mo ·{" "}
             {formatCostMoney(cost.annual, cost.currency)}/yr
+            {planned && <PlannedTag />}
             {previewDelta && (
               <span
                 className={
@@ -4083,6 +4169,7 @@ function MemberChip({
           </span>
         )}
       </button>
+      {onEditPay && <PayButton name={name} onClick={onEditPay} />}
       <RemoveButton label={`Remove ${name} from ${unitName}`} onClick={onRemove} />
     </div>
   );
