@@ -135,11 +135,11 @@ const TOP = "__top__";
 const MEMBERS_SHOWN = 6;
 
 /**
- * The Reporting lines tab is switched off until it is reworked: only Units
- * shows, and nothing on the page mentions roles. Roles, dotted lines and
- * the code stay as they are; set this to true to bring the tab back.
+ * Whether the Reporting lines tab shows. Set to false to hide it: then only
+ * Units shows and nothing on the page mentions roles, while roles, dotted
+ * lines and the code stay as they are.
  */
-const REPORTING_LINES_ENABLED = false;
+const REPORTING_LINES_ENABLED = true;
 
 /** The chart last opened in this browser, per organisation. */
 function useRememberedChart(orgId: string | null) {
