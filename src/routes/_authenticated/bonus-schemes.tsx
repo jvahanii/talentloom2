@@ -741,7 +741,7 @@ function SchemeView({
           <Stat label="People" value={String(rows.length)} />
           <Stat
             label="Results complete"
-            value={rows.length ? `${complete} / ${rows.length}` : "—"}
+            value={rows.length && criteria.length ? `${complete} / ${rows.length}` : "—"}
             note={rows.length && complete < rows.length ? "missing results count as 0" : undefined}
           />
           <Stat label="Average achievement" value={avg === null ? "—" : pct(avg)} />
