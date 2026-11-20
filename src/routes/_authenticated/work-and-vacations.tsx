@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { useSession } from "@/lib/auth";
 import { useRememberedTab } from "@/hooks/useRememberedTab";
+import { RecordHistory, WorkHistory } from "@/components/work/WorkHistory";
 import { cn } from "@/lib/utils";
 import { fetchOrgPeople, orgPeopleKey, type OrgPerson } from "@/lib/orgCharts";
 import {
@@ -151,7 +152,7 @@ function WorkPage() {
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "your organisation";
   const [tab, chooseTab] = useRememberedTab(
     "work-and-vacations",
-    ["calendar", "vacations", "holidays", "kinds", "time"] as const,
+    ["calendar", "vacations", "holidays", "kinds", "time", "history"] as const,
     "calendar",
   );
   const today = todayIso();
@@ -273,6 +274,8 @@ function WorkPage() {
           qc.invalidateQueries({ queryKey: k(orgId) }),
         ),
       );
+      // Every change lands in the history (work_audit_log, written by the database).
+      void qc.invalidateQueries({ queryKey: ["work-audit", orgId] });
       setBusy(false);
     }
   };
@@ -327,6 +330,7 @@ function WorkPage() {
           <TabsTrigger value="holidays">Holidays and days off</TabsTrigger>
           <TabsTrigger value="kinds">Kinds of absence</TabsTrigger>
           <TabsTrigger value="time">Working time</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="calendar">
@@ -380,9 +384,19 @@ function WorkPage() {
             onSave={(next) => saveSettings(next, "Saved the working time")}
           />
         </TabsContent>
+
+        <TabsContent value="history">
+          <WorkHistory
+            orgId={orgId}
+            people={people}
+            kindLabel={(k) => kindOf(k).label}
+            countryName={countryName}
+          />
+        </TabsContent>
       </Tabs>
 
       <AbsenceDialog
+        orgId={orgId}
         ctx={ctx}
         editing={editing}
         setEditing={setEditing}
@@ -673,6 +687,7 @@ function AbsenceChip({ a, ctx, onEdit }: { a: Absence; ctx: Ctx; onEdit: (a: Abs
 // ---------------------------------------------------------------- absences
 
 function AbsenceDialog({
+  orgId,
   ctx,
   editing,
   setEditing,
@@ -680,6 +695,7 @@ function AbsenceDialog({
   onSave,
   onDelete,
 }: {
+  orgId: string;
   ctx: Ctx;
   editing: Editing;
   setEditing: (e: Editing | ((e: Editing) => Editing)) => void;
@@ -825,6 +841,16 @@ function AbsenceDialog({
                 onChange={(ev) => set({ note: ev.target.value })}
               />
             </div>
+            {e.id && (
+              <RecordHistory
+                orgId={orgId}
+                table="work_absences"
+                rowKey={e.id}
+                people={ctx.people}
+                kindLabel={(k) => ctx.kindOf(k).label}
+                countryName={ctx.countryName}
+              />
+            )}
             <DialogFooter className="sticky -bottom-6 z-10 -mx-6 -mb-6 gap-2 border-t border-border bg-background px-6 py-3">
               {e.id && (
                 <Button
