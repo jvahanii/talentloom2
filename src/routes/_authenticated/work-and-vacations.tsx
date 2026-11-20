@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -46,6 +47,7 @@ import {
   loadHolidays,
   makeCalendar,
   monthGrid,
+  overlappingAbsences,
   personSettingsKey,
   saveAbsence,
   savePersonSettings,
@@ -342,8 +344,12 @@ function WorkPage() {
             setCursor={setCursor}
             absences={absences}
             loading={absencesQ.isLoading || peopleQ.isLoading}
+            busy={busy}
             onAdd={addAbsence}
             onEdit={(a) => setEditing({ ...a, note: a.note ?? "" })}
+            onDelete={(id) => {
+              void run(() => deleteAbsence(id), "Deleted the absence");
+            }}
           />
         </TabsContent>
 
@@ -401,6 +407,7 @@ function WorkPage() {
       <AbsenceDialog
         orgId={orgId}
         ctx={ctx}
+        absences={absences}
         editing={editing}
         setEditing={setEditing}
         busy={busy}
@@ -438,16 +445,20 @@ function CalendarTab({
   setCursor,
   absences,
   loading,
+  busy,
   onAdd,
   onEdit,
+  onDelete,
 }: {
   ctx: Ctx;
   cursor: { y: number; m: number };
   setCursor: (c: { y: number; m: number }) => void;
   absences: Absence[];
   loading: boolean;
+  busy: boolean;
   onAdd: (date: string, personId?: string) => void;
   onEdit: (a: Absence) => void;
+  onDelete: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -835,8 +846,10 @@ function CalendarTab({
               setSelectedPersonIds([personId]);
               setCursor({ y: Number(iso.slice(0, 4)), m: Number(iso.slice(5, 7)) });
             }}
+            busy={busy}
             onAdd={onAdd}
             onEdit={onEdit}
+            onDelete={onDelete}
             onClose={() => {
               setSelectedDay(null);
               setSelectedPersonIds([]);
@@ -879,8 +892,10 @@ function DayInspector({
   onClearPeople,
   onStepDay,
   onJumpToAbsence,
+  busy,
   onAdd,
   onEdit,
+  onDelete,
   onClose,
 }: {
   iso: string;
@@ -903,8 +918,10 @@ function DayInspector({
   onClearPeople: () => void;
   onStepDay: (delta: number) => void;
   onJumpToAbsence: (iso: string, personId: string) => void;
+  busy: boolean;
   onAdd: (date: string, personId?: string) => void;
   onEdit: (a: Absence) => void;
+  onDelete: (id: string) => void;
   onClose: () => void;
 }) {
   const selectedSet = new Set(selectedPersonIds);
@@ -1117,6 +1134,15 @@ function DayInspector({
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="truncate text-sm font-semibold">{name}</span>
+                            {items.length > 1 && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-full border border-amber-400 bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950"
+                                title="Multiple overlapping entries on this day — select to edit or remove duplicates"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                Overlap
+                              </span>
+                            )}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             {items.map((a) => {
@@ -1159,6 +1185,15 @@ function DayInspector({
 
                     {isSelected && (
                       <div className="space-y-2.5 border-t border-border bg-muted/20 px-2.5 py-2.5 text-xs">
+                        {items.length > 1 && (
+                          <div className="flex items-start gap-1.5 rounded-lg border border-amber-400 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-950">
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span>
+                              Multiple overlapping entries exist on this day. Remove or edit the
+                              duplicate entries below.
+                            </span>
+                          </div>
+                        )}
                         {items.map((a) => {
                           const k = ctx.kindOf(a.kind);
                           const days = ctx.calendar.workingDays(
@@ -1181,14 +1216,29 @@ function DayInspector({
                                     {k.label} · {days} working {days === 1 ? "day" : "days"}
                                   </div>
                                 </div>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => onEdit(a)}
-                                >
-                                  <Pencil className="mr-1 h-3 w-3" /> Edit
-                                </Button>
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => onEdit(a)}
+                                  >
+                                    <Pencil className="mr-1 h-3 w-3" /> Edit
+                                  </Button>
+                                  {items.length > 1 && (
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      disabled={busy}
+                                      onClick={() => onDelete(a.id)}
+                                      aria-label={`Delete duplicate ${k.label} for ${name}`}
+                                      title="Delete this entry"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                               {a.note && (
                                 <p className="whitespace-pre-wrap break-words rounded bg-muted/50 px-2 py-1 text-[11px]">
@@ -1250,9 +1300,15 @@ function DayInspector({
                           size="sm"
                           variant="outline"
                           className="h-7 w-full text-xs"
-                          onClick={() => onAdd(iso, personId)}
+                          onClick={() => {
+                            const latestEnd = items.reduce(
+                              (max, a) => (a.end_date > max ? a.end_date : max),
+                              iso,
+                            );
+                            onAdd(addDays(latestEnd, 1), personId);
+                          }}
                         >
-                          <Plus className="mr-1 h-3 w-3" /> Add absence for {name}
+                          <Plus className="mr-1 h-3 w-3" /> Add another absence for {name}
                         </Button>
                       </div>
                     )}
@@ -1312,6 +1368,7 @@ function AbsenceChip({
 function AbsenceDialog({
   orgId,
   ctx,
+  absences,
   editing,
   setEditing,
   busy,
@@ -1320,6 +1377,7 @@ function AbsenceDialog({
 }: {
   orgId: string;
   ctx: Ctx;
+  absences: Absence[];
   editing: Editing;
   setEditing: (e: Editing | ((e: Editing) => Editing)) => void;
   busy: boolean;
@@ -1335,6 +1393,7 @@ function AbsenceDialog({
     setEditing((d) => (d ? { ...d, ...patch } : d));
   const valid =
     !!e && !!e.person_id && !!e.start_date && !!e.end_date && e.end_date >= e.start_date;
+  const conflicts = valid && e ? overlappingAbsences(absences, e) : [];
   const days =
     valid && e
       ? ctx.calendar.workingDays(e.start_date, e.end_date, country, ctx.workDaysOf(e.person_id))
@@ -1356,7 +1415,7 @@ function AbsenceDialog({
             className="space-y-4"
             onSubmit={(ev) => {
               ev.preventDefault();
-              if (valid) onSave(e);
+              if (valid && conflicts.length === 0) onSave(e);
             }}
           >
             <div className="space-y-1.5">
@@ -1437,7 +1496,50 @@ function AbsenceDialog({
                 />
               </div>
             </div>
-            {valid && (
+            {conflicts.length > 0 && (
+              <div
+                role="alert"
+                className="space-y-2 rounded-xl border-2 border-destructive/60 bg-destructive/10 px-3 py-2.5 text-sm"
+              >
+                <div className="flex items-start gap-2 font-semibold">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <span>
+                    {ctx.nameOf(e.person_id)} already has an absence on overlapping dates. A person
+                    cannot have duplicate or overlapping absences on the same day.
+                  </span>
+                </div>
+                <ul className="space-y-1.5 pl-6 text-xs">
+                  {conflicts.map((c) => {
+                    const k = ctx.kindOf(c.kind);
+                    return (
+                      <li
+                        key={c.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5"
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={cn("rounded border px-1.5 py-0.5 font-medium", k.tone)}>
+                            {k.label}
+                          </span>
+                          <span className="font-medium">
+                            {ctx.fmt.range(c.start_date, c.end_date)}
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => setEditing({ ...c, note: c.note ?? "" })}
+                        >
+                          <Pencil className="mr-1 h-3 w-3" /> Edit existing
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            {valid && conflicts.length === 0 && (
               <p className="rounded-xl bg-muted/60 px-3 py-2 text-sm">
                 {days} working {days === 1 ? "day" : "days"} for {ctx.nameOf(e.person_id)}, by their
                 working week and the {ctx.countryName(country)} holidays.
@@ -1489,7 +1591,7 @@ function AbsenceDialog({
               <Button type="button" variant="outline" onClick={() => setEditing(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy || !valid}>
+              <Button type="submit" disabled={busy || !valid || conflicts.length > 0}>
                 {e.id ? "Save" : "Add"}
               </Button>
             </DialogFooter>

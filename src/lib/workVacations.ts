@@ -186,7 +186,42 @@ export async function fetchAbsences(orgId: string): Promise<Absence[]> {
 
 export const MAX_ABSENCE_NOTE = 500;
 
+/** Existing absences for the same person whose date range overlaps `candidate` (excluding itself). */
+export function overlappingAbsences(
+  absences: Absence[],
+  candidate: { id?: string; person_id: string; start_date: string; end_date: string },
+): Absence[] {
+  if (!candidate.person_id || !candidate.start_date || !candidate.end_date) return [];
+  if (candidate.end_date < candidate.start_date) return [];
+  return absences.filter(
+    (a) =>
+      a.id !== candidate.id &&
+      a.person_id === candidate.person_id &&
+      a.start_date <= candidate.end_date &&
+      a.end_date >= candidate.start_date,
+  );
+}
+
 export async function saveAbsence(orgId: string, a: Omit<Absence, "id"> & { id?: string }) {
+  if (!a.person_id || !a.start_date || !a.end_date || a.end_date < a.start_date) {
+    throw new Error("Choose a person and a valid date range");
+  }
+  let overlapQ = db
+    .from("work_absences")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("person_id", a.person_id)
+    .lte("start_date", a.end_date)
+    .gte("end_date", a.start_date)
+    .limit(1);
+  if (a.id) overlapQ = overlapQ.neq("id", a.id);
+  const { data: overlaps, error: overlapErr } = await overlapQ;
+  if (overlapErr) throw overlapErr;
+  if (overlaps?.length) {
+    throw new Error(
+      "This person already has an absence on overlapping dates. Edit or remove the existing entry instead.",
+    );
+  }
   const row = {
     person_id: a.person_id,
     kind: a.kind,
@@ -532,13 +567,17 @@ export function vacationBalance(args: {
   const months = fullMonths(period.start, today);
   const rate = person?.accrual_per_month ?? settings.accrual_per_month;
   const earnedCalculated = Math.round(months * rate * 10) / 10;
-  const usedCalculated = absences
-    .filter((a) => leaveKind(a.kind, ownKinds).vacation)
-    .reduce((sum, a) => {
-      const from = a.start_date > period.start ? a.start_date : period.start;
-      const to = a.end_date < period.end ? a.end_date : period.end;
-      return from > to ? sum : sum + calendar.workingDays(from, to, country, workDays);
-    }, 0);
+  const usedDays = new Set<string>();
+  for (const a of absences) {
+    if (!leaveKind(a.kind, ownKinds).vacation) continue;
+    const from = a.start_date > period.start ? a.start_date : period.start;
+    const to = a.end_date < period.end ? a.end_date : period.end;
+    if (from > to) continue;
+    for (const d of eachDay(from, to)) {
+      if (calendar.isWorkingDay(d, country, workDays)) usedDays.add(d);
+    }
+  }
+  const usedCalculated = usedDays.size;
   const earned = person?.accrued_override ?? earnedCalculated;
   const used = person?.used_override ?? usedCalculated;
   return {
