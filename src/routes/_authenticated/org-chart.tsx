@@ -72,6 +72,7 @@ import {
 } from "@/lib/salaries";
 import { BulkSalaryAdjustDialog } from "@/components/BulkSalaryAdjustDialog";
 import { TeamsPanel } from "@/components/teams/TeamsPanel";
+import { SupervisorsPanel } from "@/components/supervisors/SupervisorsPanel";
 import {
   addSalaryPlans,
   chartSalaryPlansKey,
@@ -365,9 +366,10 @@ function OrgChartPage() {
   const tab = REPORTING_LINES_ENABLED ? savedTab : "units";
   // Teams (organisation-wide, not per chart) is a tab of its own beside the
   // chart's tabs; the chart picker and the chart show only on those.
+  // Supervisors (organisation-wide too) is another tab beside them.
   const [section, chooseSection] = useRememberedTab(
     "org-chart-section",
-    ["chart", "teams"] as const,
+    ["chart", "teams", "supervisors"] as const,
     "chart",
   );
   const linkedSection = Route.useSearch().section;
@@ -376,6 +378,7 @@ function OrgChartPage() {
     if (linkedSection === "teams") chooseSection("teams");
   }, [linkedSection, chooseSection]);
   const onTeams = section === "teams";
+  const onSupervisors = section === "supervisors";
   const kind: NodeKind = tab === "units" ? "unit" : "role";
   const units = useMemo(() => nodes.filter((n) => n.kind === "unit"), [nodes]);
   const roles = nodes.filter((n) => n.kind === "role");
@@ -1499,17 +1502,18 @@ function OrgChartPage() {
             </>
           )}{" "}
           Keep as many charts as you like, for example today's and a planned one. Everyone in the
-          organisation can see and edit them. <strong>Teams</strong> lists the organisation's teams
-          and who is in each.
+          organisation can see and edit them. <strong>Supervisors</strong> lists who supervises
+          whom, and <strong>Teams</strong> the organisation's teams and who is in each.
         </p>
       </div>
 
       <Tabs
-        value={onTeams ? "teams" : tab}
+        value={onTeams ? "teams" : onSupervisors ? "supervisors" : tab}
         onValueChange={(v) => {
           // A link to Teams (?section=teams) has done its job once a tab is picked.
           if (linkedSection) void navigateHere({ search: {}, replace: true });
           if (v === "teams") chooseSection("teams");
+          else if (v === "supervisors") chooseSection("supervisors");
           else {
             chooseSection("chart");
             chooseTab(v);
@@ -1526,6 +1530,9 @@ function OrgChartPage() {
               {chart ? ` (${roles.length + allImplied.length})` : ""}
             </TabsTrigger>
           )}
+          <TabsTrigger value="supervisors">
+            <Workflow className="mr-1.5 h-4 w-4" /> Supervisors
+          </TabsTrigger>
           <TabsTrigger value="teams">
             <Users className="mr-1.5 h-4 w-4" /> Teams
           </TabsTrigger>
@@ -1534,6 +1541,8 @@ function OrgChartPage() {
 
       {onTeams ? (
         <TeamsPanel />
+      ) : onSupervisors ? (
+        <SupervisorsPanel />
       ) : (
         <>
           <div className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:items-center">
