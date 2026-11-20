@@ -626,18 +626,23 @@ function OrgChartPage() {
         const subUnit = unitById.get(sid);
         if (subUnit) subRefs.push(...directPeopleInUnit(subUnit));
       }
-      const direct = aggregateSalaryCosts(directRefs, effectiveSalariesByUser, hoursPerYear);
-      const total = aggregateSalaryCosts(subRefs, effectiveSalariesByUser, hoursPerYear);
+      const direct = aggregateSalaryCosts(
+        directRefs,
+        effectiveSalariesByUser,
+        hoursPerYear,
+        payAsOf,
+      );
+      const total = aggregateSalaryCosts(subRefs, effectiveSalariesByUser, hoursPerYear, payAsOf);
       const directDelta = isLivePreview
         ? subtractCurrencyTotals(
             direct.totals,
-            aggregateSalaryCosts(directRefs, salariesByUser, hoursPerYear).totals,
+            aggregateSalaryCosts(directRefs, salariesByUser, hoursPerYear, payAsOf).totals,
           )
         : [];
       const totalDelta = isLivePreview
         ? subtractCurrencyTotals(
             total.totals,
-            aggregateSalaryCosts(subRefs, salariesByUser, hoursPerYear).totals,
+            aggregateSalaryCosts(subRefs, salariesByUser, hoursPerYear, payAsOf).totals,
           )
         : [];
       out.set(u.id, {
@@ -658,6 +663,7 @@ function OrgChartPage() {
     isLivePreview,
     hoursPerYear,
     people,
+    payAsOf,
   ]);
 
   const emptyCost: CostSummary = { totals: [], peopleCount: 0, pricedCount: 0 };
@@ -673,15 +679,29 @@ function OrgChartPage() {
   /** Whole company total: every unique person in the organisation's People list. */
   const { companyCost, companyCostDelta } = useMemo(() => {
     const refs = people.map((p) => ({ key: `p:${p.id}`, personId: p.id }));
-    const next = aggregateSalaryCosts(refs, effectiveSalariesByUser, hoursPerYear);
+    const next = aggregateSalaryCosts(refs, effectiveSalariesByUser, hoursPerYear, payAsOf);
     const delta = isLivePreview
       ? subtractCurrencyTotals(
           next.totals,
-          aggregateSalaryCosts(refs, salariesByUser, hoursPerYear).totals,
+          aggregateSalaryCosts(refs, salariesByUser, hoursPerYear, payAsOf).totals,
         )
       : [];
     return { companyCost: next, companyCostDelta: delta };
-  }, [people, salariesByUser, effectiveSalariesByUser, isLivePreview, hoursPerYear]);
+  }, [people, salariesByUser, effectiveSalariesByUser, isLivePreview, hoursPerYear, payAsOf]);
+
+  /**
+   * Today's real salary costs for everyone in the organisation, without any
+   * chart's plans: what a past or planned chart is compared with.
+   */
+  const todayCost = useMemo(
+    () =>
+      aggregateSalaryCosts(
+        people.map((p) => ({ key: `p:${p.id}`, personId: p.id })),
+        groupSalariesByUser(salariesQuery.data ?? []),
+        hoursPerYear,
+      ),
+    [people, salariesQuery.data, hoursPerYear],
+  );
 
   /** Total of unique people placed in this chart's units (no double-counting across units). */
   const { chartCost, chartCostDelta, hasMultiUnitPeople } = useMemo(() => {
@@ -699,11 +719,11 @@ function OrgChartPage() {
         refs.push(r);
       }
     }
-    const next = aggregateSalaryCosts(refs, effectiveSalariesByUser, hoursPerYear);
+    const next = aggregateSalaryCosts(refs, effectiveSalariesByUser, hoursPerYear, payAsOf);
     const delta = isLivePreview
       ? subtractCurrencyTotals(
           next.totals,
-          aggregateSalaryCosts(refs, salariesByUser, hoursPerYear).totals,
+          aggregateSalaryCosts(refs, salariesByUser, hoursPerYear, payAsOf).totals,
         )
       : [];
     return {
@@ -720,6 +740,7 @@ function OrgChartPage() {
     isLivePreview,
     hoursPerYear,
     people,
+    payAsOf,
   ]);
 
   const openBulkAdjust = (scope?: BulkSalaryScope) => {
@@ -1733,6 +1754,8 @@ function OrgChartPage() {
                           chartCostDelta={chartCostDelta}
                           hasUnits={units.length > 0}
                           hasMultiUnitPeople={hasMultiUnitPeople}
+                          planning={planning ? (chart?.status ?? null) : null}
+                          todayCost={todayCost}
                           isLivePreview={isLivePreview}
                           canEditSalaries={canEditSalaries}
                           onOpenBulkAdjust={() => openBulkAdjust()}
@@ -4282,6 +4305,8 @@ function CompanyCostsBanner({
   chartCostDelta,
   hasUnits,
   hasMultiUnitPeople,
+  planning,
+  todayCost,
   isLivePreview,
   canEditSalaries,
   onOpenBulkAdjust,
@@ -4293,11 +4318,24 @@ function CompanyCostsBanner({
   chartCostDelta: CurrencyCost[];
   hasUnits: boolean;
   hasMultiUnitPeople: boolean;
+  /** "past" or "planned" when the chart isn't the active one, else null. */
+  planning: string | null;
+  /** Today's real costs for the whole organisation, for comparing a plan with. */
+  todayCost: CostSummary;
   isLivePreview: boolean;
   canEditSalaries: boolean;
   onOpenBulkAdjust: () => void;
 }) {
+  // A past or planned chart is costed by the people placed in it (with its
+  // planned pay), and compared with today's real costs; the active chart by
+  // everyone in People, with the chart's share beside it.
+  if (planning) {
+    companyCost = chartCost;
+    companyCostDelta = chartCostDelta;
+  }
+  const versusToday = planning ? subtractCurrencyTotals(chartCost.totals, todayCost.totals) : [];
   const showChartBreakdown =
+    !planning &&
     hasUnits &&
     (chartCost.peopleCount !== companyCost.peopleCount ||
       chartCost.pricedCount !== companyCost.pricedCount);
@@ -4309,7 +4347,13 @@ function CompanyCostsBanner({
           <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
             <Coins className="h-3.5 w-3.5 text-primary" />
             <span>
-              {isLivePreview ? "Preview · " : ""}Company salary costs · {orgName}
+              {isLivePreview ? "Preview · " : ""}
+              {planning === "past"
+                ? "Salary costs in this past structure"
+                : planning
+                  ? "Planned salary costs"
+                  : "Company salary costs"}{" "}
+              · {orgName}
             </span>
           </p>
           {companyCost.totals.length > 0 ? (
@@ -4325,6 +4369,7 @@ function CompanyCostsBanner({
                 {companyCost.pricedCount === companyCost.peopleCount
                   ? `${companyCost.peopleCount} ${companyCost.peopleCount === 1 ? "person" : "people"}`
                   : `${companyCost.pricedCount} of ${companyCost.peopleCount} people with salary`}
+                {planning ? " in this chart" : ""}
                 {hasMultiUnitPeople ? " · unique people (counted once)" : ""}
               </span>
             </div>
@@ -4361,6 +4406,30 @@ function CompanyCostsBanner({
               ) : (
                 <p className="mt-0.5 text-xs text-foreground/70">
                   0/{chartCost.peopleCount} with salary
+                </p>
+              )}
+            </div>
+          )}
+
+          {planning && todayCost.totals.length > 0 && (
+            <div className="border-t border-border/70 pt-2 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
+                Today, whole organisation
+              </p>
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 tabular-nums">
+                <span className="text-sm font-bold text-foreground">
+                  {formatCostTotals(todayCost.totals, "monthly")}
+                </span>
+                <span className="text-xs font-semibold text-foreground/85">
+                  {formatCostTotals(todayCost.totals, "annual")}
+                </span>
+                <span className="text-xs text-foreground/75">
+                  ({todayCost.pricedCount}/{todayCost.peopleCount})
+                </span>
+              </div>
+              {versusToday.length > 0 && (
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-foreground/80">
+                  This chart vs today: <DeltaBadge deltas={versusToday} compact />
                 </p>
               )}
             </div>
