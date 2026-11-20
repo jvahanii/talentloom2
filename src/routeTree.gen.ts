@@ -22,6 +22,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedBonusSchemesRouteImport } from './routes/_authenticated/bonus-schemes'
 import { Route as AuthenticatedCareerPathsRouteImport } from './routes/_authenticated/career-paths'
+import { Route as AuthenticatedCompensationRouteImport } from './routes/_authenticated/compensation'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedOrgChartRouteImport } from './routes/_authenticated/org-chart'
@@ -110,6 +111,12 @@ const AuthenticatedCareerPathsRoute =
   AuthenticatedCareerPathsRouteImport.update({
     id: '/career-paths',
     path: '/career-paths',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCompensationRoute =
+  AuthenticatedCompensationRouteImport.update({
+    id: '/compensation',
+    path: '/compensation',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
@@ -246,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/bonus-schemes': typeof AuthenticatedBonusSchemesRoute
   '/career-paths': typeof AuthenticatedCareerPathsRoute
+  '/compensation': typeof AuthenticatedCompensationRoute
   '/export': typeof AuthenticatedExportRoute
   '/import': typeof AuthenticatedImportRoute
   '/org-chart': typeof AuthenticatedOrgChartRoute
@@ -282,6 +290,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/bonus-schemes': typeof AuthenticatedBonusSchemesRoute
   '/career-paths': typeof AuthenticatedCareerPathsRoute
+  '/compensation': typeof AuthenticatedCompensationRoute
   '/export': typeof AuthenticatedExportRoute
   '/import': typeof AuthenticatedImportRoute
   '/org-chart': typeof AuthenticatedOrgChartRoute
@@ -321,6 +330,7 @@ export interface FileRoutesById {
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/bonus-schemes': typeof AuthenticatedBonusSchemesRoute
   '/_authenticated/career-paths': typeof AuthenticatedCareerPathsRoute
+  '/_authenticated/compensation': typeof AuthenticatedCompensationRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/org-chart': typeof AuthenticatedOrgChartRoute
@@ -360,6 +370,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/bonus-schemes'
     | '/career-paths'
+    | '/compensation'
     | '/export'
     | '/import'
     | '/org-chart'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/bonus-schemes'
     | '/career-paths'
+    | '/compensation'
     | '/export'
     | '/import'
     | '/org-chart'
@@ -434,6 +446,7 @@ export interface FileRouteTypes {
     | '/_authenticated/analytics'
     | '/_authenticated/bonus-schemes'
     | '/_authenticated/career-paths'
+    | '/_authenticated/compensation'
     | '/_authenticated/export'
     | '/_authenticated/import'
     | '/_authenticated/org-chart'
@@ -567,6 +580,13 @@ declare module '@tanstack/react-router' {
       path: '/career-paths'
       fullPath: '/career-paths'
       preLoaderRoute: typeof AuthenticatedCareerPathsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/compensation': {
+      id: '/_authenticated/compensation'
+      path: '/compensation'
+      fullPath: '/compensation'
+      preLoaderRoute: typeof AuthenticatedCompensationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/export': {
@@ -738,6 +758,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBonusSchemesRoute: typeof AuthenticatedBonusSchemesRoute
   AuthenticatedCareerPathsRoute: typeof AuthenticatedCareerPathsRoute
+  AuthenticatedCompensationRoute: typeof AuthenticatedCompensationRoute
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedOrgChartRoute: typeof AuthenticatedOrgChartRoute
@@ -760,6 +781,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBonusSchemesRoute: AuthenticatedBonusSchemesRoute,
   AuthenticatedCareerPathsRoute: AuthenticatedCareerPathsRoute,
+  AuthenticatedCompensationRoute: AuthenticatedCompensationRoute,
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedOrgChartRoute: AuthenticatedOrgChartRoute,
