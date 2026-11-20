@@ -10,6 +10,8 @@ import {
   Plus,
   Star,
   Trash2,
+  User,
+  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +28,7 @@ import {
   absencesKey,
   addCustomKind,
   addDayOff,
+  addDays,
   customKindsKey,
   daysOffKey,
   deleteAbsence,
@@ -295,9 +298,9 @@ function WorkPage() {
     fmt,
   };
 
-  const addAbsence = (date?: string) =>
+  const addAbsence = (date?: string, personId?: string) =>
     setEditing({
-      person_id: user?.id && memberIds.has(user.id) ? user.id : "",
+      person_id: personId ?? (user?.id && memberIds.has(user.id) ? user.id : ""),
       kind: "annual",
       start_date: date ?? today,
       end_date: date ?? today,
@@ -443,10 +446,12 @@ function CalendarTab({
   setCursor: (c: { y: number; m: number }) => void;
   absences: Absence[];
   loading: boolean;
-  onAdd: (date: string) => void;
+  onAdd: (date: string, personId?: string) => void;
   onEdit: (a: Absence) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([]);
   const { y, m } = cursor;
   const monthKey = `${y}-${String(m).padStart(2, "0")}`;
   const full = monthGrid(y, m, ctx.fmt.firstDay);
@@ -463,10 +468,56 @@ function CalendarTab({
     return words.every((w) => text.includes(w));
   });
   const on = (iso: string) => shown.filter((a) => a.start_date <= iso && a.end_date >= iso);
+  const allOn = (iso: string) => absences.filter((a) => a.start_date <= iso && a.end_date >= iso);
   const step = (by: number) => {
     const n = m + by;
     setCursor({ y: n < 1 ? y - 1 : n > 12 ? y + 1 : y, m: n < 1 ? 12 : n > 12 ? 1 : n });
   };
+  const jumpToDate = (iso: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+    setCursor({ y: Number(iso.slice(0, 4)), m: Number(iso.slice(5, 7)) });
+    setSelectedDay(iso);
+    setSelectedPersonIds([]);
+  };
+  const selectDay = (iso: string, keepPeople = false) => {
+    setSelectedDay(iso);
+    if (!keepPeople) setSelectedPersonIds([]);
+    const targetY = Number(iso.slice(0, 4));
+    const targetM = Number(iso.slice(5, 7));
+    if (targetY !== y || targetM !== m) {
+      setCursor({ y: targetY, m: targetM });
+    }
+  };
+  const selectAbsenceOnDay = (iso: string, a: Absence) => {
+    if (selectedDay === iso) {
+      setSelectedPersonIds((prev) =>
+        prev.includes(a.person_id)
+          ? prev.filter((id) => id !== a.person_id)
+          : [...prev, a.person_id],
+      );
+    } else {
+      setSelectedDay(iso);
+      setSelectedPersonIds([a.person_id]);
+      const targetY = Number(iso.slice(0, 4));
+      const targetM = Number(iso.slice(5, 7));
+      if (targetY !== y || targetM !== m) {
+        setCursor({ y: targetY, m: targetM });
+      }
+    }
+  };
+  const togglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) =>
+      prev.includes(personId) ? prev.filter((id) => id !== personId) : [...prev, personId],
+    );
+  };
+
+  // Only keep person selections that actually have an absence on the selected day.
+  const selectedDayAbsences = selectedDay ? on(selectedDay) : [];
+  const selectedDayAllAbsences = selectedDay ? allOn(selectedDay) : [];
+  const selectedDayPeopleSet = new Set(selectedDayAbsences.map((a) => a.person_id));
+  const activeSelectedPeople = selectedPersonIds.filter((id) => selectedDayPeopleSet.has(id));
+  const activeSelectedSet = new Set(activeSelectedPeople);
+
   const multi = ctx.settings.countries.length > 1;
   const home = ctx.settings.countries[0]!;
   const dayInfo = (iso: string) => {
@@ -474,7 +525,7 @@ function CalendarTab({
     const own = ctx.calendar.ownDaysOff(iso);
     const weekend = !ctx.settings.work_days.includes(isoWeekday(iso));
     const off = weekend || own.length > 0 || holidays.some((h) => h.off && h.country === home);
-    return { holidays, own, off };
+    return { holidays, own, off, weekend };
   };
   const inMonth = grid.filter((d) => d.startsWith(monthKey));
   const kindsShown = [
@@ -510,12 +561,32 @@ function CalendarTab({
         <Button
           size="sm"
           variant="outline"
-          onClick={() =>
-            setCursor({ y: Number(ctx.today.slice(0, 4)), m: Number(ctx.today.slice(5, 7)) })
-          }
+          onClick={() => {
+            setCursor({ y: Number(ctx.today.slice(0, 4)), m: Number(ctx.today.slice(5, 7)) });
+            if (selectedDay) {
+              setSelectedDay(ctx.today);
+              setSelectedPersonIds([]);
+            }
+          }}
         >
           Today
         </Button>
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="date"
+            value={selectedDay ?? ""}
+            onChange={(e) => {
+              if (e.target.value) jumpToDate(e.target.value);
+              else {
+                setSelectedDay(null);
+                setSelectedPersonIds([]);
+              }
+            }}
+            aria-label="Select a specific day to inspect"
+            title="Select a specific day to inspect"
+            className="h-8 w-36 text-xs"
+          />
+        </div>
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -527,142 +598,252 @@ function CalendarTab({
 
       {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
-      {/* A month grid on wider screens. */}
-      <div className="hidden overflow-hidden rounded-xl border-l border-t border-border sm:grid sm:grid-cols-7">
-        {ctx.fmt.weekOrder.map((d) => (
-          <div
-            key={d}
-            className="border-b border-r border-border bg-muted/50 px-1.5 py-0.5 text-[11px] font-semibold"
-          >
-            {ctx.fmt.weekday(d)}
-          </div>
-        ))}
-        {grid.map((iso) => {
-          const { holidays, own, off } = dayInfo(iso);
-          const list = on(iso);
-          const isToday = iso === ctx.today;
-          // The day's names: holidays (days off first), then the organisation's own days off.
-          const names = [
-            ...[...holidays]
-              .sort((a, b) => Number(b.off) - Number(a.off))
-              .map((h) => ({
-                key: `${h.country}${h.name}`,
-                text: `${multi ? `${h.country} · ` : ""}${h.name}`,
-                title: `${h.name} (${ctx.countryName(h.country)})${h.off ? "" : ", not a day off"}`,
-                tone: h.off
-                  ? "font-semibold text-rose-700 dark:text-rose-300"
-                  : "text-muted-foreground",
-              })),
-            ...own.map((d) => ({
-              key: d.id,
-              text: `★ ${d.name}`,
-              title: `${d.name}: a day off for everyone`,
-              tone: "font-semibold text-primary",
-            })),
-          ];
-          return (
-            <div
-              key={iso}
-              onClick={() => onAdd(iso)}
-              style={{ height: rowHeight }}
-              className={cn(
-                "group flex cursor-pointer flex-col overflow-hidden border-b border-r border-border px-1 py-0.5 transition hover:bg-primary/5",
-                !iso.startsWith(monthKey) && "opacity-45",
-                off && "bg-muted/40",
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-1">
-                <span
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-3",
+          selectedDay && "lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start",
+        )}
+      >
+        <div className="min-w-0">
+          {/* A month grid on wider screens. */}
+          <div className="hidden overflow-hidden rounded-xl border-l border-t border-border sm:grid sm:grid-cols-7">
+            {ctx.fmt.weekOrder.map((d) => (
+              <div
+                key={d}
+                className="border-b border-r border-border bg-muted/50 px-1.5 py-0.5 text-[11px] font-semibold"
+              >
+                {ctx.fmt.weekday(d)}
+              </div>
+            ))}
+            {grid.map((iso) => {
+              const { holidays, own, off } = dayInfo(iso);
+              const rawList = on(iso);
+              // Prioritize selected people so their absence spans are always visible across the month.
+              const list =
+                activeSelectedSet.size > 0
+                  ? [...rawList].sort(
+                      (a, b) =>
+                        Number(activeSelectedSet.has(b.person_id)) -
+                        Number(activeSelectedSet.has(a.person_id)),
+                    )
+                  : rawList;
+              const isToday = iso === ctx.today;
+              const isSelected = iso === selectedDay;
+              const hasSelectedPerson =
+                activeSelectedSet.size > 0 &&
+                rawList.some((a) => activeSelectedSet.has(a.person_id));
+              // The day's names: holidays (days off first), then the organisation's own days off.
+              const names = [
+                ...[...holidays]
+                  .sort((a, b) => Number(b.off) - Number(a.off))
+                  .map((h) => ({
+                    key: `${h.country}${h.name}`,
+                    text: `${multi ? `${h.country} · ` : ""}${h.name}`,
+                    title: `${h.name} (${ctx.countryName(h.country)})${h.off ? "" : ", not a day off"}`,
+                    tone: h.off
+                      ? "font-semibold text-rose-700 dark:text-rose-300"
+                      : "text-muted-foreground",
+                  })),
+                ...own.map((d) => ({
+                  key: d.id,
+                  text: `★ ${d.name}`,
+                  title: `${d.name}: a day off for everyone`,
+                  tone: "font-semibold text-primary",
+                })),
+              ];
+              return (
+                <div
+                  key={iso}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  aria-label={`Inspect ${ctx.fmt.date(iso)}${rawList.length ? `, ${rawList.length} ${rawList.length === 1 ? "absence" : "absences"}` : ""}`}
+                  onClick={() => selectDay(iso)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      selectDay(iso);
+                    }
+                  }}
+                  style={{ height: rowHeight }}
                   className={cn(
-                    "shrink-0 text-[11px] font-semibold",
-                    isToday && "rounded-full bg-primary px-1.5 text-primary-foreground",
+                    "group flex cursor-pointer flex-col overflow-hidden border-b border-r border-border px-1 py-0.5 transition hover:bg-primary/5",
+                    !iso.startsWith(monthKey) && "opacity-45",
+                    off && "bg-muted/40",
+                    hasSelectedPerson &&
+                      !isSelected &&
+                      "bg-secondary/60 ring-1 ring-inset ring-primary/50",
+                    isSelected && "z-[1] bg-primary/10 ring-2 ring-inset ring-primary",
                   )}
                 >
-                  {Number(iso.slice(8))}
-                </span>
-                {names[0] && (
-                  <span
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-[10px] leading-tight",
-                      names[0].tone,
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span
+                      className={cn(
+                        "shrink-0 text-[11px] font-semibold",
+                        isToday && "rounded-full bg-primary px-1.5 text-primary-foreground",
+                      )}
+                    >
+                      {Number(iso.slice(8))}
+                    </span>
+                    {names[0] && (
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 truncate text-[10px] leading-tight",
+                          names[0].tone,
+                        )}
+                        title={names.map((n) => n.title).join("\n")}
+                      >
+                        {names[0].text}
+                        {names.length > 1 ? ` +${names.length - 1}` : ""}
+                      </span>
                     )}
-                    title={names.map((n) => n.title).join("\n")}
-                  >
-                    {names[0].text}
-                    {names.length > 1 ? ` +${names.length - 1}` : ""}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAdd(iso);
-                  }}
-                  aria-label={`Add an absence on ${ctx.fmt.date(iso)}`}
-                  className="ml-auto shrink-0 rounded text-muted-foreground opacity-0 hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              {list.slice(0, SHOWN).map((a) => (
-                <AbsenceChip key={a.id} a={a} ctx={ctx} onEdit={onEdit} />
-              ))}
-              {list.length > SHOWN && (
-                <div
-                  className="text-[10px] leading-tight text-muted-foreground"
-                  title={list
-                    .slice(SHOWN)
-                    .map((a) => ctx.nameOf(a.person_id))
-                    .join(", ")}
-                >
-                  +{list.length - SHOWN} more
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* A list of the month's days with something on, on phones. */}
-      <ul className="space-y-2 sm:hidden">
-        {inMonth
-          .filter((iso) => {
-            const { holidays, own } = dayInfo(iso);
-            return holidays.length || own.length || on(iso).length;
-          })
-          .map((iso) => {
-            const { holidays, own } = dayInfo(iso);
-            return (
-              <li key={iso} className="rounded-xl border border-border p-2">
-                <div className="text-sm font-semibold">
-                  {ctx.fmt.weekday(isoWeekday(iso))} {ctx.fmt.date(iso)}
-                </div>
-                {holidays.map((h) => (
-                  <div
-                    key={`${h.country}${h.name}`}
-                    className={cn("text-xs", h.off ? "text-rose-700" : "text-muted-foreground")}
-                  >
-                    {multi ? `${h.country} · ` : ""}
-                    {h.name}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAdd(iso);
+                      }}
+                      aria-label={`Add an absence on ${ctx.fmt.date(iso)}`}
+                      className={cn(
+                        "ml-auto shrink-0 rounded text-muted-foreground hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100",
+                        isSelected ? "opacity-100" : "opacity-0",
+                      )}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                ))}
-                {own.map((d) => (
-                  <div key={d.id} className="text-xs font-semibold text-primary">
-                    {d.name}
-                  </div>
-                ))}
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {on(iso).map((a) => (
-                    <AbsenceChip key={a.id} a={a} ctx={ctx} onEdit={onEdit} />
+                  {list.slice(0, SHOWN).map((a) => (
+                    <AbsenceChip
+                      key={a.id}
+                      a={a}
+                      ctx={ctx}
+                      onSelect={() => selectAbsenceOnDay(iso, a)}
+                      highlighted={activeSelectedSet.has(a.person_id)}
+                      dimmed={activeSelectedSet.size > 0 && !activeSelectedSet.has(a.person_id)}
+                    />
                   ))}
+                  {list.length > SHOWN && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectDay(iso);
+                      }}
+                      className="mt-0.5 w-fit rounded px-0.5 text-left text-[10px] font-semibold leading-tight text-foreground underline-offset-2 hover:bg-muted hover:underline"
+                      title={`View all ${list.length} absences on ${ctx.fmt.date(iso)}: ${list
+                        .slice(SHOWN)
+                        .map((a) => ctx.nameOf(a.person_id))
+                        .join(", ")}`}
+                    >
+                      +{list.length - SHOWN} more
+                    </button>
+                  )}
                 </div>
-              </li>
-            );
-          })}
-        {!loading && inMonth.every((iso) => !on(iso).length && !dayInfo(iso).holidays.length) && (
-          <li className="text-sm text-muted-foreground">Nothing on this month.</li>
+              );
+            })}
+          </div>
+
+          {/* A list of the month's days with something on, on phones. */}
+          <ul className="space-y-2 sm:hidden">
+            {inMonth
+              .filter((iso) => {
+                const { holidays, own } = dayInfo(iso);
+                return holidays.length || own.length || on(iso).length;
+              })
+              .map((iso) => {
+                const { holidays, own } = dayInfo(iso);
+                const isSelected = iso === selectedDay;
+                return (
+                  <li
+                    key={iso}
+                    onClick={() => selectDay(iso)}
+                    className={cn(
+                      "cursor-pointer rounded-xl border border-border p-2 transition",
+                      isSelected && "border-primary bg-primary/10 ring-1 ring-primary",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-semibold">
+                        {ctx.fmt.weekday(isoWeekday(iso))} {ctx.fmt.date(iso)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdd(iso);
+                        }}
+                        aria-label={`Add an absence on ${ctx.fmt.date(iso)}`}
+                        className="rounded p-1 text-muted-foreground hover:bg-muted"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {holidays.map((h) => (
+                      <div
+                        key={`${h.country}${h.name}`}
+                        className={cn("text-xs", h.off ? "text-rose-700" : "text-muted-foreground")}
+                      >
+                        {multi ? `${h.country} · ` : ""}
+                        {h.name}
+                      </div>
+                    ))}
+                    {own.map((d) => (
+                      <div key={d.id} className="text-xs font-semibold text-primary">
+                        {d.name}
+                      </div>
+                    ))}
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {on(iso).map((a) => (
+                        <AbsenceChip
+                          key={a.id}
+                          a={a}
+                          ctx={ctx}
+                          onSelect={() => selectAbsenceOnDay(iso, a)}
+                          highlighted={activeSelectedSet.has(a.person_id)}
+                          dimmed={activeSelectedSet.size > 0 && !activeSelectedSet.has(a.person_id)}
+                        />
+                      ))}
+                    </div>
+                  </li>
+                );
+              })}
+            {!loading &&
+              inMonth.every((iso) => !on(iso).length && !dayInfo(iso).holidays.length) && (
+                <li className="text-sm text-muted-foreground">Nothing on this month.</li>
+              )}
+          </ul>
+        </div>
+
+        {selectedDay && (
+          <DayInspector
+            iso={selectedDay}
+            ctx={ctx}
+            info={dayInfo(selectedDay)}
+            multi={multi}
+            dayAbsences={selectedDayAbsences}
+            totalOnDay={selectedDayAllAbsences.length}
+            allAbsences={absences}
+            monthKey={monthKey}
+            query={query}
+            onClearQuery={() => setQuery("")}
+            selectedPersonIds={activeSelectedPeople}
+            onTogglePerson={togglePerson}
+            onClearPeople={() => setSelectedPersonIds([])}
+            onStepDay={(delta) => selectDay(addDays(selectedDay, delta))}
+            onJumpToAbsence={(iso, personId) => {
+              setSelectedDay(iso);
+              setSelectedPersonIds([personId]);
+              setCursor({ y: Number(iso.slice(0, 4)), m: Number(iso.slice(5, 7)) });
+            }}
+            onAdd={onAdd}
+            onEdit={onEdit}
+            onClose={() => {
+              setSelectedDay(null);
+              setSelectedPersonIds([]);
+            }}
+          />
         )}
-      </ul>
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
         <span className="font-semibold text-rose-700 dark:text-rose-300">Holiday</span>
@@ -675,14 +856,435 @@ function CalendarTab({
           </span>
         ))}
         <span className="sm:ml-auto">
-          Click a day to add an absence; click an absence to edit it.
+          Click a day to inspect it and its absences, or click + to add an absence.
         </span>
       </div>
     </div>
   );
 }
 
-function AbsenceChip({ a, ctx, onEdit }: { a: Absence; ctx: Ctx; onEdit: (a: Absence) => void }) {
+function DayInspector({
+  iso,
+  ctx,
+  info,
+  multi,
+  dayAbsences,
+  totalOnDay,
+  allAbsences,
+  monthKey,
+  query,
+  onClearQuery,
+  selectedPersonIds,
+  onTogglePerson,
+  onClearPeople,
+  onStepDay,
+  onJumpToAbsence,
+  onAdd,
+  onEdit,
+  onClose,
+}: {
+  iso: string;
+  ctx: Ctx;
+  info: {
+    holidays: (NationalHoliday & { off: boolean })[];
+    own: DayOff[];
+    off: boolean;
+    weekend: boolean;
+  };
+  multi: boolean;
+  dayAbsences: Absence[];
+  totalOnDay: number;
+  allAbsences: Absence[];
+  monthKey: string;
+  query: string;
+  onClearQuery: () => void;
+  selectedPersonIds: string[];
+  onTogglePerson: (personId: string) => void;
+  onClearPeople: () => void;
+  onStepDay: (delta: number) => void;
+  onJumpToAbsence: (iso: string, personId: string) => void;
+  onAdd: (date: string, personId?: string) => void;
+  onEdit: (a: Absence) => void;
+  onClose: () => void;
+}) {
+  const selectedSet = new Set(selectedPersonIds);
+  const isToday = iso === ctx.today;
+
+  // Group absences on this day by individual person, sorted alphabetically by name.
+  const groupedPeople = useMemo(() => {
+    const map = new Map<string, Absence[]>();
+    for (const a of dayAbsences) {
+      const list = map.get(a.person_id) ?? [];
+      list.push(a);
+      map.set(a.person_id, list);
+    }
+    return [...map.entries()]
+      .map(([personId, items]) => ({
+        personId,
+        name: ctx.nameOf(personId),
+        items,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [dayAbsences, ctx]);
+
+  const dayNames = (days: number[]) =>
+    days.length === 0
+      ? "No working days"
+      : ctx.fmt.weekOrder
+          .filter((d) => days.includes(d))
+          .map((d) => ctx.fmt.weekday(d))
+          .join(" ");
+
+  const hiddenCount = totalOnDay - dayAbsences.length;
+
+  return (
+    <aside
+      aria-label={`Details for ${ctx.fmt.date(iso)}`}
+      className="flex flex-col gap-3 rounded-xl border-2 border-border bg-muted/20 p-3"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 border-b border-border pb-2.5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+            <h3 className="text-sm font-bold">
+              {ctx.fmt.weekday(isoWeekday(iso))} {ctx.fmt.date(iso)}
+            </h3>
+            {isToday && (
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                Today
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {info.off ? (info.weekend ? "Weekend" : "Day off") : "Working day"} ·{" "}
+            {groupedPeople.length === 0
+              ? "No absences"
+              : `${groupedPeople.length} ${groupedPeople.length === 1 ? "person" : "people"} absent`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-7 w-7"
+            onClick={() => onStepDay(-1)}
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-7 w-7"
+            onClick={() => onStepDay(1)}
+            aria-label="Next day"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={onClose}
+            aria-label="Close day details"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Holidays & own days off */}
+      {(info.holidays.length > 0 || info.own.length > 0) && (
+        <div className="space-y-1 rounded-lg border border-border bg-card px-2.5 py-2 text-xs">
+          {info.holidays.map((h) => (
+            <div
+              key={`${h.country}${h.name}`}
+              className={cn(
+                "flex items-center justify-between gap-2",
+                h.off ? "font-semibold text-rose-700 dark:text-rose-300" : "text-muted-foreground",
+              )}
+            >
+              <span>
+                {multi ? `${h.country} · ` : ""}
+                {h.name}
+              </span>
+              <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
+                {h.off ? "Day off" : "Observance"}
+              </span>
+            </div>
+          ))}
+          {info.own.map((d) => (
+            <div
+              key={d.id}
+              className="flex items-center justify-between gap-2 font-semibold text-primary"
+            >
+              <span>★ {d.name}</span>
+              <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
+                Org day off
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Active search filter notice */}
+      {hiddenCount > 0 && query.trim() && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs">
+          <span className="text-muted-foreground">
+            {hiddenCount} more {hiddenCount === 1 ? "absence" : "absences"} hidden by filter.
+          </span>
+          <button
+            type="button"
+            onClick={onClearQuery}
+            className="shrink-0 font-semibold underline underline-offset-2"
+          >
+            Show all
+          </button>
+        </div>
+      )}
+
+      {/* People list */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-semibold">
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Absences on this day ({groupedPeople.length})</span>
+          </div>
+          {selectedPersonIds.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearPeople}
+              className="text-xs font-semibold underline underline-offset-2 hover:opacity-80"
+            >
+              Clear ({selectedPersonIds.length})
+            </button>
+          )}
+        </div>
+
+        {groupedPeople.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card/60 px-3 py-4 text-center text-xs text-muted-foreground">
+            No absences marked for {ctx.fmt.date(iso)}.
+          </div>
+        ) : (
+          <>
+            <p className="text-[11px] text-muted-foreground">
+              Select a person to inspect their details and highlight their absence on the calendar.
+            </p>
+            <ul className="max-h-[26rem] space-y-2 overflow-y-auto pr-0.5">
+              {groupedPeople.map(({ personId, name, items }) => {
+                const isSelected = selectedSet.has(personId);
+                const country = ctx.countryOf(personId);
+                const workDays = ctx.workDaysOf(personId);
+                const balance = isSelected ? ctx.balanceOf(personId) : null;
+                const currentIds = new Set(items.map((a) => a.id));
+                const otherMonthAbsences = isSelected
+                  ? allAbsences.filter(
+                      (a) =>
+                        a.person_id === personId &&
+                        !currentIds.has(a.id) &&
+                        (a.start_date.startsWith(monthKey) || a.end_date.startsWith(monthKey)),
+                    )
+                  : [];
+
+                return (
+                  <li
+                    key={personId}
+                    className={cn(
+                      "rounded-xl border bg-card transition",
+                      isSelected
+                        ? "border-2 border-primary shadow-xs"
+                        : "border-border hover:border-primary/60",
+                    )}
+                  >
+                    <div className="flex items-start gap-2 p-2.5">
+                      <button
+                        type="button"
+                        onClick={() => onTogglePerson(personId)}
+                        aria-pressed={isSelected}
+                        className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition",
+                            isSelected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-background",
+                          )}
+                        >
+                          {isSelected && <Check className="h-3 w-3" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="truncate text-sm font-semibold">{name}</span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {items.map((a) => {
+                              const k = ctx.kindOf(a.kind);
+                              return (
+                                <span
+                                  key={a.id}
+                                  className={cn(
+                                    "inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight",
+                                    k.tone,
+                                  )}
+                                >
+                                  {k.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                          {!isSelected && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {items
+                                .map((a) => ctx.fmt.range(a.start_date, a.end_date))
+                                .join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                      {items.length === 1 && !isSelected && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => onEdit(items[0]!)}
+                          aria-label={`Edit ${name}'s absence`}
+                          title="Edit absence"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {isSelected && (
+                      <div className="space-y-2.5 border-t border-border bg-muted/20 px-2.5 py-2.5 text-xs">
+                        {items.map((a) => {
+                          const k = ctx.kindOf(a.kind);
+                          const days = ctx.calendar.workingDays(
+                            a.start_date,
+                            a.end_date,
+                            country,
+                            workDays,
+                          );
+                          return (
+                            <div
+                              key={a.id}
+                              className="space-y-1 rounded-lg border border-border bg-card p-2"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <div className="font-semibold">
+                                    {ctx.fmt.range(a.start_date, a.end_date)}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {k.label} · {days} working {days === 1 ? "day" : "days"}
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => onEdit(a)}
+                                >
+                                  <Pencil className="mr-1 h-3 w-3" /> Edit
+                                </Button>
+                              </div>
+                              {a.note && (
+                                <p className="whitespace-pre-wrap break-words rounded bg-muted/50 px-2 py-1 text-[11px]">
+                                  {a.note}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Person schedule & vacation balance */}
+                        <div className="space-y-1 rounded-lg border border-border/70 bg-card/70 px-2 py-1.5 text-[11px]">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            <span>
+                              {ctx.countryName(country)} · {dayNames(workDays)}
+                            </span>
+                          </div>
+                          {balance && (
+                            <div className="text-muted-foreground">
+                              Vacation balance: earned {fmtDays(balance.earned)} · used{" "}
+                              {fmtDays(balance.used)} · left{" "}
+                              <strong className={balance.left < 0 ? "text-destructive" : ""}>
+                                {fmtDays(balance.left)}
+                              </strong>{" "}
+                              days
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Other absences for this person in the current month */}
+                        {otherMonthAbsences.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="text-[11px] font-semibold text-muted-foreground">
+                              Other absences this month
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              {otherMonthAbsences.map((other) => {
+                                const k = ctx.kindOf(other.kind);
+                                return (
+                                  <button
+                                    key={other.id}
+                                    type="button"
+                                    onClick={() => onJumpToAbsence(other.start_date, personId)}
+                                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-2 py-1 text-left text-[11px] transition hover:bg-muted/50"
+                                  >
+                                    <span className="truncate font-medium">{k.label}</span>
+                                    <span className="shrink-0 text-muted-foreground">
+                                      {ctx.fmt.range(other.start_date, other.end_date)}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-full text-xs"
+                          onClick={() => onAdd(iso, personId)}
+                        >
+                          <Plus className="mr-1 h-3 w-3" /> Add absence for {name}
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+
+      {/* Footer action */}
+      <Button size="sm" className="w-full" onClick={() => onAdd(iso)}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> Add absence on {ctx.fmt.date(iso)}
+      </Button>
+    </aside>
+  );
+}
+
+function AbsenceChip({
+  a,
+  ctx,
+  onSelect,
+  highlighted,
+  dimmed,
+}: {
+  a: Absence;
+  ctx: Ctx;
+  onSelect: (a: Absence) => void;
+  highlighted?: boolean;
+  dimmed?: boolean;
+}) {
   const k = ctx.kindOf(a.kind);
   const name = ctx.nameOf(a.person_id);
   return (
@@ -690,12 +1292,14 @@ function AbsenceChip({ a, ctx, onEdit }: { a: Absence; ctx: Ctx; onEdit: (a: Abs
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onEdit(a);
+        onSelect(a);
       }}
       title={`${name}: ${k.label}, ${ctx.fmt.range(a.start_date, a.end_date)}${a.note ? `\n${a.note}` : ""}`}
       className={cn(
-        "mt-px block w-full shrink-0 truncate rounded border px-1 text-left text-[10px] leading-tight",
+        "mt-px block w-full shrink-0 truncate rounded border px-1 text-left text-[10px] leading-tight transition",
         k.tone,
+        highlighted && "font-semibold ring-1 ring-foreground/70",
+        dimmed && "opacity-35",
       )}
     >
       {name}
