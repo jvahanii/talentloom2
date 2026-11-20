@@ -1008,7 +1008,7 @@ function PersonTeams({
 
 /**
  * A person's current salary in the People table. Clicking opens their full
- * salary change history and lets authorised editors record changes.
+ * salary change history and lets authorised editors change salaries.
  */
 function SalaryCell({
   person,

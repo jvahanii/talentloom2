@@ -202,7 +202,7 @@ export function PersonSalaryDialog({
         toast.success("Salary entry updated");
       } else {
         await addSalaryEntry(orgId, person.userId, payload);
-        toast.success(sortedDesc.length === 0 ? "Salary saved" : "Salary change recorded");
+        toast.success(sortedDesc.length === 0 ? "Salary saved" : "Salary updated");
       }
       await qc.invalidateQueries({ queryKey: orgSalariesKey(orgId) });
       closeForm();
@@ -299,18 +299,18 @@ export function PersonSalaryDialog({
               </div>
               {canEdit && !showForm && (
                 <Button size="sm" onClick={openAddForm}>
-                  <Plus className="mr-1 h-4 w-4" /> Record change
+                  <Plus className="mr-1 h-4 w-4" /> Change salary
                 </Button>
               )}
             </div>
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border p-4 text-center">
-            <p className="text-sm font-medium text-foreground">No salary recorded yet</p>
+            <p className="text-sm font-medium text-foreground">No salary set yet</p>
             <p className="mt-0.5 text-xs text-foreground/75">
               {canEdit
                 ? "Add a starting salary below to begin tracking changes over time."
-                : "No compensation entries have been recorded for this person."}
+                : "No salary entries have been added for this person."}
             </p>
           </div>
         )}
@@ -380,7 +380,7 @@ export function PersonSalaryDialog({
                   ? "Edit salary entry"
                   : sortedDesc.length === 0
                     ? "Add salary"
-                    : "Record salary change"}
+                    : "Change salary"}
               </p>
               {sortedDesc.length > 0 && (
                 <button
@@ -515,7 +515,7 @@ export function PersonSalaryDialog({
                     ? "Save changes"
                     : sortedDesc.length === 0
                       ? "Save salary"
-                      : "Record change"}
+                      : "Change salary"}
               </Button>
             </div>
           </div>
@@ -590,7 +590,7 @@ export function PersonSalaryDialog({
                           <Calendar className="h-3 w-3" />
                           Effective {formatDate(entry.effective_date)}
                         </span>
-                        {entry.created_by && <span>· Recorded by {nameOf(entry.created_by)}</span>}
+                        {entry.created_by && <span>· Updated by {nameOf(entry.created_by)}</span>}
                       </div>
 
                       {entry.note && <p className="text-xs text-foreground">{entry.note}</p>}

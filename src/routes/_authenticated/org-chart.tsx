@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
+  Coins,
   Copy,
   GitCompare,
   GripVertical,
@@ -44,6 +45,20 @@ import {
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { useRememberedTab } from "@/hooks/useRememberedTab";
+import {
+  aggregateSalaryCosts,
+  currentSalaryOf,
+  fetchOrgSalaries,
+  formatCostMoney,
+  formatCostTotals,
+  groupSalariesByUser,
+  hoursPerYearFromWorkSettings,
+  orgSalariesKey,
+  salaryToMonthlyAnnual,
+  type CostSummary,
+  type CurrencyCost,
+} from "@/lib/salaries";
+import { fetchWorkSettings, workSettingsKey } from "@/lib/workVacations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   MAX_CHART_NAME,
@@ -253,6 +268,16 @@ type View = {
   /** Scrolls to a box and lights it up for a moment. */
   onJump: (key: string) => void;
   flash: string | null;
+  /** Whether salary costs are shown on the chart. */
+  showCosts: boolean;
+  /** Monthly & annual salary for one employee (by People user_id), or null if unset. */
+  personCost: (personId: string | null) => CurrencyCost | null;
+  /** Direct and subtree-rolled-up salary costs for a unit. */
+  unitCost: (unitId: string) => {
+    direct: CostSummary;
+    total: CostSummary;
+    hasSubUnits: boolean;
+  };
 };
 
 /** Many direct reports: shown in amber on the role. */
@@ -334,13 +359,116 @@ function OrgChartPage() {
     enabled: !!orgId,
     queryFn: () => fetchOrgPeople(orgId!),
   });
-  const people = peopleQuery.data ?? [];
+  const people = useMemo(() => peopleQuery.data ?? [], [peopleQuery.data]);
   const personById = new Map(people.map((p) => [p.id, p]));
+
+  const salariesQuery = useQuery({
+    queryKey: orgSalariesKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchOrgSalaries(orgId!),
+  });
+  const workSettingsQuery = useQuery({
+    queryKey: workSettingsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchWorkSettings(orgId!),
+  });
+  const hoursPerYear = hoursPerYearFromWorkSettings(workSettingsQuery.data);
+  const salariesByUser = useMemo(
+    () => groupSalariesByUser(salariesQuery.data ?? []),
+    [salariesQuery.data],
+  );
+  const [showCosts, setShowCosts] = useState(true);
+
+  const personCost = (personId: string | null): CurrencyCost | null => {
+    if (!personId) return null;
+    const cur = currentSalaryOf(salariesByUser.get(personId) ?? []);
+    return cur ? salaryToMonthlyAnnual(cur.entry, hoursPerYear) : null;
+  };
+
   /** The name a box shows: a linked person's current name, else the one typed. */
   const nameOf = (n: ChartNode) =>
     (n.person_id ? personById.get(n.person_id)?.name : null) ?? n.person_name;
   const memberName = (m: ChartMember) =>
     (m.person_id ? personById.get(m.person_id)?.name : null) ?? m.person_name;
+
+  const costPersonRef = (personId: string | null, name: string | null) => {
+    if (personId) return { key: `p:${personId}`, personId };
+    const clean = (name ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    return clean ? { key: `n:${clean}`, personId: null } : null;
+  };
+
+  /** Direct people in a unit (head + members). */
+  const directPeopleInUnit = (u: ChartNode) => {
+    const refs: { key: string; personId: string | null }[] = [];
+    const head = costPersonRef(u.person_id, nameOf(u));
+    if (head) refs.push(head);
+    for (const m of membersOf(u.id)) {
+      const ref = costPersonRef(m.person_id, memberName(m));
+      if (ref) refs.push(ref);
+    }
+    return refs;
+  };
+
+  const unitCostMap = useMemo(() => {
+    const out = new Map<
+      string,
+      { direct: CostSummary; total: CostSummary; hasSubUnits: boolean }
+    >();
+    for (const u of units) {
+      const directRefs = directPeopleInUnit(u);
+      const subIds = subtreeIds(units, u.id);
+      const subRefs: { key: string; personId: string | null }[] = [];
+      for (const sid of subIds) {
+        const subUnit = unitById.get(sid);
+        if (subUnit) subRefs.push(...directPeopleInUnit(subUnit));
+      }
+      out.set(u.id, {
+        direct: aggregateSalaryCosts(directRefs, salariesByUser, hoursPerYear),
+        total: aggregateSalaryCosts(subRefs, salariesByUser, hoursPerYear),
+        hasSubUnits: (unitKids.get(u.id)?.length ?? 0) > 0,
+      });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [units, members, salariesByUser, hoursPerYear, people]);
+
+  const emptyCost: CostSummary = { totals: [], peopleCount: 0, pricedCount: 0 };
+  const unitCost = (unitId: string) =>
+    unitCostMap.get(unitId) ?? { direct: emptyCost, total: emptyCost, hasSubUnits: false };
+
+  /** Whole company total: every unique person in the organisation's People list. */
+  const companyCost = useMemo(
+    () =>
+      aggregateSalaryCosts(
+        people.map((p) => ({ key: `p:${p.id}`, personId: p.id })),
+        salariesByUser,
+        hoursPerYear,
+      ),
+    [people, salariesByUser, hoursPerYear],
+  );
+
+  /** Total of unique people placed in this chart's units (no double-counting across units). */
+  const { chartCost, hasMultiUnitPeople } = useMemo(() => {
+    const refs: { key: string; personId: string | null }[] = [];
+    const seen = new Set<string>();
+    let multi = false;
+    for (const u of units) {
+      const unitRefs = directPeopleInUnit(u);
+      const inThisUnit = new Set<string>();
+      for (const r of unitRefs) {
+        if (inThisUnit.has(r.key)) continue;
+        inThisUnit.add(r.key);
+        if (seen.has(r.key)) multi = true;
+        seen.add(r.key);
+        refs.push(r);
+      }
+    }
+    return {
+      chartCost: aggregateSalaryCosts(refs, salariesByUser, hoursPerYear),
+      hasMultiUnitPeople: multi,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [units, members, salariesByUser, hoursPerYear, people]);
 
   /** Where each person from People appears in this chart. */
   const placesOf = new Map<string, string[]>();
@@ -969,6 +1097,9 @@ function OrgChartPage() {
     blocked,
     onOpen: openBox,
     onAdd: addBelow,
+    showCosts,
+    personCost,
+    unitCost,
   };
 
   const editing = boxDialog?.mode === "edit" ? boxDialog.node : null;
@@ -1149,6 +1280,15 @@ function OrgChartPage() {
                 </div>
               ) : (
                 <>
+                  {showCosts && (
+                    <CompanyCostsBanner
+                      orgName={orgName}
+                      companyCost={companyCost}
+                      chartCost={chartCost}
+                      hasUnits={units.length > 0}
+                      hasMultiUnitPeople={hasMultiUnitPeople}
+                    />
+                  )}
                   <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
                     <label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-border px-2 py-1">
                       <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -1241,6 +1381,20 @@ function OrgChartPage() {
                         </button>
                       </div>
                     )}
+                    <button
+                      type="button"
+                      aria-pressed={showCosts}
+                      onClick={() => setShowCosts((v) => !v)}
+                      title="Show or hide salary costs"
+                      className={
+                        "flex h-7 items-center gap-1 rounded-lg border px-2 text-xs font-medium transition " +
+                        (showCosts
+                          ? "border-primary/50 bg-primary/15 text-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground")
+                      }
+                    >
+                      <Coins className="h-3.5 w-3.5" /> Costs
+                    </button>
                     {foldable.length > 0 && (
                       <Button
                         size="sm"
@@ -1321,6 +1475,8 @@ function OrgChartPage() {
               headsOf={headsOf}
               kind={kind}
               canDrop={shown.length > 0}
+              showCosts={showCosts}
+              personCost={personCost}
             />
           </div>
           <DragOverlay dropAnimation={null}>
@@ -2094,6 +2250,8 @@ function PeoplePanel({
   headsOf,
   kind,
   canDrop,
+  showCosts,
+  personCost,
 }: {
   people: OrgPerson[];
   loading: boolean;
@@ -2104,6 +2262,8 @@ function PeoplePanel({
   headsOf: Map<string, string[]>;
   kind: NodeKind;
   canDrop: boolean;
+  showCosts: boolean;
+  personCost: (personId: string | null) => CurrencyCost | null;
 }) {
   const [query, setQuery] = useState("");
   const matches = matchPeople(people, query);
@@ -2225,6 +2385,7 @@ function PeoplePanel({
                 person={p}
                 places={placesOf.get(p.id) ?? []}
                 inUnit={unitsFor(p.id).length > 0}
+                cost={showCosts ? personCost(p.id) : null}
               />
             ))}
           </Fragment>
@@ -2238,11 +2399,13 @@ function PersonRow({
   person,
   places,
   inUnit,
+  cost,
 }: {
   person: OrgPerson;
   places: string[];
   /** Heads or belongs to a unit in this chart. */
   inUnit: boolean;
+  cost: CurrencyCost | null;
 }) {
   const drag = useDraggable({
     id: `person:${person.id}`,
@@ -2261,7 +2424,7 @@ function PersonRow({
       }
     >
       <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{person.name}</span>
         {!inUnit && (
           <span className="mt-0.5 inline-flex items-center rounded-full bg-amber-200/70 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
@@ -2270,6 +2433,12 @@ function PersonRow({
         )}
         {places.length > 0 && (
           <span className="block truncate text-xs text-muted-foreground">{places.join(", ")}</span>
+        )}
+        {cost && (
+          <span className="mt-0.5 block text-[11px] font-medium tabular-nums text-foreground/85">
+            {formatCostMoney(cost.monthly, cost.currency)}/mo ·{" "}
+            {formatCostMoney(cost.annual, cost.currency)}/yr
+          </span>
         )}
       </span>
     </li>
@@ -2583,37 +2752,95 @@ function OutlineList({ parentKey, view, depth }: { parentKey: string; view: View
         const notes = view.conflictsOf(n.id);
         const kidsHere =
           (view.kids.get(n.id) ?? []).length + (view.implied.get(n.id) ?? []).length > 0;
+        const unitCosts = unit && view.showCosts ? view.unitCost(n.id) : null;
+        const headCost = view.showCosts ? view.personCost(n.person_id) : null;
+        const unitMembers = unit ? view.membersOf(n.id) : [];
         return row(
           n.id,
           <button
             type="button"
             onClick={() => view.onOpen(n)}
-            className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-left text-sm"
+            className="flex min-w-0 flex-1 flex-col gap-0.5 text-left text-sm"
           >
-            <span className="font-semibold">
-              {unit && <Building2 className="mr-1 inline h-3.5 w-3.5 text-primary" />}
-              {n.role}
+            <span className="flex flex-wrap items-baseline gap-x-2">
+              <span className="font-semibold">
+                {unit && <Building2 className="mr-1 inline h-3.5 w-3.5 text-primary" />}
+                {n.role}
+              </span>
+              <span
+                className={
+                  "text-xs " +
+                  (!unit && !name
+                    ? "font-medium text-amber-700 dark:text-amber-400"
+                    : "text-muted-foreground")
+                }
+              >
+                {unit
+                  ? [
+                      name &&
+                        `Head: ${name}${
+                          headCost
+                            ? ` (${formatCostMoney(headCost.monthly, headCost.currency)}/mo · ${formatCostMoney(headCost.annual, headCost.currency)}/yr)`
+                            : ""
+                        }`,
+                      `${unitMembers.length} ${unitMembers.length === 1 ? "member" : "members"}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : name || "Open"}
+              </span>
+              {!unit && headCost && (
+                <span className="text-xs font-medium tabular-nums text-foreground">
+                  {formatCostMoney(headCost.monthly, headCost.currency)}/mo ·{" "}
+                  {formatCostMoney(headCost.annual, headCost.currency)}/yr
+                </span>
+              )}
+              {!unit && view.unitName(n) && (
+                <span className="text-xs text-primary">{view.unitName(n)}</span>
+              )}
+              {span && span.direct > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {span.direct} direct · {span.total} in total
+                </span>
+              )}
+              {unitCosts &&
+                (unitCosts.direct.totals.length > 0 || unitCosts.total.totals.length > 0) && (
+                  <span className="ml-auto flex flex-wrap items-center gap-x-2 text-xs tabular-nums">
+                    {unitCosts.hasSubUnits ? (
+                      <>
+                        <span className="text-foreground/80">
+                          Unit:{" "}
+                          {unitCosts.direct.totals.length > 0
+                            ? `${formatCostTotals(unitCosts.direct.totals, "monthly", true)} · ${formatCostTotals(unitCosts.direct.totals, "annual", true)}`
+                            : "—"}
+                        </span>
+                        <span className="font-semibold text-foreground">
+                          Total: {formatCostTotals(unitCosts.total.totals, "monthly", true)} ·{" "}
+                          {formatCostTotals(unitCosts.total.totals, "annual", true)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="font-semibold text-foreground">
+                        {formatCostTotals(unitCosts.direct.totals, "monthly", true)} ·{" "}
+                        {formatCostTotals(unitCosts.direct.totals, "annual", true)}
+                      </span>
+                    )}
+                  </span>
+                )}
             </span>
-            <span
-              className={
-                "text-xs " +
-                (!unit && !name
-                  ? "font-medium text-amber-700 dark:text-amber-400"
-                  : "text-muted-foreground")
-              }
-            >
-              {unit
-                ? [name && `Head: ${name}`, `${view.membersOf(n.id).length} members`]
-                    .filter(Boolean)
-                    .join(" · ")
-                : name || "Open"}
-            </span>
-            {!unit && view.unitName(n) && (
-              <span className="text-xs text-primary">{view.unitName(n)}</span>
-            )}
-            {span && span.direct > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {span.direct} direct · {span.total} in total
+            {unit && view.showCosts && unitMembers.length > 0 && (
+              <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-foreground/80">
+                {unitMembers.map((m) => {
+                  const mc = view.personCost(m.person_id);
+                  return (
+                    <span key={m.id} className="tabular-nums">
+                      {view.memberName(m)}
+                      {mc
+                        ? `: ${formatCostMoney(mc.monthly, mc.currency)}/mo · ${formatCostMoney(mc.annual, mc.currency)}/yr`
+                        : ""}
+                    </span>
+                  );
+                })}
               </span>
             )}
           </button>,
@@ -2786,6 +3013,8 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   const hasKids = (view.kids.get(n.id) ?? []).length + (view.implied.get(n.id) ?? []).length > 0;
   const finding = view.found.size > 0;
   const dimmed = finding && !view.found.has(n.id) && !view.foundChain.has(n.id);
+  const headCost = view.showCosts ? view.personCost(n.person_id) : null;
+  const unitCosts = unit && view.showCosts ? view.unitCost(n.id) : null;
 
   return (
     <div
@@ -2826,7 +3055,9 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
       <div
         className={
           "rounded-xl border-2 text-center shadow-sm transition " +
-          (unit ? "w-52 border-primary/50 bg-primary/10" : "w-44 border-border bg-background") +
+          (unit
+            ? (view.showCosts ? "w-64 " : "w-52 ") + "border-primary/50 bg-primary/10"
+            : "w-48 border-border bg-background") +
           (asChild
             ? " ring-2 ring-primary ring-offset-2 ring-offset-card"
             : canLand
@@ -2891,6 +3122,12 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               </span>
             </span>
           )}
+          {!unit && headCost && (
+            <span className="mt-1 block text-[11px] font-medium tabular-nums text-foreground/85">
+              {formatCostMoney(headCost.monthly, headCost.currency)}/mo ·{" "}
+              {formatCostMoney(headCost.annual, headCost.currency)}/yr
+            </span>
+          )}
           {!unit && view.unitName(n) && (
             <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               <Building2 className="h-3 w-3 shrink-0" />
@@ -2948,30 +3185,40 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
         )}
         {unit && view.nameOf(n) && (
           // Outside the box's own button, so the head can be removed from here.
-          <div
-            className="-mt-1.5 flex items-center justify-center gap-1 px-3 pb-2 text-xs text-muted-foreground"
-            title={n.person_id ? "From People" : undefined}
-          >
-            {n.person_id ? (
-              <Link2 className="h-3 w-3 shrink-0 text-primary" />
-            ) : (
-              <UserRound className="h-3 w-3 shrink-0" />
-            )}
-            <button
-              type="button"
-              onClick={() => view.onOpen(n)}
-              className="truncate hover:text-foreground"
+          <div className="-mt-1.5 px-3 pb-2 text-xs text-muted-foreground">
+            <div
+              className="flex items-center justify-center gap-1"
+              title={n.person_id ? "From People" : undefined}
             >
-              Head: {view.nameOf(n)}
-            </button>
-            <RemoveButton
-              label={`Remove ${view.nameOf(n)} as head of ${n.role}`}
-              onClick={() => view.onRemoveHead(n)}
-            />
+              {n.person_id ? (
+                <Link2 className="h-3 w-3 shrink-0 text-primary" />
+              ) : (
+                <UserRound className="h-3 w-3 shrink-0" />
+              )}
+              <button
+                type="button"
+                onClick={() => view.onOpen(n)}
+                className="truncate hover:text-foreground"
+              >
+                Head: {view.nameOf(n)}
+              </button>
+              <RemoveButton
+                label={`Remove ${view.nameOf(n)} as head of ${n.role}`}
+                onClick={() => view.onRemoveHead(n)}
+              />
+            </div>
+            {headCost && (
+              <p className="mt-0.5 text-[11px] font-medium tabular-nums text-foreground/85">
+                {formatCostMoney(headCost.monthly, headCost.currency)}/mo ·{" "}
+                {formatCostMoney(headCost.annual, headCost.currency)}/yr
+              </p>
+            )}
           </div>
         )}
         {unit && (
-          <div className="border-t border-primary/30 px-2 pb-4 pt-1.5">
+          <div
+            className={"border-t border-primary/30 px-2 pt-1.5 " + (unitCosts ? "pb-2" : "pb-4")}
+          >
             {shown.length === 0 ? (
               <p className="text-xs text-muted-foreground">No members yet</p>
             ) : (
@@ -2987,6 +3234,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
                     m={m}
                     name={view.memberName(m)}
                     unitName={n.role}
+                    cost={view.showCosts ? view.personCost(m.person_id) : null}
                     onOpen={() => view.onOpen(n)}
                     onRemove={() => view.onRemoveMember(m, n)}
                   />
@@ -3006,6 +3254,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
             )}
           </div>
         )}
+        {unitCosts && <UnitCostFooter unitCosts={unitCosts} />}
       </div>
       <button
         type="button"
@@ -3083,12 +3332,14 @@ function MemberChip({
   m,
   name,
   unitName,
+  cost,
   onOpen,
   onRemove,
 }: {
   m: ChartMember;
   name: string;
   unitName: string;
+  cost: CurrencyCost | null;
   onOpen: () => void;
   onRemove: () => void;
 }) {
@@ -3107,7 +3358,10 @@ function MemberChip({
       role="listitem"
       ref={drag.setNodeRef}
       className={
-        "flex max-w-44 items-center rounded-full border border-border bg-background pr-0.5 text-xs" +
+        "flex items-center border border-border bg-background text-xs " +
+        (cost
+          ? "w-full justify-between rounded-xl px-2 py-1 text-left"
+          : "max-w-44 rounded-full pr-0.5") +
         (drag.isDragging ? " opacity-40" : "")
       }
     >
@@ -3116,12 +3370,189 @@ function MemberChip({
         {...drag.listeners}
         onClick={onOpen}
         title={`${name}: drag onto another unit to move`}
-        className="flex min-w-0 cursor-grab touch-manipulation items-center gap-1 rounded-full py-0.5 pl-2 pr-0.5 active:cursor-grabbing"
+        className={
+          "flex min-w-0 cursor-grab touch-manipulation active:cursor-grabbing " +
+          (cost
+            ? "flex-1 flex-col items-start gap-0.5"
+            : "items-center gap-1 rounded-full py-0.5 pl-2 pr-0.5")
+        }
       >
-        {m.person_id && <Link2 className="h-3 w-3 shrink-0 text-primary" />}
-        <span className="truncate">{name}</span>
+        <span className="flex max-w-full items-center gap-1">
+          {m.person_id && <Link2 className="h-3 w-3 shrink-0 text-primary" />}
+          <span className="truncate font-medium text-foreground">{name}</span>
+        </span>
+        {cost && (
+          <span className="text-[11px] font-normal tabular-nums text-foreground/80">
+            {formatCostMoney(cost.monthly, cost.currency)}/mo ·{" "}
+            {formatCostMoney(cost.annual, cost.currency)}/yr
+          </span>
+        )}
       </button>
       <RemoveButton label={`Remove ${name} from ${unitName}`} onClick={onRemove} />
+    </div>
+  );
+}
+
+/** Salary cost summary shown at the bottom of each Unit card (monthly & annual). */
+function UnitCostFooter({
+  unitCosts,
+}: {
+  unitCosts: { direct: CostSummary; total: CostSummary; hasSubUnits: boolean };
+}) {
+  const { direct, total, hasSubUnits } = unitCosts;
+  const activeSummary = hasSubUnits ? total : direct;
+
+  return (
+    <div className="rounded-b-[10px] border-t border-primary/25 bg-background/80 px-2.5 pb-4 pt-2 text-left text-[11px]">
+      {hasSubUnits ? (
+        <div className="space-y-1.5">
+          <div>
+            <div className="flex items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/70">
+              <span>This unit</span>
+              {direct.peopleCount > 0 && (
+                <span className="font-normal normal-case">
+                  {direct.pricedCount}/{direct.peopleCount}
+                </span>
+              )}
+            </div>
+            {direct.totals.length > 0 ? (
+              <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground/90">
+                <span className="font-semibold">
+                  {formatCostTotals(direct.totals, "monthly", true)}
+                </span>
+                <span>{formatCostTotals(direct.totals, "annual", true)}</span>
+              </div>
+            ) : (
+              <p className="mt-0.5 text-foreground/65">No salaries set</p>
+            )}
+          </div>
+          <div className="border-t border-border/70 pt-1.5">
+            <div className="flex items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              <span>Unit + sub-units</span>
+              {total.peopleCount > 0 && (
+                <span className="font-normal normal-case text-foreground/70">
+                  {total.pricedCount}/{total.peopleCount}
+                </span>
+              )}
+            </div>
+            {total.totals.length > 0 ? (
+              <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground">
+                <span className="font-bold">{formatCostTotals(total.totals, "monthly", true)}</span>
+                <span className="font-semibold">
+                  {formatCostTotals(total.totals, "annual", true)}
+                </span>
+              </div>
+            ) : (
+              <p className="mt-0.5 text-foreground/65">No salaries set</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between gap-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/75">
+            <span>Unit cost</span>
+            {activeSummary.peopleCount > 0 && (
+              <span className="font-normal normal-case">
+                {activeSummary.pricedCount}/{activeSummary.peopleCount}
+              </span>
+            )}
+          </div>
+          {activeSummary.totals.length > 0 ? (
+            <div className="mt-0.5 flex flex-wrap items-baseline justify-between gap-x-2 tabular-nums text-foreground">
+              <span className="font-bold">
+                {formatCostTotals(activeSummary.totals, "monthly", true)}
+              </span>
+              <span className="font-medium text-foreground/85">
+                {formatCostTotals(activeSummary.totals, "annual", true)}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-0.5 text-foreground/65">No salaries set</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Company-wide and chart-wide monthly & annual salary totals above the org chart. */
+function CompanyCostsBanner({
+  orgName,
+  companyCost,
+  chartCost,
+  hasUnits,
+  hasMultiUnitPeople,
+}: {
+  orgName: string;
+  companyCost: CostSummary;
+  chartCost: CostSummary;
+  hasUnits: boolean;
+  hasMultiUnitPeople: boolean;
+}) {
+  const showChartBreakdown =
+    hasUnits &&
+    (chartCost.peopleCount !== companyCost.peopleCount ||
+      chartCost.pricedCount !== companyCost.pricedCount);
+
+  return (
+    <div className="mb-3 rounded-xl border border-border bg-secondary/40 px-3.5 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
+            <Coins className="h-3.5 w-3.5 text-primary" />
+            <span>Company salary costs · {orgName}</span>
+          </p>
+          {companyCost.totals.length > 0 ? (
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-0.5 tabular-nums">
+              <span className="text-base font-bold text-foreground">
+                {formatCostTotals(companyCost.totals, "monthly")}
+              </span>
+              <span className="text-sm font-semibold text-foreground/85">
+                {formatCostTotals(companyCost.totals, "annual")}
+              </span>
+              <span className="text-xs text-foreground/75">
+                {companyCost.pricedCount === companyCost.peopleCount
+                  ? `${companyCost.peopleCount} ${companyCost.peopleCount === 1 ? "person" : "people"}`
+                  : `${companyCost.pricedCount} of ${companyCost.peopleCount} people with salary`}
+                {hasMultiUnitPeople ? " · unique people (counted once)" : ""}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-foreground/80">
+              No salaries set yet.{" "}
+              <Link to="/people" className="font-semibold text-primary hover:underline">
+                Add salaries on the People page
+              </Link>{" "}
+              to see employee, unit and company costs here.
+            </p>
+          )}
+        </div>
+
+        {showChartBreakdown && (
+          <div className="border-t border-border/70 pt-2 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">
+              Placed in this chart
+            </p>
+            {chartCost.totals.length > 0 ? (
+              <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 tabular-nums">
+                <span className="text-sm font-bold text-foreground">
+                  {formatCostTotals(chartCost.totals, "monthly")}
+                </span>
+                <span className="text-xs font-semibold text-foreground/85">
+                  {formatCostTotals(chartCost.totals, "annual")}
+                </span>
+                <span className="text-xs text-foreground/75">
+                  ({chartCost.pricedCount}/{chartCost.peopleCount})
+                </span>
+              </div>
+            ) : (
+              <p className="mt-0.5 text-xs text-foreground/70">
+                0/{chartCost.peopleCount} with salary
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

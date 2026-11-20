@@ -255,6 +255,106 @@ export function groupSalariesByUser(entries: SalaryEntry[]): Map<string, SalaryE
   return map;
 }
 
+/** Standard annual working hours fallback (7.5 h/day × 5 days × 52 weeks). */
+export const DEFAULT_HOURS_PER_YEAR = 1950;
+
+export function hoursPerYearFromWorkSettings(
+  settings?: { hours_per_day: number; work_days: number[] } | null,
+): number {
+  if (!settings || settings.hours_per_day <= 0 || !settings.work_days.length) {
+    return DEFAULT_HOURS_PER_YEAR;
+  }
+  return settings.hours_per_day * settings.work_days.length * 52;
+}
+
+export interface CurrencyCost {
+  currency: SalaryCurrency;
+  monthly: number;
+  annual: number;
+}
+
+export interface CostSummary {
+  /** Totals grouped by currency (sorted by annual amount descending). */
+  totals: CurrencyCost[];
+  /** Number of unique people counted in this scope. */
+  peopleCount: number;
+  /** Number of unique people in this scope who have a salary set. */
+  pricedCount: number;
+}
+
+/** Converts any salary entry (monthly, annual, or hourly) to both monthly and annual cost. */
+export function salaryToMonthlyAnnual(
+  entry: SalaryEntry,
+  hoursPerYear = DEFAULT_HOURS_PER_YEAR,
+): CurrencyCost {
+  if (entry.period === "monthly") {
+    return { currency: entry.currency, monthly: entry.amount, annual: entry.amount * 12 };
+  }
+  if (entry.period === "annual") {
+    return { currency: entry.currency, monthly: entry.amount / 12, annual: entry.amount };
+  }
+  const annual = entry.amount * hoursPerYear;
+  return { currency: entry.currency, monthly: annual / 12, annual };
+}
+
+/**
+ * Sums monthly and annual salary costs across a set of people, deduplicating by
+ * `key` so a person belonging to multiple units is counted only once in rollups.
+ */
+export function aggregateSalaryCosts(
+  people: { key: string; personId: string | null }[],
+  salariesByUser: Map<string, SalaryEntry[]>,
+  hoursPerYear = DEFAULT_HOURS_PER_YEAR,
+  today = todayIsoDate(),
+): CostSummary {
+  const seen = new Set<string>();
+  const byCurrency = new Map<SalaryCurrency, { monthly: number; annual: number }>();
+  let peopleCount = 0;
+  let pricedCount = 0;
+
+  for (const p of people) {
+    if (!p.key || seen.has(p.key)) continue;
+    seen.add(p.key);
+    peopleCount += 1;
+    if (!p.personId) continue;
+    const current = currentSalaryOf(salariesByUser.get(p.personId) ?? [], today);
+    if (!current) continue;
+    pricedCount += 1;
+    const cost = salaryToMonthlyAnnual(current.entry, hoursPerYear);
+    const acc = byCurrency.get(cost.currency) ?? { monthly: 0, annual: 0 };
+    acc.monthly += cost.monthly;
+    acc.annual += cost.annual;
+    byCurrency.set(cost.currency, acc);
+  }
+
+  const totals: CurrencyCost[] = [...byCurrency.entries()]
+    .map(([currency, v]) => ({
+      currency,
+      monthly: Math.round(v.monthly * 100) / 100,
+      annual: Math.round(v.annual * 100) / 100,
+    }))
+    .sort((a, b) => b.annual - a.annual);
+
+  return { totals, peopleCount, pricedCount };
+}
+
+/** Formats a cost figure cleanly (rounds amounts >= 100 to whole currency units). */
+export function formatCostMoney(amount: number, currency: SalaryCurrency): string {
+  const rounded = Math.abs(amount) >= 100 ? Math.round(amount) : Math.round(amount * 100) / 100;
+  return formatMoney(rounded, currency);
+}
+
+/** Formats single- or multi-currency totals for monthly or annual display. */
+export function formatCostTotals(
+  totals: CurrencyCost[],
+  period: "monthly" | "annual",
+  compact = false,
+): string {
+  if (!totals.length) return "—";
+  const suffix = period === "monthly" ? (compact ? "/mo" : " / mo") : compact ? "/yr" : " / yr";
+  return totals.map((t) => `${formatCostMoney(t[period], t.currency)}${suffix}`).join(" + ");
+}
+
 export async function fetchOrgSalaries(orgId: string): Promise<SalaryEntry[]> {
   if (useLocalFallback) return sortSalariesDesc(readLocal(orgId));
   const { data, error } = await db
