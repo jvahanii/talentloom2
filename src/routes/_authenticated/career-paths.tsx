@@ -98,15 +98,20 @@ const PER: Record<SalaryPeriod, string> = {
   hourly: "/ hour",
 };
 
-const FIT_STYLE: Record<Fit, string> = {
+/** How the map colours a role for someone; none: the role asks for no skills to compare. */
+type MapFit = Fit | "none";
+
+const FIT_STYLE: Record<MapFit, string> = {
   ready: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60",
   close: "border-amber-400 bg-amber-50 dark:bg-amber-950/50",
   far: "border-border bg-background",
+  none: "border-border bg-background",
 };
-const FIT_LABEL: Record<Fit, string> = {
+const FIT_LABEL: Record<MapFit, string> = {
   ready: "Ready",
   close: "Close",
   far: "Further",
+  none: "No skills to compare",
 };
 
 const parseNum = (s: string) => {
@@ -217,10 +222,10 @@ function CareerMapPage() {
     ...options.up.map((s) => s.id),
     ...options.sideways.map((x) => x.step.id),
   ]);
-  const fitFor = (stepId: string): { r: Readiness; fit: Fit } | null => {
+  const fitFor = (stepId: string): { r: Readiness; fit: MapFit } | null => {
     if (!viewAs) return null;
     const r = readiness(memberSkills.get(viewAs) ?? [], asks(stepId));
-    return { r, fit: fitOf(r) };
+    return { r, fit: r.total ? fitOf(r) : "none" };
   };
   const missingText = (r: Readiness) =>
     r.missing
@@ -536,7 +541,7 @@ function CareerMap({
   viewAs: string | null;
   personStep: string | undefined;
   optionIds: Set<string>;
-  fitFor: (stepId: string) => { r: Readiness; fit: Fit } | null;
+  fitFor: (stepId: string) => { r: Readiness; fit: MapFit } | null;
   missingText: (r: Readiness) => string;
   onOpen: (stepId: string) => void;
   onAdd: (trackId: string, level: number) => void;
@@ -777,7 +782,7 @@ function RoleView({
   people: { id: string; name: string }[];
   nameOf: (id: string) => string;
   viewAs: string | null;
-  fit: { r: Readiness; fit: Fit } | null;
+  fit: { r: Readiness; fit: MapFit } | null;
   missingText: (r: Readiness) => string;
   busy: boolean;
   onEdit: (s: Step) => void;
