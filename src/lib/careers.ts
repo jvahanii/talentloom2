@@ -2,13 +2,15 @@ import { supabase } from "@/integrations/supabase/app-client";
 import type { Skill } from "@/lib/skills";
 
 /**
- * Career paths. A path (career_tracks) is a ladder of steps, level 1 first:
- * going up it is a vertical move. Moves (career_moves) link a step to a step
- * elsewhere, usually on another path: a horizontal move. A step asks for
- * skills at least at some level (career_step_skills, the levels of the
- * Skills page) and may have a salary range. Each person can be placed on one
- * step (career_assignments); how ready they are for a step is worked out
- * from their skills. Every member may read and edit everything for now.
+ * Career paths, drawn as a career map: job families (career_tracks) are the
+ * columns and levels shared by every family (career_levels) the rows. Each
+ * role (career_steps) sits in a family at a level; going up a family is a
+ * vertical move. Moves (career_moves) link a role to one elsewhere, usually
+ * in another family: a horizontal move. A role asks for skills at least at
+ * some level (career_step_skills, the levels of the Skills page) and may
+ * have a salary range. Each person can be placed in one role
+ * (career_assignments); how ready they are for a role is worked out from
+ * their skills. Every member may read and edit everything for now.
  */
 
 // The tables live in the external database; Lovable regenerates types.ts without them.
@@ -31,8 +33,10 @@ export type Step = {
 export type StepSkill = { step_id: string; skill: string; min_level: number };
 export type Move = { id: string; from_step: string; to_step: string; note: string | null };
 export type Assignment = { person_id: string; step_id: string; since: string };
+export type Level = { rank: number; name: string; description: string | null };
 
 export type Careers = {
+  levels: Level[];
   tracks: Track[];
   steps: Step[];
   skills: StepSkill[];
@@ -46,7 +50,8 @@ const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
 export async function fetchCareers(orgId: string): Promise<Careers> {
   const q = (table: string, cols: string) => db.from(table).select(cols).eq("org_id", orgId);
-  const [t, s, k, m, a] = await Promise.all([
+  const [l, t, s, k, m, a] = await Promise.all([
+    q("career_levels", "rank, name, description").order("rank"),
     q("career_tracks", "id, name, description, position").order("position").order("created_at"),
     q(
       "career_steps",
@@ -56,8 +61,9 @@ export async function fetchCareers(orgId: string): Promise<Careers> {
     q("career_moves", "id, from_step, to_step, note"),
     q("career_assignments", "person_id, step_id, since"),
   ]);
-  for (const r of [t, s, k, m, a]) if (r.error) throw r.error;
+  for (const r of [l, t, s, k, m, a]) if (r.error) throw r.error;
   return {
+    levels: l.data ?? [],
     tracks: t.data ?? [],
     steps: ((s.data ?? []) as Step[]).map((x) => ({
       ...x,
@@ -203,18 +209,63 @@ export function readiness(has: Skill[], asks: StepSkill[]): Readiness {
   return { total, met, pct: total ? Math.round((met / total) * 100) : 100, missing };
 }
 
-/** The steps someone can go to from a step: up its path, and the moves out of it. */
+/**
+ * The roles someone can go to from a role: up its family (every role on the
+ * next level that has one), and the moves out of it.
+ */
 export function nextSteps(c: Careers, stepId: string) {
   const step = c.steps.find((s) => s.id === stepId);
-  if (!step) return { up: null as Step | null, sideways: [] as { step: Step; move: Move }[] };
-  const higher = c.steps
-    .filter((s) => s.track_id === step.track_id && s.level > step.level)
-    .sort((a, b) => a.level - b.level);
+  if (!step) return { up: [] as Step[], sideways: [] as { step: Step; move: Move }[] };
+  const higher = c.steps.filter((s) => s.track_id === step.track_id && s.level > step.level);
+  const next = higher.length ? Math.min(...higher.map((s) => s.level)) : null;
   const sideways = c.moves
     .filter((m) => m.from_step === stepId)
     .flatMap((m) => {
       const to = c.steps.find((s) => s.id === m.to_step);
       return to ? [{ step: to, move: m }] : [];
     });
-  return { up: higher[0] ?? null, sideways };
+  return { up: higher.filter((s) => s.level === next), sideways };
 }
+
+// ---------------------------------------------------------------- levels
+
+export const MAX_LEVEL_NAME = 60;
+
+/**
+ * The map's rows, highest first: every named level and every level a role
+ * sits on, with "Level n" for one not named yet.
+ */
+export function mapLevels(c: Careers): Level[] {
+  const ranks = new Set([...c.levels.map((l) => l.rank), ...c.steps.map((s) => s.level)]);
+  if (!ranks.size) [1, 2, 3, 4].forEach((r) => ranks.add(r));
+  return [...ranks]
+    .sort((a, b) => b - a)
+    .map(
+      (rank) =>
+        c.levels.find((l) => l.rank === rank) ?? { rank, name: `Level ${rank}`, description: null },
+    );
+}
+
+/** Makes the organisation's levels exactly these (rank 1 = the lowest). */
+export async function saveLevels(
+  orgId: string,
+  levels: { rank: number; name: string; description: string }[],
+) {
+  const { error: dError } = await db.from("career_levels").delete().eq("org_id", orgId);
+  if (dError) throw dError;
+  if (!levels.length) return;
+  const { error } = await db.from("career_levels").insert(
+    levels.map((l) => ({
+      org_id: orgId,
+      rank: l.rank,
+      name: l.name.trim().slice(0, MAX_LEVEL_NAME),
+      description: l.description.trim().slice(0, 500) || null,
+    })),
+  );
+  if (error) throw error;
+}
+
+/** How ready, as the map colours it. */
+export type Fit = "ready" | "close" | "far";
+export const fitOf = (r: Readiness): Fit =>
+  r.pct >= 100 ? "ready" : r.pct >= 50 ? "close" : "far";

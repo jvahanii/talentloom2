@@ -1,7 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Gift, Pencil, Plus, Trash2, UserPlus, X } from "lucide-react";
+import {
+  Building2,
+  Check,
+  Download,
+  Gift,
+  Pencil,
+  Plus,
+  Trash2,
+  UserPlus,
+  UserRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
 import { cn } from "@/lib/utils";
@@ -28,19 +39,28 @@ import {
   removeParticipant,
   saveCriteria,
   saveScheme,
+  setCompanyResult,
   setResult,
   setTargetOverride,
   type Bonuses,
+  type Criterion,
+  type MeasureInput,
+  type Payout,
+  type PayoutState,
   type Scheme,
   type SchemeInput,
   type SchemeKind,
   type SchemeStatus,
+  type Scope,
 } from "@/lib/bonuses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -87,16 +107,43 @@ const parseNum = (s: string) => {
   const v = Number(t);
   return Number.isFinite(v) && v >= 0 ? v : NaN;
 };
+const pct = (v: number) => `${Math.round(v * 10) / 10}%`;
+const sumText = (sums: Map<string, number>) =>
+  sums.size ? [...sums.entries()].map(([cur, s]) => money(s, cur)).join(" + ") : "—";
 
 const STATUS_TONE: Record<SchemeStatus, string> = {
   draft: "bg-muted text-muted-foreground",
   active: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
   closed: "bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100",
 };
+const STATE: Record<PayoutState, { label: string; tone: string }> = {
+  ok: {
+    label: "Final",
+    tone: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100",
+  },
+  pending: {
+    label: "Waiting for results",
+    tone: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-100",
+  },
+  "no-salary": {
+    label: "No salary set",
+    tone: "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-100",
+  },
+  "below-threshold": { label: "Below threshold", tone: "bg-muted text-muted-foreground" },
+};
 
-type SchemeForm = Omit<SchemeInput, "target" | "max_payout_pct"> & {
+type SchemeForm = Omit<SchemeInput, "target" | "max_payout_pct" | "threshold_pct"> & {
   target: string;
   max_payout_pct: string;
+  threshold_pct: string;
+};
+
+type Row = {
+  personId: string;
+  name: string;
+  annual: { amount: number; currency: string } | null;
+  pay: Payout;
+  override: number | null;
 };
 
 function BonusPage() {
@@ -160,20 +207,35 @@ function BonusPage() {
 
   if (!orgId) return null;
 
-  const totals = (s: Scheme) => {
+  /** Every participant of a scheme with what they earn. */
+  const rowsOf = (s: Scheme): Row[] => {
+    const criteria = b.criteria.filter((c) => c.scheme_id === s.id);
+    return b.participants
+      .filter((p) => p.scheme_id === s.id)
+      .map((p) => {
+        const annual = annualOf(p.person_id);
+        return {
+          personId: p.person_id,
+          name: nameOf(p.person_id),
+          annual,
+          override: p.target_override,
+          pay: payoutOf({
+            scheme: s,
+            criteria,
+            results: b.results.filter((r) => r.scheme_id === s.id && r.person_id === p.person_id),
+            participant: p,
+            annualSalary: annual,
+          }),
+        };
+      })
+      .sort((x, y) => x.name.localeCompare(y.name));
+  };
+  const totalsOf = (rows: Row[]) => {
     const sums = new Map<string, number>();
-    const parts = b.participants.filter((p) => p.scheme_id === s.id);
-    for (const p of parts) {
-      const pay = payoutOf({
-        scheme: s,
-        criteria: b.criteria.filter((c) => c.scheme_id === s.id),
-        results: b.results.filter((r) => r.scheme_id === s.id && r.person_id === p.person_id),
-        participant: p,
-        annualSalary: annualOf(p.person_id),
-      });
-      if (pay.payout !== null) sums.set(pay.currency, (sums.get(pay.currency) ?? 0) + pay.payout);
-    }
-    return { count: parts.length, sums: [...sums.entries()] };
+    for (const r of rows)
+      if (r.pay.payout !== null)
+        sums.set(r.pay.currency, (sums.get(r.pay.currency) ?? 0) + r.pay.payout);
+    return sums;
   };
 
   const newForm = (): SchemeForm => {
@@ -186,6 +248,7 @@ function BonusPage() {
       kind: "percent",
       target: "10",
       currency: "EUR",
+      threshold_pct: "0",
       max_payout_pct: "100",
       status: "draft",
     };
@@ -195,28 +258,29 @@ function BonusPage() {
     description: s.description ?? "",
     target: String(s.target),
     max_payout_pct: String(s.max_payout_pct),
+    threshold_pct: String(s.threshold_pct),
   });
-  const formTarget = form ? parseNum(form.target) : null;
-  const formMax = form ? parseNum(form.max_payout_pct) : null;
+  const fTarget = form ? parseNum(form.target) : null;
+  const fMax = form ? parseNum(form.max_payout_pct) : null;
+  const fThreshold = form ? parseNum(form.threshold_pct) : null;
   const formBad =
     !form ||
     !form.name.trim() ||
-    formTarget === null ||
-    Number.isNaN(formTarget) ||
-    formMax === null ||
-    Number.isNaN(formMax) ||
-    formMax > 1000 ||
+    [fTarget, fMax, fThreshold].some((v) => v === null || Number.isNaN(v)) ||
+    fMax! > 1000 ||
+    fThreshold! > fMax! ||
     form.end_date < form.start_date;
+  const shownRows = scheme ? rowsOf(scheme) : [];
 
   return (
     <div className="mx-auto max-w-7xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="max-w-3xl">
           <h1 className="text-2xl font-bold">Bonus schemes</h1>
           <p className="text-sm text-muted-foreground">
-            Each scheme sets a target, a share of annual salary or a fixed sum, and weighted
-            criteria. Enter how far each participant got on each, and the bonus is worked out.
-            Salaries come from the People page. Everyone in the organisation can see and edit them.
+            Set up a scheme's measures and people, enter the results — company-wide ones once,
+            individual ones per person — and review the payouts. Salaries come from the People page.
+            Everyone in the organisation can see and edit them.
           </p>
         </div>
         <Button onClick={() => setForm(newForm())}>
@@ -231,7 +295,7 @@ function BonusPage() {
           <Gift className="mx-auto h-8 w-8 text-muted-foreground" />
           <h2 className="mt-3 text-lg font-semibold">Start your first bonus scheme</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            For example a sales bonus of 10% of annual salary: 60% on sales, 40% on customer
+            For example 10% of annual salary: half on company EBITDA, half on each person's customer
             satisfaction.
           </p>
           <Button className="mt-4" onClick={() => setForm(newForm())}>
@@ -239,17 +303,18 @@ function BonusPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
           <ul className="space-y-2">
             {b.schemes.map((s) => {
-              const t = totals(s);
+              const rows = rowsOf(s);
+              const done = rows.filter((r) => r.pay.missing === 0).length;
               return (
                 <li key={s.id}>
                   <button
                     type="button"
                     onClick={() => setSelected(s.id)}
                     className={cn(
-                      "w-full rounded-2xl border-2 bg-card p-3 text-left transition hover:border-primary",
+                      "w-full space-y-1 rounded-2xl border-2 bg-card p-3 text-left transition hover:border-primary",
                       scheme?.id === s.id ? "border-primary" : "border-border",
                     )}
                   >
@@ -260,13 +325,14 @@ function BonusPage() {
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {dateText(s.start_date)}–{dateText(s.end_date)} · {t.count}{" "}
-                      {t.count === 1 ? "person" : "people"}
+                      {dateText(s.start_date)}–{dateText(s.end_date)}
                     </p>
-                    {t.sums.length > 0 && (
-                      <p className="text-xs font-medium">
-                        {t.sums.map(([cur, sum]) => money(sum, cur)).join(" + ")}
-                      </p>
+                    <p className="text-xs">
+                      {rows.length} {rows.length === 1 ? "person" : "people"} ·{" "}
+                      {sumText(totalsOf(rows))}
+                    </p>
+                    {rows.length > 0 && (
+                      <Progress value={(done / rows.length) * 100} className="h-1" />
                     )}
                   </button>
                 </li>
@@ -279,9 +345,8 @@ function BonusPage() {
               orgId={orgId}
               scheme={scheme}
               b={b}
-              people={people}
-              nameOf={nameOf}
-              annualOf={annualOf}
+              rows={shownRows}
+              totals={totalsOf(shownRows)}
               busy={busy}
               run={run}
               onEdit={() => setForm(formOf(scheme))}
@@ -295,7 +360,7 @@ function BonusPage() {
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{form?.id ? "Edit the scheme" : "New bonus scheme"}</DialogTitle>
-            <DialogDescription>Add its criteria and people after saving.</DialogDescription>
+            <DialogDescription>Add its measures and people after saving.</DialogDescription>
           </DialogHeader>
           {form && (
             <form
@@ -308,8 +373,9 @@ function BonusPage() {
                   async () => {
                     id = await saveScheme(orgId, {
                       ...form,
-                      target: formTarget!,
-                      max_payout_pct: formMax!,
+                      target: fTarget!,
+                      max_payout_pct: fMax!,
+                      threshold_pct: fThreshold!,
                     });
                   },
                   form.id ? "Saved the scheme" : `Added ${form.name.trim()}`,
@@ -326,7 +392,7 @@ function BonusPage() {
                   id="scheme-name"
                   autoFocus
                   maxLength={100}
-                  placeholder="e.g. Sales bonus 2027"
+                  placeholder="e.g. Company success bonus 2027"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />
@@ -364,8 +430,8 @@ function BonusPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Target</Label>
-                <div className="grid grid-cols-[1fr_7rem] gap-2">
+                <Label>Target bonus</Label>
+                <div className="grid grid-cols-[1fr_6rem] gap-2">
                   <Select
                     value={form.kind}
                     onValueChange={(v) => setForm({ ...form, kind: v as SchemeKind })}
@@ -374,7 +440,7 @@ function BonusPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="percent">A per cent of annual salary</SelectItem>
+                      <SelectItem value="percent">% of annual salary</SelectItem>
                       <SelectItem value="fixed">A fixed sum</SelectItem>
                     </SelectContent>
                   </Select>
@@ -403,14 +469,21 @@ function BonusPage() {
                   </Select>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  {form.kind === "percent"
-                    ? "Paid in full when every criterion is met: e.g. 10 means 10% of the person's annual salary."
-                    : "Paid in full when every criterion is met."}
+                  What someone gets when every measure is exactly on target.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="scheme-max">At most (% of target)</Label>
+                  <Label htmlFor="scheme-threshold">Threshold %</Label>
+                  <Input
+                    id="scheme-threshold"
+                    inputMode="decimal"
+                    value={form.threshold_pct}
+                    onChange={(e) => setForm({ ...form, threshold_pct: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="scheme-max">Cap %</Label>
                   <Input
                     id="scheme-max"
                     inputMode="decimal"
@@ -437,8 +510,15 @@ function BonusPage() {
                   </Select>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Below the threshold nothing is paid (0 = always paid); above it the bonus grows with
+                the results, up to the cap (100 = never more than the target).
+              </p>
               {form.end_date < form.start_date && (
                 <p className="text-sm text-destructive">The end can't be before the start.</p>
+              )}
+              {fThreshold !== null && fMax !== null && fThreshold > fMax && (
+                <p className="text-sm text-destructive">The threshold can't be above the cap.</p>
               )}
               <DialogFooter className="sticky -bottom-6 z-10 -mx-6 -mb-6 gap-2 border-t border-border bg-background px-6 py-3">
                 {form.id && (
@@ -491,7 +571,7 @@ function BonusPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {confirmDelete?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Its criteria, participants and results are deleted too. This can't be undone.
+              Its measures, people and results are deleted too. This can't be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -514,12 +594,14 @@ function BonusPage() {
   );
 }
 
+// ---------------------------------------------------------------- one scheme
+
 function SchemeView({
   orgId,
   scheme,
   b,
-  nameOf,
-  annualOf,
+  rows,
+  totals,
   busy,
   run,
   onEdit,
@@ -528,45 +610,46 @@ function SchemeView({
   orgId: string;
   scheme: Scheme;
   b: Bonuses;
-  people: { id: string; name: string }[];
-  nameOf: (id: string) => string;
-  annualOf: (id: string) => { amount: number; currency: string } | null;
+  rows: Row[];
+  totals: Map<string, number>;
   busy: boolean;
   run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
   onEdit: () => void;
   onAddPeople: () => void;
 }) {
   const criteria = b.criteria.filter((c) => c.scheme_id === scheme.id);
-  const parts = b.participants
-    .filter((p) => p.scheme_id === scheme.id)
-    .sort((x, y) => nameOf(x.person_id).localeCompare(nameOf(y.person_id)));
-  const [draft, setDraft] = useState<{ id?: string; name: string; weight: string }[] | null>(null);
+  const company = criteria.filter((c) => c.scope === "company");
+  const individual = criteria.filter((c) => c.scope === "individual");
   const weightSum = criteria.reduce((s, c) => s + c.weight, 0);
+  const share = (c: Criterion) => (weightSum ? (c.weight / weightSum) * 100 : 0);
+  const complete = rows.filter((r) => r.pay.missing === 0).length;
+  const noSalary = rows.filter((r) => r.pay.state === "no-salary").length;
+  const achieved = rows.filter((r) => r.pay.achievement !== null);
+  const avg = achieved.length
+    ? achieved.reduce((s, r) => s + r.pay.achievement!, 0) / achieved.length
+    : null;
+  const setUp = criteria.length > 0 && rows.length > 0;
+  const [tab, setTab] = useState(
+    setUp ? (complete === rows.length ? "payouts" : "results") : "setup",
+  );
 
   const targetText =
     scheme.kind === "percent"
       ? `${scheme.target}% of annual salary`
       : money(scheme.target, scheme.currency);
-  const rows = parts.map((p) => ({
-    p,
-    pay: payoutOf({
-      scheme,
-      criteria,
-      results: b.results.filter((r) => r.scheme_id === scheme.id && r.person_id === p.person_id),
-      participant: p,
-      annualSalary: annualOf(p.person_id),
-    }),
-  }));
-  const sums = new Map<string, number>();
-  for (const r of rows)
-    if (r.pay.payout !== null)
-      sums.set(r.pay.currency, (sums.get(r.pay.currency) ?? 0) + r.pay.payout);
 
   return (
     <div className="min-w-0 space-y-4">
-      <section className="space-y-1 rounded-2xl border-2 border-border bg-card p-4">
+      <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
         <div className="flex flex-wrap items-start gap-2">
-          <h2 className="min-w-0 flex-1 text-lg font-semibold">{scheme.name}</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold">{scheme.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {dateText(scheme.start_date)}–{dateText(scheme.end_date)} · Target {targetText}
+              {scheme.threshold_pct > 0 ? ` · Paid from ${pct(scheme.threshold_pct)}` : ""} · Cap{" "}
+              {pct(scheme.max_payout_pct)}
+            </p>
+          </div>
           <span className={cn("rounded-full px-2 text-xs", STATUS_TONE[scheme.status])}>
             {STATUS_LABEL[scheme.status]}
           </span>
@@ -574,201 +657,700 @@ function SchemeView({
             <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {dateText(scheme.start_date)}–{dateText(scheme.end_date)} · Target {targetText} · At most{" "}
-          {scheme.max_payout_pct}% of the target
-        </p>
         {scheme.description && <p className="whitespace-pre-line text-sm">{scheme.description}</p>}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Stat label="People" value={String(rows.length)} />
+          <Stat
+            label="Results complete"
+            value={rows.length ? `${complete} / ${rows.length}` : "—"}
+            note={rows.length && complete < rows.length ? "missing results count as 0" : undefined}
+          />
+          <Stat label="Average achievement" value={avg === null ? "—" : pct(avg)} />
+          <Stat
+            label={rows.length && complete === rows.length ? "Total payout" : "Total so far"}
+            value={sumText(totals)}
+            note={noSalary ? `${noSalary} without a salary` : undefined}
+            warn={noSalary > 0}
+          />
+        </div>
       </section>
 
-      <section className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
-        <div className="flex items-center gap-2">
-          <h3 className="flex-1 font-semibold">Criteria</h3>
-          {!draft && (
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="flex-wrap">
+          <TabsTrigger value="setup">
+            <StepMark n={1} done={setUp} /> Measures and people
+          </TabsTrigger>
+          <TabsTrigger value="results">
+            <StepMark n={2} done={setUp && complete === rows.length} /> Results
+          </TabsTrigger>
+          <TabsTrigger value="payouts">
+            <StepMark n={3} done={false} /> Payouts
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="setup" className="space-y-4">
+          <MeasuresSection
+            orgId={orgId}
+            scheme={scheme}
+            criteria={criteria}
+            all={b.criteria}
+            share={share}
+            busy={busy}
+            run={run}
+          />
+          <section className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="flex-1 font-semibold">People ({rows.length})</h3>
+              <Button size="sm" variant="outline" onClick={onAddPeople}>
+                <UserPlus className="mr-1 h-3.5 w-3.5" /> Add people
+              </Button>
+            </div>
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No one in this scheme yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                      <th className="py-2 pr-3 font-semibold">Person</th>
+                      <th className="py-2 pr-3 font-semibold">Annual salary</th>
+                      <th className="py-2 pr-3 font-semibold">
+                        Own target{scheme.kind === "percent" ? " (%)" : ""}
+                      </th>
+                      <th className="py-2 pr-3 text-right font-semibold">Target bonus</th>
+                      <th className="py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.personId} className="border-b border-border/60">
+                        <td className="py-1.5 pr-3 font-medium">{r.name}</td>
+                        <td className="py-1.5 pr-3">
+                          {r.annual ? (
+                            money(r.annual.amount, r.annual.currency)
+                          ) : (
+                            <span className="text-xs text-rose-700 dark:text-rose-300">
+                              Not set on People
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-3">
+                          <NumberCell
+                            value={r.override}
+                            placeholder={`${scheme.target}`}
+                            label={`Own target of ${r.name}`}
+                            onSave={(v) => run(() => setTargetOverride(scheme.id, r.personId, v))}
+                          />
+                        </td>
+                        <td className="py-1.5 pr-3 text-right tabular-nums">
+                          {r.pay.targetAmount === null
+                            ? "—"
+                            : money(r.pay.targetAmount, r.pay.currency)}
+                        </td>
+                        <td className="py-1.5 text-right">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={busy}
+                            aria-label={`Remove ${r.name} from the scheme`}
+                            onClick={() =>
+                              run(
+                                () => removeParticipant(scheme.id, r.personId),
+                                `Removed ${r.name}`,
+                              )
+                            }
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Leave "own target" empty to use the scheme's ({targetText}).
+            </p>
+          </section>
+        </TabsContent>
+
+        <TabsContent value="results" className="space-y-4">
+          {criteria.length === 0 ? (
+            <Empty text="Add the scheme's measures first, under Measures and people." />
+          ) : (
+            <>
+              <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+                <h3 className="flex items-center gap-1.5 font-semibold">
+                  <Building2 className="h-4 w-4" /> Company results
+                </h3>
+                {company.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No company-wide measures in this scheme.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      One result for everyone in the scheme, as a per cent of the goal (100 = on
+                      target).
+                    </p>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {company.map((c) => (
+                        <li
+                          key={c.id}
+                          className="flex items-center gap-3 rounded-xl border-2 border-border p-3"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium">{c.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(share(c))}% of the bonus
+                            </span>
+                          </span>
+                          <NumberCell
+                            value={c.company_achievement}
+                            placeholder="—"
+                            label={`${c.name} result`}
+                            wide
+                            onSave={(v) => run(() => setCompanyResult(c.id, v), `Saved ${c.name}`)}
+                          />
+                          <span className="text-sm text-muted-foreground">%</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </section>
+              <IndividualResults
+                orgId={orgId}
+                scheme={scheme}
+                individual={individual}
+                rows={rows}
+                b={b}
+                share={share}
+                run={run}
+              />
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="payouts">
+          <PayoutsTable
+            scheme={scheme}
+            rows={rows}
+            totals={totals}
+            complete={rows.length > 0 && complete === rows.length}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  note,
+  warn,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  warn?: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-muted/50 px-3 py-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="truncate text-base font-semibold tabular-nums" title={value}>
+        {value}
+      </div>
+      {note && (
+        <div
+          className={cn(
+            "text-[11px]",
+            warn ? "text-rose-700 dark:text-rose-300" : "text-muted-foreground",
+          )}
+        >
+          {note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StepMark({ n, done }: { n: number; done: boolean }) {
+  return (
+    <span
+      className={cn(
+        "mr-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold",
+        done ? "bg-emerald-600 text-white" : "bg-muted-foreground/20",
+      )}
+    >
+      {done ? <Check className="h-3 w-3" /> : n}
+    </span>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <p className="rounded-2xl border-2 border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+      {text}
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------- measures
+
+type MeasureDraft = { id?: string; name: string; weight: string; scope: Scope };
+
+function MeasuresSection({
+  orgId,
+  scheme,
+  criteria,
+  all,
+  share,
+  busy,
+  run,
+}: {
+  orgId: string;
+  scheme: Scheme;
+  criteria: Criterion[];
+  all: Criterion[];
+  share: (c: Criterion) => number;
+  busy: boolean;
+  run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState<MeasureDraft[] | null>(null);
+  const weights = draft?.map((c) => parseNum(c.weight)) ?? [];
+  const sum = weights.reduce<number>((s, w) => s + (w && !Number.isNaN(w) ? w : 0), 0);
+  const bad =
+    !!draft &&
+    (draft.some((c) => !c.name.trim()) ||
+      weights.some((w) => w === null || Number.isNaN(w) || w > 100));
+  const group = (scope: Scope) => criteria.filter((c) => c.scope === scope);
+  const edit = (i: number, patch: Partial<MeasureDraft>) =>
+    setDraft(draft!.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
+  return (
+    <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <h3 className="flex-1 font-semibold">Measures</h3>
+        {!draft && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              setDraft(
+                criteria.length
+                  ? criteria.map((c) => ({
+                      id: c.id,
+                      name: c.name,
+                      weight: String(c.weight),
+                      scope: c.scope,
+                    }))
+                  : [
+                      { name: "", weight: "50", scope: "company" },
+                      { name: "", weight: "50", scope: "individual" },
+                    ],
+              )
+            }
+          >
+            <Pencil className="mr-1 h-3.5 w-3.5" />{" "}
+            {criteria.length ? "Edit measures" : "Add measures"}
+          </Button>
+        )}
+      </div>
+      {draft ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_9rem_5rem_2.25rem] gap-2 text-xs text-muted-foreground">
+            <span>Measure</span>
+            <span>Result</span>
+            <span className="text-right">Weight %</span>
+            <span />
+          </div>
+          {draft.map((c, i) => (
+            <div
+              key={c.id ?? `new-${i}`}
+              className="grid grid-cols-[1fr_9rem_5rem_2.25rem] items-center gap-2"
+            >
+              <Input
+                value={c.name}
+                maxLength={100}
+                placeholder={c.scope === "company" ? "e.g. EBITDA" : "e.g. Customer satisfaction"}
+                aria-label="Measure"
+                onChange={(e) => edit(i, { name: e.target.value })}
+              />
+              <Select value={c.scope} onValueChange={(v) => edit(i, { scope: v as Scope })}>
+                <SelectTrigger aria-label="Whose result">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="company">Company-wide</SelectItem>
+                  <SelectItem value="individual">Per person</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                value={c.weight}
+                inputMode="decimal"
+                aria-label="Weight"
+                className="text-right"
+                onChange={(e) => edit(i, { weight: e.target.value })}
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label={`Remove ${c.name || "measure"}`}
+                onClick={() => setDraft(draft.filter((_, j) => j !== i))}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
               onClick={() =>
-                setDraft(
-                  criteria.length
-                    ? criteria.map((c) => ({ id: c.id, name: c.name, weight: String(c.weight) }))
-                    : [{ name: "", weight: "100" }],
-                )
+                setDraft([
+                  ...draft,
+                  { name: "", weight: String(Math.max(0, 100 - sum)), scope: "individual" },
+                ])
               }
             >
-              <Pencil className="mr-1 h-3.5 w-3.5" /> Edit criteria
+              <Plus className="mr-1 h-4 w-4" /> Add a measure
             </Button>
-          )}
-        </div>
-        {draft ? (
-          <CriteriaEditor
-            draft={draft}
-            setDraft={setDraft}
-            busy={busy}
-            onSave={async (next) => {
-              if (
-                await run(
-                  () => saveCriteria(orgId, scheme.id, b.criteria, next),
-                  "Saved the criteria",
+            <span
+              className={cn(
+                "text-xs",
+                sum === 100 ? "text-muted-foreground" : "text-amber-700 dark:text-amber-300",
+              )}
+            >
+              Weights add up to {sum}%{sum === 100 ? "" : "; they are scaled to 100%"}
+            </span>
+            <span className="flex-1" />
+            <Button size="sm" variant="outline" onClick={() => setDraft(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={busy || bad || draft.length === 0}
+              onClick={async () => {
+                const next: MeasureInput[] = draft.map((c, i) => ({
+                  id: c.id,
+                  name: c.name,
+                  weight: weights[i]!,
+                  scope: c.scope,
+                }));
+                if (
+                  await run(() => saveCriteria(orgId, scheme.id, all, next), "Saved the measures")
                 )
-              )
-                setDraft(null);
-            }}
-          />
-        ) : criteria.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            None yet. Add what the bonus is paid for, such as sales or customer satisfaction.
-          </p>
-        ) : (
-          <ul className="flex flex-wrap gap-1.5">
-            {criteria.map((c) => (
-              <li key={c.id} className="rounded-full border-2 border-border px-2.5 py-0.5 text-sm">
-                {c.name}{" "}
-                <span className="text-muted-foreground">
-                  {weightSum ? Math.round((c.weight / weightSum) * 100) : 0}%
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="flex-1 font-semibold">People ({parts.length})</h3>
-          <Button size="sm" variant="outline" onClick={onAddPeople}>
-            <UserPlus className="mr-1 h-3.5 w-3.5" /> Add people
-          </Button>
+                  setDraft(null);
+              }}
+            >
+              Save
+            </Button>
+          </div>
         </div>
-        {parts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No one in this scheme yet.</p>
-        ) : (
+      ) : criteria.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          What the bonus is paid for. A company-wide measure (EBITDA, cash flow) has one result for
+          everyone; a per-person measure (customer satisfaction, own sales) has a result for each
+          person.
+        </p>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["company", "individual"] as Scope[]).map((scope) => (
+            <div key={scope} className="space-y-1.5">
+              <h4 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                {scope === "company" ? (
+                  <Building2 className="h-3.5 w-3.5" />
+                ) : (
+                  <UserRound className="h-3.5 w-3.5" />
+                )}
+                {scope === "company" ? "Company-wide: one result" : "Per person: a result each"}
+              </h4>
+              {group(scope).length === 0 ? (
+                <p className="text-sm text-muted-foreground">None.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {group(scope).map((c) => (
+                    <li key={c.id} className="flex items-center gap-2 text-sm">
+                      <span className="flex-1">{c.name}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {Math.round(share(c))}%
+                      </span>
+                      <span className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                        <span
+                          className="block h-full bg-primary"
+                          style={{ width: `${share(c)}%` }}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- results
+
+function IndividualResults({
+  orgId,
+  scheme,
+  individual,
+  rows,
+  b,
+  share,
+  run,
+}: {
+  orgId: string;
+  scheme: Scheme;
+  individual: Criterion[];
+  rows: Row[];
+  b: Bonuses;
+  share: (c: Criterion) => number;
+  run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
+}) {
+  const [onlyMissing, setOnlyMissing] = useState(false);
+  const resultOf = (personId: string, criterionId: string) =>
+    b.results.find((r) => r.person_id === personId && r.criterion_id === criterionId)
+      ?.achievement ?? null;
+  const missingFor = (personId: string) =>
+    individual.filter((c) => resultOf(personId, c.id) === null).length;
+  const done = rows.filter((r) => missingFor(r.personId) === 0).length;
+  const shown = onlyMissing ? rows.filter((r) => missingFor(r.personId) > 0) : rows;
+
+  return (
+    <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="flex flex-1 items-center gap-1.5 font-semibold">
+          <UserRound className="h-4 w-4" /> Results per person
+        </h3>
+        {individual.length > 0 && rows.length > 0 && (
+          <>
+            <span className="text-sm text-muted-foreground">
+              {done} / {rows.length} complete
+            </span>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={onlyMissing} onCheckedChange={setOnlyMissing} />
+              Only missing
+            </label>
+          </>
+        )}
+      </div>
+      {individual.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No per-person measures in this scheme.</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Add people under Measures and people first.</p>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">
+            Each as a per cent of its goal (100 = on target). Saved when you leave a field or press
+            Enter.
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-semibold">Person</th>
-                  <th className="py-2 pr-3 font-semibold">
-                    Target{scheme.kind === "percent" ? " (%)" : ""}
-                  </th>
-                  {criteria.map((c) => (
+                  {individual.map((c) => (
                     <th key={c.id} className="py-2 pr-3 font-semibold">
-                      {c.name} (%)
+                      {c.name} <span className="font-normal">({Math.round(share(c))}%)</span>
                     </th>
                   ))}
-                  <th className="py-2 pr-3 text-right font-semibold">Achieved</th>
-                  <th className="py-2 pr-3 text-right font-semibold">Bonus</th>
-                  <th className="py-2" />
+                  <th className="py-2 font-semibold" />
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ p, pay }) => (
-                  <tr key={p.person_id} className="border-b border-border/60">
-                    <td className="py-1.5 pr-3 font-medium">{nameOf(p.person_id)}</td>
-                    <td className="py-1.5 pr-3">
-                      <NumberCell
-                        value={p.target_override}
-                        placeholder={String(scheme.target)}
-                        label={`Target of ${nameOf(p.person_id)}`}
-                        onSave={(v) => run(() => setTargetOverride(scheme.id, p.person_id, v))}
-                      />
-                      {scheme.kind === "percent" && pay.targetAmount !== null && (
-                        <div className="text-[11px] text-muted-foreground">
-                          {money(pay.targetAmount, pay.currency)}
-                        </div>
-                      )}
-                    </td>
-                    {criteria.map((c) => (
+                {shown.map((r) => (
+                  <tr key={r.personId} className="border-b border-border/60">
+                    <td className="py-1.5 pr-3 font-medium">{r.name}</td>
+                    {individual.map((c) => (
                       <td key={c.id} className="py-1.5 pr-3">
                         <NumberCell
-                          value={
-                            b.results.find(
-                              (r) => r.person_id === p.person_id && r.criterion_id === c.id,
-                            )?.achievement ?? null
-                          }
+                          value={resultOf(r.personId, c.id)}
                           placeholder="—"
-                          label={`${c.name} for ${nameOf(p.person_id)}`}
+                          label={`${c.name} for ${r.name}`}
                           onSave={(v) =>
-                            run(() => setResult(orgId, scheme.id, p.person_id, c.id, v))
+                            run(() => setResult(orgId, scheme.id, r.personId, c.id, v))
                           }
                         />
                       </td>
                     ))}
-                    <td className="py-1.5 pr-3 text-right tabular-nums">
-                      {pay.achievement === null ? "—" : `${Math.round(pay.achievement)}%`}
-                      {pay.capped && (
-                        <div className="text-[11px] text-muted-foreground">capped</div>
-                      )}
-                    </td>
-                    <td className="py-1.5 pr-3 text-right font-semibold tabular-nums">
-                      {pay.payout !== null ? (
-                        money(pay.payout, pay.currency)
-                      ) : pay.targetAmount === null ? (
-                        <span className="text-xs font-normal text-muted-foreground">
-                          No salary set
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
                     <td className="py-1.5 text-right">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        disabled={busy}
-                        aria-label={`Remove ${nameOf(p.person_id)} from the scheme`}
-                        onClick={() =>
-                          run(
-                            () => removeParticipant(scheme.id, p.person_id),
-                            `Removed ${nameOf(p.person_id)}`,
-                          )
-                        }
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      {missingFor(r.personId) === 0 && (
+                        <Check className="ml-auto h-4 w-4 text-emerald-600" aria-label="Complete" />
+                      )}
                     </td>
                   </tr>
                 ))}
-              </tbody>
-              {sums.size > 0 && (
-                <tfoot>
+                {shown.length === 0 && (
                   <tr>
                     <td
-                      colSpan={criteria.length + 3}
-                      className="py-2 pr-3 text-right font-semibold"
+                      colSpan={individual.length + 2}
+                      className="py-3 text-sm text-muted-foreground"
                     >
-                      Total
+                      Everyone's results are in.
                     </td>
-                    <td className="py-2 pr-3 text-right font-semibold tabular-nums">
-                      {[...sums.entries()].map(([cur, sum]) => money(sum, cur)).join(" + ")}
-                    </td>
-                    <td />
                   </tr>
-                </tfoot>
-              )}
+                )}
+              </tbody>
             </table>
           </div>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Enter each result as a per cent of its goal: 100 is on target. Criteria without a result
-          count as zero until one is entered. An empty target uses the scheme's.
-        </p>
-      </section>
-    </div>
+        </>
+      )}
+    </section>
   );
 }
+
+// ---------------------------------------------------------------- payouts
+
+function PayoutsTable({
+  scheme,
+  rows,
+  totals,
+  complete,
+}: {
+  scheme: Scheme;
+  rows: Row[];
+  totals: Map<string, number>;
+  complete: boolean;
+}) {
+  const scale = Math.max(scheme.max_payout_pct, 100);
+  const exportCsv = () => {
+    const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const lines = [
+      ["Person", "Achievement %", "Target bonus", "Bonus", "Currency", "Status"].map(q).join(","),
+      ...rows.map((r) =>
+        [
+          q(r.name),
+          r.pay.achievement === null ? "" : String(Math.round(r.pay.achievement * 10) / 10),
+          r.pay.targetAmount === null ? "" : r.pay.targetAmount.toFixed(2),
+          r.pay.payout === null ? "" : r.pay.payout.toFixed(2),
+          r.pay.currency,
+          q(STATE[r.pay.state].label),
+        ].join(","),
+      ),
+    ];
+    const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${scheme.name.replace(/[^\w\- ]+/g, "").trim() || "bonus"}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  if (rows.length === 0) return <Empty text="Add people under Measures and people first." />;
+  return (
+    <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="flex-1 text-sm text-muted-foreground">
+          {complete
+            ? "Every result is in: these are the payouts."
+            : "Some results are still missing and count as 0, so these are not final yet."}
+        </p>
+        <Button size="sm" variant="outline" onClick={exportCsv}>
+          <Download className="mr-1 h-3.5 w-3.5" /> CSV
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="py-2 pr-3 font-semibold">Person</th>
+              <th className="py-2 pr-3 font-semibold">Achievement</th>
+              <th className="py-2 pr-3 text-right font-semibold">Target bonus</th>
+              <th className="py-2 pr-3 text-right font-semibold">Bonus</th>
+              <th className="py-2 font-semibold">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const a = r.pay.achievement;
+              return (
+                <tr key={r.personId} className="border-b border-border/60">
+                  <td className="py-2 pr-3 font-medium">{r.name}</td>
+                  <td className="py-2 pr-3">
+                    {a === null ? (
+                      "—"
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="relative h-2 w-28 overflow-hidden rounded-full bg-muted">
+                          <span
+                            className={cn(
+                              "absolute inset-y-0 left-0 rounded-full",
+                              a < scheme.threshold_pct ? "bg-muted-foreground/40" : "bg-primary",
+                            )}
+                            style={{ width: `${Math.min(100, (a / scale) * 100)}%` }}
+                          />
+                          {/* The target, 100%. */}
+                          <span
+                            className="absolute inset-y-0 w-px bg-foreground/50"
+                            style={{ left: `${(100 / scale) * 100}%` }}
+                          />
+                        </span>
+                        <span className="tabular-nums">{pct(a)}</span>
+                        {r.pay.capped && (
+                          <span className="text-[11px] text-muted-foreground">capped</span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                    {r.pay.targetAmount === null ? "—" : money(r.pay.targetAmount, r.pay.currency)}
+                  </td>
+                  <td className="py-2 pr-3 text-right font-semibold tabular-nums">
+                    {r.pay.payout === null ? "—" : money(r.pay.payout, r.pay.currency)}
+                  </td>
+                  <td className="py-2">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px]",
+                        STATE[r.pay.state].tone,
+                      )}
+                    >
+                      {STATE[r.pay.state].label}
+                      {r.pay.state === "pending" ? ` (${r.pay.missing} missing)` : ""}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3} className="py-2 pr-3 text-right font-semibold">
+                {complete ? "Total" : "Total so far"}
+              </td>
+              <td className="py-2 pr-3 text-right font-semibold tabular-nums">{sumText(totals)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- small parts
 
 /** A small number field that saves when it loses focus or Enter is pressed; empty clears. */
 function NumberCell({
   value,
   placeholder,
   label,
+  wide,
   onSave,
 }: {
   value: number | null;
   placeholder: string;
   label: string;
+  wide?: boolean;
   onSave: (v: number | null) => Promise<boolean>;
 }) {
   const [text, setText] = useState(value === null ? "" : String(value));
@@ -776,8 +1358,7 @@ function NumberCell({
   const parsed = parseNum(text);
   const bad = Number.isNaN(parsed) || (parsed !== null && parsed > 1000);
   const commit = () => {
-    if (bad) return;
-    if (parsed === value) return;
+    if (bad || parsed === value) return;
     void onSave(parsed);
   };
   return (
@@ -791,91 +1372,12 @@ function NumberCell({
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
-      className={cn("h-8 w-20 text-right tabular-nums", bad && "border-destructive")}
+      className={cn(
+        "h-8 text-right tabular-nums",
+        wide ? "w-24 text-base" : "w-20",
+        bad && "border-destructive",
+      )}
     />
-  );
-}
-
-function CriteriaEditor({
-  draft,
-  setDraft,
-  busy,
-  onSave,
-}: {
-  draft: { id?: string; name: string; weight: string }[];
-  setDraft: (d: { id?: string; name: string; weight: string }[] | null) => void;
-  busy: boolean;
-  onSave: (next: { id?: string; name: string; weight: number }[]) => void;
-}) {
-  const weights = draft.map((c) => parseNum(c.weight));
-  const bad =
-    draft.some((c) => !c.name.trim()) ||
-    weights.some((w) => w === null || Number.isNaN(w) || w > 100);
-  const sum = weights.reduce<number>((s, w) => s + (w && !Number.isNaN(w) ? w : 0), 0);
-  return (
-    <div className="space-y-2">
-      {draft.map((c, i) => (
-        <div key={c.id ?? `new-${i}`} className="flex items-center gap-2">
-          <Input
-            value={c.name}
-            maxLength={100}
-            placeholder="e.g. Sales"
-            aria-label="Criterion"
-            onChange={(e) =>
-              setDraft(draft.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
-            }
-          />
-          <Input
-            value={c.weight}
-            inputMode="decimal"
-            aria-label="Weight"
-            className="w-20 text-right"
-            onChange={(e) =>
-              setDraft(draft.map((x, j) => (j === i ? { ...x, weight: e.target.value } : x)))
-            }
-          />
-          <span className="text-sm text-muted-foreground">%</span>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={`Remove ${c.name || "criterion"}`}
-            onClick={() => setDraft(draft.filter((_, j) => j !== i))}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ))}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setDraft([...draft, { name: "", weight: String(Math.max(0, 100 - sum)) }])}
-        >
-          <Plus className="mr-1 h-4 w-4" /> Add a criterion
-        </Button>
-        <span
-          className={cn(
-            "text-xs",
-            sum === 100 ? "text-muted-foreground" : "text-amber-700 dark:text-amber-300",
-          )}
-        >
-          Weights add up to {sum}%{sum === 100 ? "" : "; they are scaled to 100%"}
-        </span>
-        <span className="flex-1" />
-        <Button size="sm" variant="outline" onClick={() => setDraft(null)}>
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          disabled={busy || bad}
-          onClick={() =>
-            onSave(draft.map((c, i) => ({ id: c.id, name: c.name, weight: weights[i]! })))
-          }
-        >
-          Save
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -922,7 +1424,7 @@ function AddPeopleDialog({
           placeholder="Find a person"
           aria-label="Find a person"
         />
-        <div className="flex gap-2 text-sm">
+        <div className="flex gap-2">
           <Button
             size="sm"
             variant="outline"

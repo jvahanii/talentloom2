@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { ArrowRight, ArrowUp, Pencil, Plus, Route as RouteIcon, Trash2, X } from "lucide-react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ArrowRight,
+  ArrowUp,
+  Layers,
+  MapPin,
+  Pencil,
+  Plus,
+  Route as RouteIcon,
+  Trash2,
+  UserRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useOrg } from "@/lib/org";
-import { useRememberedTab } from "@/hooks/useRememberedTab";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
 import { cn } from "@/lib/utils";
 import { fetchOrgPeople, orgPeopleKey } from "@/lib/orgCharts";
@@ -14,6 +24,7 @@ import { skillLevelLabel, skillLevelValues, type Skill } from "@/lib/skills";
 import { formatMoney, SALARY_CURRENCIES, type SalaryCurrency } from "@/lib/salaries";
 import {
   MAX_DESCRIPTION,
+  MAX_LEVEL_NAME,
   MAX_NAME,
   addMove,
   assign,
@@ -22,22 +33,31 @@ import {
   deleteStep,
   deleteTrack,
   fetchCareers,
+  fitOf,
+  mapLevels,
   nextSteps,
   readiness,
+  saveLevels,
   saveStep,
   saveTrack,
   type Careers,
+  type Fit,
+  type Readiness,
   type SalaryPeriod,
   type Step,
   type StepInput,
-  type Track,
 } from "@/lib/careers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -68,18 +88,26 @@ import {
 
 export const Route = createFileRoute("/_authenticated/career-paths")({
   head: () => ({ meta: [{ title: "Career paths — Talentloom" }] }),
-  component: CareerPage,
+  component: CareerMapPage,
 });
 
-const NONE = "__none__";
-const PERIOD: Record<SalaryPeriod, string> = {
+const NOBODY = "__nobody__";
+const PER: Record<SalaryPeriod, string> = {
   monthly: "/ month",
   annual: "/ year",
   hourly: "/ hour",
 };
 
-type TrackDialog = { id?: string; name: string; description: string } | null;
-type MoveDialog = { from: Step; to: string; note: string } | null;
+const FIT_STYLE: Record<Fit, string> = {
+  ready: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60",
+  close: "border-amber-400 bg-amber-50 dark:bg-amber-950/50",
+  far: "border-border bg-background",
+};
+const FIT_LABEL: Record<Fit, string> = {
+  ready: "Ready",
+  close: "Close",
+  far: "Further",
+};
 
 const parseNum = (s: string) => {
   const t = s.trim().replace(/\s/g, "").replace(",", ".");
@@ -89,19 +117,21 @@ const parseNum = (s: string) => {
 };
 
 function salaryRange(s: Step) {
-  const cur = (SALARY_CURRENCIES as readonly string[]).includes(s.currency)
-    ? (s.currency as SalaryCurrency)
-    : "EUR";
   if (s.salary_min === null && s.salary_max === null) return null;
-  const parts = [s.salary_min, s.salary_max].map((v) => (v === null ? "…" : formatMoney(v, cur)));
-  return `${parts[0]}–${parts[1]} ${PERIOD[s.salary_period]}`;
+  const cur = (
+    (SALARY_CURRENCIES as readonly string[]).includes(s.currency) ? s.currency : "EUR"
+  ) as SalaryCurrency;
+  const [a, b] = [s.salary_min, s.salary_max].map((v) => (v === null ? "…" : formatMoney(v, cur)));
+  return `${a}–${b} ${PER[s.salary_period]}`;
 }
 
-function CareerPage() {
+type Panel = { mode: "view"; stepId: string } | { mode: "edit"; step: StepInput } | null;
+type FamilyDialog = { id?: string; name: string; description: string } | null;
+
+function CareerMapPage() {
   const qc = useQueryClient();
   const { orgId } = useOrg();
   const levelNames = useSkillLevelNames();
-  const [tab, chooseTab] = useRememberedTab("career-paths", ["paths", "people"] as const, "paths");
   const careersQ = useQuery({
     queryKey: careersKey(orgId),
     enabled: !!orgId,
@@ -123,6 +153,7 @@ function CareerPage() {
     queryFn: () => fetchOrgSkills(orgId!),
   });
   const c: Careers = careersQ.data ?? {
+    levels: [],
     tracks: [],
     steps: [],
     skills: [],
@@ -132,10 +163,11 @@ function CareerPage() {
   const people = peopleQ.data ?? [];
   const memberSkills = skillsQ.data ?? new Map<string, Skill[]>();
 
+  const [viewAs, setViewAs] = useState<string | null>(null);
+  const [panel, setPanel] = useState<Panel>(null);
+  const [family, setFamily] = useState<FamilyDialog>(null);
+  const [editingLevels, setEditingLevels] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [trackDialog, setTrackDialog] = useState<TrackDialog>(null);
-  const [stepDialog, setStepDialog] = useState<StepInput | null>(null);
-  const [moveDialog, setMoveDialog] = useState<MoveDialog>(null);
   const [confirm, setConfirm] = useState<{
     title: string;
     text: string;
@@ -161,14 +193,12 @@ function CareerPage() {
 
   if (!orgId) return null;
 
-  const stepsOf = (trackId: string) =>
-    c.steps.filter((s) => s.track_id === trackId).sort((a, b) => a.level - b.level);
-  const trackOf = (stepId: string) =>
-    c.tracks.find((t) => t.id === c.steps.find((s) => s.id === stepId)?.track_id);
-  const stepLabel = (stepId: string) => {
-    const s = c.steps.find((x) => x.id === stepId);
-    return s ? `${s.name} (${trackOf(stepId)?.name ?? "?"})` : "?";
-  };
+  const levels = mapLevels(c);
+  const levelName = (rank: number) => levels.find((l) => l.rank === rank)?.name ?? `Level ${rank}`;
+  const familyName = (id: string) => c.tracks.find((t) => t.id === id)?.name ?? "?";
+  const stepById = (id: string) => c.steps.find((s) => s.id === id);
+  const asks = (stepId: string) => c.skills.filter((k) => k.step_id === stepId);
+  const nameOf = (id: string) => people.find((p) => p.id === id)?.name ?? "Someone who left";
   const skillNames = [
     ...new Set([
       ...(orgSkillsQ.data ?? []).map((s) => s.name),
@@ -177,280 +207,270 @@ function CareerPage() {
     ]),
   ].sort((a, b) => a.localeCompare(b));
 
-  const newStep = (t: Track): StepInput => {
-    const top = stepsOf(t.id).at(-1);
-    return {
-      track_id: t.id,
-      name: "",
-      description: "",
-      level: (top?.level ?? 0) + 1,
-      salary_min: null,
-      salary_max: null,
-      currency: top?.currency ?? "EUR",
-      salary_period: top?.salary_period ?? "monthly",
-      // A new step up starts from what the step below it asks for.
-      skills: top
-        ? c.skills
-            .filter((k) => k.step_id === top.id)
-            .map(({ skill, min_level }) => ({ skill, min_level }))
-        : [],
-    };
+  // The person the map is coloured for.
+  const person = viewAs ? people.find((p) => p.id === viewAs) : undefined;
+  const personStep = viewAs
+    ? c.assignments.find((a) => a.person_id === viewAs)?.step_id
+    : undefined;
+  const options = personStep ? nextSteps(c, personStep) : { up: [], sideways: [] };
+  const optionIds = new Set([
+    ...options.up.map((s) => s.id),
+    ...options.sideways.map((x) => x.step.id),
+  ]);
+  const fitFor = (stepId: string): { r: Readiness; fit: Fit } | null => {
+    if (!viewAs) return null;
+    const r = readiness(memberSkills.get(viewAs) ?? [], asks(stepId));
+    return { r, fit: fitOf(r) };
   };
-  const editStep = (s: Step): StepInput => ({
+  const missingText = (r: Readiness) =>
+    r.missing
+      .map(
+        (x) =>
+          `${x.skill}: ${skillLevelLabel(x.need, levelNames)}${x.have ? ` (now ${skillLevelLabel(x.have, levelNames)})` : " (not yet)"}`,
+      )
+      .join(", ");
+
+  const blankRole = (trackId: string, level: number): StepInput => ({
+    track_id: trackId,
+    name: "",
+    description: "",
+    level,
+    salary_min: null,
+    salary_max: null,
+    currency: "EUR",
+    salary_period: "monthly",
+    // A new role starts from what the role below it in the family asks for.
+    skills: (() => {
+      const below = c.steps
+        .filter((s) => s.track_id === trackId && s.level < level)
+        .sort((a, b) => b.level - a.level)[0];
+      return below ? asks(below.id).map(({ skill, min_level }) => ({ skill, min_level })) : [];
+    })(),
+  });
+  const editRole = (s: Step): StepInput => ({
     ...s,
     description: s.description ?? "",
-    skills: c.skills
-      .filter((k) => k.step_id === s.id)
-      .map(({ skill, min_level }) => ({ skill, min_level })),
+    skills: asks(s.id).map(({ skill, min_level }) => ({ skill, min_level })),
   });
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="max-w-3xl">
           <h1 className="text-2xl font-bold">Career paths</h1>
           <p className="text-sm text-muted-foreground">
-            Paths up through the organisation, step by step, and the moves sideways between them.
-            Each step says what skills it asks for, so everyone can see how ready they are for the
-            next one. Everyone in the organisation can see and edit them.
+            The career map: job families side by side, levels from bottom to top. Moving up a column
+            is a promotion; an arrow is a move sideways to another family. Pick a person to see
+            where they are and which roles they are ready for.
           </p>
         </div>
-        <Button onClick={() => setTrackDialog({ name: "", description: "" })}>
-          <Plus className="mr-1 h-4 w-4" /> New path
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setEditingLevels(true)}>
+            <Layers className="mr-1 h-4 w-4" /> Levels
+          </Button>
+          <Button onClick={() => setFamily({ name: "", description: "" })}>
+            <Plus className="mr-1 h-4 w-4" /> Job family
+          </Button>
+        </div>
       </div>
 
-      <Tabs value={tab} onValueChange={chooseTab}>
-        <TabsList>
-          <TabsTrigger value="paths">Paths ({c.tracks.length})</TabsTrigger>
-          <TabsTrigger value="people">People ({c.assignments.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="paths">
-          {careersQ.isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : c.tracks.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
-              <RouteIcon className="mx-auto h-8 w-8 text-muted-foreground" />
-              <h2 className="mt-3 text-lg font-semibold">Start your first career path</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                For example "Software engineering": Junior developer, Developer, Senior developer,
-                Lead.
-              </p>
-              <Button
-                className="mt-4"
-                onClick={() => setTrackDialog({ name: "", description: "" })}
-              >
-                <Plus className="mr-1 h-4 w-4" /> New path
-              </Button>
-            </div>
+      {/* Whose view the map shows. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-border bg-card p-3">
+        <UserRound className="h-4 w-4 text-muted-foreground" />
+        <Select value={viewAs ?? NOBODY} onValueChange={(v) => setViewAs(v === NOBODY ? null : v)}>
+          <SelectTrigger className="h-9 w-64" aria-label="Show the map for">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NOBODY}>Everyone (no one picked)</SelectItem>
+            {people.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {person ? (
+          personStep ? (
+            <p className="min-w-0 flex-1 text-sm">
+              <strong>{person.name}</strong> is a {stepById(personStep)?.name} (
+              {familyName(stepById(personStep)!.track_id)}, {levelName(stepById(personStep)!.level)}
+              ).{" "}
+              {options.up.length + options.sideways.length === 0
+                ? "No moves up or sideways are set from here yet."
+                : "Their next options are outlined on the map."}
+            </p>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-3">
-              {c.tracks.map((t) => {
-                const steps = stepsOf(t.id);
-                return (
-                  <section
-                    key={t.id}
-                    className="flex w-80 shrink-0 flex-col gap-2 rounded-2xl border-2 border-border bg-card p-3"
-                  >
-                    <div className="flex items-start gap-1">
-                      <div className="min-w-0 flex-1">
-                        <h2 className="truncate font-semibold">{t.name}</h2>
-                        {t.description && (
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {t.description}
-                          </p>
-                        )}
-                      </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        aria-label={`Edit ${t.name}`}
-                        onClick={() =>
-                          setTrackDialog({
-                            id: t.id,
-                            name: t.name,
-                            description: t.description ?? "",
-                          })
-                        }
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => setStepDialog(newStep(t))}>
-                      <Plus className="mr-1 h-4 w-4" /> Add a step at the top
-                    </Button>
-                    {/* The ladder, its top step first. */}
-                    {[...steps].reverse().map((s, i) => {
-                      const asks = c.skills.filter((k) => k.step_id === s.id);
-                      const here = c.assignments.filter((a) => a.step_id === s.id);
-                      const out = c.moves.filter((m) => m.from_step === s.id);
-                      const range = salaryRange(s);
-                      return (
-                        <div key={s.id}>
-                          {i > 0 && (
-                            <ArrowUp
-                              aria-hidden
-                              className="mx-auto mb-1 h-4 w-4 text-muted-foreground"
-                            />
-                          )}
-                          <div className="space-y-1.5 rounded-xl border-2 border-border bg-background p-2.5">
-                            <div className="flex items-start gap-1">
-                              <span className="rounded bg-primary/15 px-1.5 text-[11px] font-semibold text-primary">
-                                {s.level}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setStepDialog(editStep(s))}
-                                className="min-w-0 flex-1 text-left text-sm font-semibold hover:underline"
-                              >
-                                {s.name}
-                              </button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6"
-                                aria-label={`Add a move sideways from ${s.name}`}
-                                title="Add a move sideways"
-                                onClick={() => setMoveDialog({ from: s, to: "", note: "" })}
-                              >
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                            {range && <p className="text-xs text-muted-foreground">{range}</p>}
-                            {asks.length > 0 && (
-                              <ul className="flex flex-wrap gap-1">
-                                {asks.map((k) => (
-                                  <li
-                                    key={k.skill}
-                                    className="rounded-full border border-border px-1.5 text-[11px]"
-                                  >
-                                    {k.skill} · {skillLevelLabel(k.min_level, levelNames)}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                            {here.length > 0 && (
-                              <p className="text-xs text-muted-foreground">
-                                {here
-                                  .map((a) => people.find((p) => p.id === a.person_id)?.name)
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </p>
-                            )}
-                            {out.map((m) => (
-                              <div
-                                key={m.id}
-                                className="flex items-center gap-1 rounded-lg bg-sky-100 px-1.5 py-0.5 text-[11px] text-sky-900 dark:bg-sky-950 dark:text-sky-100"
-                                title={m.note ?? undefined}
-                              >
-                                <ArrowRight className="h-3 w-3 shrink-0" />
-                                <span className="min-w-0 flex-1 truncate">
-                                  {stepLabel(m.to_step)}
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label={`Remove the move to ${stepLabel(m.to_step)}`}
-                                  disabled={busy}
-                                  onClick={() => run(() => deleteMove(m.id), "Removed the move")}
-                                  className="rounded p-0.5 hover:bg-sky-200 dark:hover:bg-sky-900"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {steps.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No steps yet.</p>
-                    )}
-                  </section>
-                );
-              })}
-            </div>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Going up a path is a vertical move; <ArrowRight className="inline h-3 w-3" /> adds a
-            horizontal move to a step on another path. Click a step to edit it.
+            <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+              {person.name} isn't in a role yet: click a role and choose{" "}
+              <em>Place {person.name} here</em>. Colours show how their skills fit every role.
+            </p>
+          )
+        ) : (
+          <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+            Pick a person to colour the map by how their skills fit each role.
           </p>
-        </TabsContent>
+        )}
+        {person && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            {(["ready", "close", "far"] as Fit[]).map((f) => (
+              <span key={f} className={cn("rounded-md border-2 px-1.5", FIT_STYLE[f])}>
+                {FIT_LABEL[f]}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <TabsContent value="people">
-          <PeopleTab
-            c={c}
-            people={people}
-            memberSkills={memberSkills}
-            levelNames={levelNames}
-            stepLabel={stepLabel}
-            busy={busy}
-            onAssign={(personId, stepId) =>
-              run(
-                () => assign(orgId, personId, stepId, new Date().toISOString().slice(0, 10)),
-                stepId ? "Saved the step" : "Taken off the paths",
-              )
-            }
-          />
-        </TabsContent>
-      </Tabs>
+      {careersQ.isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : c.tracks.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
+          <RouteIcon className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h2 className="mt-3 text-lg font-semibold">Start the career map</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add a job family, such as Engineering or Sales, then its roles level by level.
+          </p>
+          <Button className="mt-4" onClick={() => setFamily({ name: "", description: "" })}>
+            <Plus className="mr-1 h-4 w-4" /> Job family
+          </Button>
+        </div>
+      ) : (
+        <CareerMap
+          c={c}
+          levels={levels}
+          viewAs={viewAs}
+          personStep={personStep}
+          optionIds={optionIds}
+          fitFor={fitFor}
+          missingText={missingText}
+          onOpen={(id) => setPanel({ mode: "view", stepId: id })}
+          onAdd={(trackId, level) => setPanel({ mode: "edit", step: blankRole(trackId, level) })}
+          onEditFamily={(id) => {
+            const t = c.tracks.find((x) => x.id === id)!;
+            setFamily({ id, name: t.name, description: t.description ?? "" });
+          }}
+        />
+      )}
 
-      <Dialog open={!!trackDialog} onOpenChange={(o) => !o && setTrackDialog(null)}>
+      <Sheet open={!!panel} onOpenChange={(o) => !o && setPanel(null)}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          {panel?.mode === "view" && stepById(panel.stepId) && (
+            <RoleView
+              c={c}
+              step={stepById(panel.stepId)!}
+              levelName={levelName}
+              familyName={familyName}
+              levelNames={levelNames}
+              people={people}
+              nameOf={nameOf}
+              viewAs={viewAs}
+              fit={fitFor(panel.stepId)}
+              missingText={missingText}
+              busy={busy}
+              onEdit={(s) => setPanel({ mode: "edit", step: editRole(s) })}
+              onPlace={(personId, stepId) =>
+                run(
+                  () => assign(orgId, personId, stepId, new Date().toISOString().slice(0, 10)),
+                  stepId ? `Placed ${nameOf(personId)}` : `Took ${nameOf(personId)} off the map`,
+                )
+              }
+              onAddMove={(from, to) => run(() => addMove(orgId, from, to, ""), "Added the move")}
+              onDeleteMove={(id) => run(() => deleteMove(id), "Removed the move")}
+              onOpen={(id) => setPanel({ mode: "view", stepId: id })}
+            />
+          )}
+          {panel?.mode === "edit" && (
+            <RoleEditor
+              key={panel.step.id ?? `new-${panel.step.track_id}-${panel.step.level}`}
+              value={panel.step}
+              onChange={(step) => setPanel({ mode: "edit", step })}
+              c={c}
+              levels={levels}
+              skillNames={skillNames}
+              levelNames={levelNames}
+              busy={busy}
+              onCancel={() =>
+                setPanel(panel.step.id ? { mode: "view", stepId: panel.step.id } : null)
+              }
+              onSave={async (s) => {
+                const ok = await run(
+                  () => saveStep(orgId, s),
+                  s.id ? "Saved the role" : `Added ${s.name.trim()}`,
+                );
+                if (ok) setPanel(s.id ? { mode: "view", stepId: s.id } : null);
+              }}
+              onDelete={(s) =>
+                setConfirm({
+                  title: `Delete ${s.name}?`,
+                  text: "Its moves are deleted too, and the people in it are taken off the map. This can't be undone.",
+                  action: async () => {
+                    if (await run(() => deleteStep(s.id!), "Deleted the role")) setPanel(null);
+                  },
+                })
+              }
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={!!family} onOpenChange={(o) => !o && setFamily(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{trackDialog?.id ? "Edit the path" : "New career path"}</DialogTitle>
-            <DialogDescription>A ladder of steps, such as Software engineering.</DialogDescription>
+            <DialogTitle>{family?.id ? "Edit the job family" : "New job family"}</DialogTitle>
+            <DialogDescription>
+              A column of the map, such as Engineering or Sales.
+            </DialogDescription>
           </DialogHeader>
-          {trackDialog && (
+          {family && (
             <form
               className="space-y-4"
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (!trackDialog.name.trim()) return;
+                if (!family.name.trim()) return;
                 if (
                   await run(
-                    () => saveTrack(orgId, { ...trackDialog, position: c.tracks.length }),
-                    trackDialog.id ? "Saved the path" : `Added ${trackDialog.name.trim()}`,
+                    () => saveTrack(orgId, { ...family, position: c.tracks.length }),
+                    family.id ? "Saved the family" : `Added ${family.name.trim()}`,
                   )
                 )
-                  setTrackDialog(null);
+                  setFamily(null);
               }}
             >
               <div className="space-y-1.5">
-                <Label htmlFor="track-name">Name</Label>
+                <Label htmlFor="family-name">Name</Label>
                 <Input
-                  id="track-name"
+                  id="family-name"
                   autoFocus
                   maxLength={MAX_NAME}
-                  value={trackDialog.name}
-                  onChange={(e) => setTrackDialog({ ...trackDialog, name: e.target.value })}
+                  value={family.name}
+                  onChange={(e) => setFamily({ ...family, name: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="track-desc">Description (optional)</Label>
+                <Label htmlFor="family-desc">Description (optional)</Label>
                 <Textarea
-                  id="track-desc"
+                  id="family-desc"
                   rows={2}
                   maxLength={1000}
-                  value={trackDialog.description}
-                  onChange={(e) => setTrackDialog({ ...trackDialog, description: e.target.value })}
+                  value={family.description}
+                  onChange={(e) => setFamily({ ...family, description: e.target.value })}
                 />
               </div>
               <DialogFooter className="gap-2">
-                {trackDialog.id && (
+                {family.id && (
                   <Button
                     type="button"
                     variant="outline"
                     className="sm:mr-auto"
                     onClick={() => {
-                      const id = trackDialog.id!;
+                      const id = family.id!;
                       setConfirm({
-                        title: `Delete ${trackDialog.name}?`,
-                        text: "Its steps, their moves and who is on them are deleted too. This can't be undone.",
+                        title: `Delete ${family.name}?`,
+                        text: "Its roles and their moves are deleted too, and the people in them are taken off the map. This can't be undone.",
                         action: async () => {
-                          if (await run(() => deleteTrack(id), "Deleted the path"))
-                            setTrackDialog(null);
+                          if (await run(() => deleteTrack(id), "Deleted the family"))
+                            setFamily(null);
                         },
                       });
                     }}
@@ -458,10 +478,10 @@ function CareerPage() {
                     <Trash2 className="mr-1 h-4 w-4" /> Delete
                   </Button>
                 )}
-                <Button type="button" variant="outline" onClick={() => setTrackDialog(null)}>
+                <Button type="button" variant="outline" onClick={() => setFamily(null)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={busy || !trackDialog.name.trim()}>
+                <Button type="submit" disabled={busy || !family.name.trim()}>
                   Save
                 </Button>
               </DialogFooter>
@@ -470,111 +490,16 @@ function CareerPage() {
         </DialogContent>
       </Dialog>
 
-      <StepDialog
-        value={stepDialog}
-        onChange={setStepDialog}
-        skillNames={skillNames}
-        levelNames={levelNames}
+      <LevelsDialog
+        open={editingLevels}
+        onClose={() => setEditingLevels(false)}
+        levels={levels}
+        used={new Set(c.steps.map((s) => s.level))}
         busy={busy}
-        trackName={
-          stepDialog ? (c.tracks.find((t) => t.id === stepDialog.track_id)?.name ?? "") : ""
-        }
-        onSave={async (s) => {
-          if (
-            await run(() => saveStep(orgId, s), s.id ? "Saved the step" : `Added ${s.name.trim()}`)
-          )
-            setStepDialog(null);
+        onSave={async (next) => {
+          if (await run(() => saveLevels(orgId, next), "Saved the levels")) setEditingLevels(false);
         }}
-        onDelete={(s) =>
-          setConfirm({
-            title: `Delete ${s.name}?`,
-            text: "Its moves and who is on it are deleted too. This can't be undone.",
-            action: async () => {
-              if (await run(() => deleteStep(s.id!), "Deleted the step")) setStepDialog(null);
-            },
-          })
-        }
       />
-
-      <Dialog open={!!moveDialog} onOpenChange={(o) => !o && setMoveDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>A move sideways from {moveDialog?.from.name}</DialogTitle>
-            <DialogDescription>
-              A horizontal move: to a step on another path, such as from Senior developer to Product
-              manager.
-            </DialogDescription>
-          </DialogHeader>
-          {moveDialog && (
-            <form
-              className="space-y-4"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!moveDialog.to) return;
-                if (
-                  await run(
-                    () => addMove(orgId, moveDialog.from.id, moveDialog.to, moveDialog.note),
-                    "Added the move",
-                  )
-                )
-                  setMoveDialog(null);
-              }}
-            >
-              <div className="space-y-1.5">
-                <Label>To</Label>
-                <Select
-                  value={moveDialog.to}
-                  onValueChange={(v) => setMoveDialog({ ...moveDialog, to: v })}
-                >
-                  <SelectTrigger aria-label="To">
-                    <SelectValue placeholder="Pick a step" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {c.tracks.map((t) => {
-                      const options = stepsOf(t.id).filter(
-                        (s) =>
-                          s.id !== moveDialog.from.id &&
-                          !c.moves.some(
-                            (m) => m.from_step === moveDialog.from.id && m.to_step === s.id,
-                          ),
-                      );
-                      return options.length ? (
-                        <SelectGroup key={t.id}>
-                          <SelectLabel>{t.name}</SelectLabel>
-                          {options.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.level}. {s.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ) : null;
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="move-note">Note (optional)</Label>
-                <Textarea
-                  id="move-note"
-                  rows={2}
-                  maxLength={500}
-                  placeholder="e.g. Usually after a year in a product team"
-                  value={moveDialog.note}
-                  onChange={(e) => setMoveDialog({ ...moveDialog, note: e.target.value })}
-                />
-              </div>
-              <DialogFooter className="gap-2">
-                <Button type="button" variant="outline" onClick={() => setMoveDialog(null)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={busy || !moveDialog.to}>
-                  Add
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
@@ -592,390 +517,764 @@ function CareerPage() {
   );
 }
 
-function StepDialog({
-  value,
+// ---------------------------------------------------------------- the map
+
+function CareerMap({
+  c,
+  levels,
+  viewAs,
+  personStep,
+  optionIds,
+  fitFor,
+  missingText,
+  onOpen,
+  onAdd,
+  onEditFamily,
+}: {
+  c: Careers;
+  levels: { rank: number; name: string; description: string | null }[];
+  viewAs: string | null;
+  personStep: string | undefined;
+  optionIds: Set<string>;
+  fitFor: (stepId: string) => { r: Readiness; fit: Fit } | null;
+  missingText: (r: Readiness) => string;
+  onOpen: (stepId: string) => void;
+  onAdd: (trackId: string, level: number) => void;
+  onEditFamily: (trackId: string) => void;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const cards = useRef(new Map<string, HTMLElement>());
+  const [arrows, setArrows] = useState<{ id: string; d: string; strong: boolean }[]>([]);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  // Draws the sideways moves as arrows between the role cards.
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const draw = () => {
+      const box = el.getBoundingClientRect();
+      setSize({ w: el.scrollWidth, h: el.scrollHeight });
+      const out: { id: string; d: string; strong: boolean }[] = [];
+      for (const m of c.moves) {
+        const a = cards.current.get(m.from_step)?.getBoundingClientRect();
+        const b = cards.current.get(m.to_step)?.getBoundingClientRect();
+        if (!a || !b) continue;
+        const rightward = b.left >= a.right;
+        const x1 = (rightward ? a.right : a.left) - box.left + el.scrollLeft;
+        const x2 = (rightward ? b.left : b.right) - box.left + el.scrollLeft;
+        const y1 = a.top + a.height / 2 - box.top + el.scrollTop;
+        const y2 = b.top + b.height / 2 - box.top + el.scrollTop;
+        const bend = Math.max(30, Math.abs(x2 - x1) / 2);
+        const dir = rightward ? 1 : -1;
+        out.push({
+          id: m.id,
+          d: `M ${x1} ${y1} C ${x1 + dir * bend} ${y1}, ${x2 - dir * bend} ${y2}, ${x2} ${y2}`,
+          strong: !!personStep && m.from_step === personStep,
+        });
+      }
+      setArrows(out);
+    };
+    draw();
+    const ro = new ResizeObserver(draw);
+    ro.observe(el);
+    window.addEventListener("resize", draw);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", draw);
+    };
+  }, [c, personStep]);
+
+  const cols = `9rem repeat(${c.tracks.length}, minmax(13rem, 1fr))`;
+  return (
+    <div className="overflow-x-auto rounded-2xl border-2 border-border bg-card">
+      <div ref={wrap} className="relative min-w-max p-3">
+        <svg
+          aria-hidden
+          className="pointer-events-none absolute left-0 top-0 z-10"
+          width={size.w}
+          height={size.h}
+        >
+          <defs>
+            <marker
+              id="cm-arrow"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" className="fill-sky-500" />
+            </marker>
+          </defs>
+          {arrows.map((a) => (
+            <path
+              key={a.id}
+              d={a.d}
+              fill="none"
+              markerEnd="url(#cm-arrow)"
+              className={cn(
+                "stroke-sky-500",
+                a.strong ? "opacity-100" : viewAs ? "opacity-25" : "opacity-70",
+              )}
+              strokeWidth={a.strong ? 2.5 : 1.5}
+              strokeDasharray="5 4"
+            />
+          ))}
+        </svg>
+        <div className="grid gap-x-3" style={{ gridTemplateColumns: cols }}>
+          <div />
+          {c.tracks.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onEditFamily(t.id)}
+              title={t.description ?? "Edit the family"}
+              className="group mb-2 flex items-center justify-center gap-1 rounded-xl bg-muted/60 px-2 py-2 text-sm font-semibold hover:bg-muted"
+            >
+              <span className="truncate">{t.name}</span>
+              <Pencil className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-60" />
+            </button>
+          ))}
+          {levels.map((l, li) => (
+            <Row key={l.rank}>
+              <div
+                className={cn(
+                  "flex flex-col justify-center border-t border-border/70 py-3 pr-2",
+                  li === 0 && "border-t-0",
+                )}
+                title={l.description ?? undefined}
+              >
+                <span className="text-sm font-semibold">{l.name}</span>
+                <span className="text-[11px] text-muted-foreground">Level {l.rank}</span>
+              </div>
+              {c.tracks.map((t) => {
+                const roles = c.steps.filter((s) => s.track_id === t.id && s.level === l.rank);
+                return (
+                  <div
+                    key={t.id}
+                    className={cn(
+                      "group flex min-h-20 flex-col justify-center gap-1.5 border-t border-border/70 py-2",
+                      li === 0 && "border-t-0",
+                    )}
+                  >
+                    {roles.map((s) => {
+                      const f = fitFor(s.id);
+                      const here = c.assignments.filter((a) => a.step_id === s.id).length;
+                      const isNow = s.id === personStep;
+                      const isOption = optionIds.has(s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          ref={(el) => {
+                            if (el) cards.current.set(s.id, el);
+                            else cards.current.delete(s.id);
+                          }}
+                          type="button"
+                          onClick={() => onOpen(s.id)}
+                          title={
+                            f && !isNow
+                              ? `${FIT_LABEL[f.fit]}: ${f.r.met}/${f.r.total} skills${f.r.missing.length ? `. Missing ${missingText(f.r)}` : ""}`
+                              : undefined
+                          }
+                          className={cn(
+                            "relative z-20 rounded-xl border-2 px-2.5 py-1.5 text-left shadow-sm transition hover:-translate-y-px hover:shadow",
+                            isNow
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : f
+                                ? FIT_STYLE[f.fit]
+                                : "border-border bg-background",
+                            viewAs && personStep && !isNow && !isOption && "opacity-55",
+                            isOption && "ring-2 ring-sky-400 ring-offset-1 ring-offset-card",
+                          )}
+                        >
+                          <span className="flex items-center gap-1 text-sm font-semibold leading-tight">
+                            {isNow && <MapPin className="h-3.5 w-3.5 shrink-0" />}
+                            <span className="truncate">{s.name}</span>
+                          </span>
+                          <span
+                            className={cn(
+                              "mt-0.5 flex items-center gap-2 text-[11px]",
+                              isNow ? "text-primary-foreground/80" : "text-muted-foreground",
+                            )}
+                          >
+                            {f && !isNow ? (
+                              <span>
+                                {f.r.total ? `${f.r.met}/${f.r.total} skills` : "No skills asked"}
+                              </span>
+                            ) : (
+                              salaryRange(s) && <span className="truncate">{salaryRange(s)}</span>
+                            )}
+                            {here > 0 && (
+                              <span className="ml-auto flex shrink-0 items-center gap-0.5">
+                                <UserRound className="h-3 w-3" />
+                                {here}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => onAdd(t.id, l.rank)}
+                      aria-label={`Add a role in ${t.name} at ${l.name}`}
+                      className={cn(
+                        "rounded-lg border border-dashed border-border px-2 py-1 text-xs text-muted-foreground transition hover:border-primary hover:text-foreground",
+                        roles.length
+                          ? "opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
+                          : "",
+                      )}
+                    >
+                      <Plus className="mr-0.5 inline h-3 w-3" /> Role
+                    </button>
+                  </div>
+                );
+              })}
+            </Row>
+          ))}
+        </div>
+      </div>
+      <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <ArrowUp className="inline h-3 w-3" /> Up a column: promotion ·{" "}
+        <span className="text-sky-600 dark:text-sky-400">- - →</span> a move sideways to another
+        family · Click a role for its details, people and moves.
+      </p>
+    </div>
+  );
+}
+
+/** A grid row's cells, placed straight into the parent grid. */
+function Row({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}
+
+// ---------------------------------------------------------------- one role
+
+function RoleView({
+  c,
+  step,
+  levelName,
+  familyName,
+  levelNames,
+  people,
+  nameOf,
+  viewAs,
+  fit,
+  missingText,
+  busy,
+  onEdit,
+  onPlace,
+  onAddMove,
+  onDeleteMove,
+  onOpen,
+}: {
+  c: Careers;
+  step: Step;
+  levelName: (rank: number) => string;
+  familyName: (id: string) => string;
+  levelNames: string[];
+  people: { id: string; name: string }[];
+  nameOf: (id: string) => string;
+  viewAs: string | null;
+  fit: { r: Readiness; fit: Fit } | null;
+  missingText: (r: Readiness) => string;
+  busy: boolean;
+  onEdit: (s: Step) => void;
+  onPlace: (personId: string, stepId: string | null) => void;
+  onAddMove: (from: string, to: string) => void;
+  onDeleteMove: (id: string) => void;
+  onOpen: (stepId: string) => void;
+}) {
+  const asks = c.skills.filter((k) => k.step_id === step.id);
+  const here = c.assignments.filter((a) => a.step_id === step.id);
+  const out = c.moves.filter((m) => m.from_step === step.id);
+  const into = c.moves.filter((m) => m.to_step === step.id);
+  const label = (id: string) => {
+    const s = c.steps.find((x) => x.id === id);
+    return s ? `${s.name} · ${familyName(s.track_id)}` : "?";
+  };
+  const viewing = viewAs ? people.find((p) => p.id === viewAs) : undefined;
+  const viewingHere = here.some((a) => a.person_id === viewAs);
+  const notHere = people.filter((p) => !here.some((a) => a.person_id === p.id));
+  const targets = c.steps.filter((s) => s.id !== step.id && !out.some((m) => m.to_step === s.id));
+
+  return (
+    <div className="space-y-5">
+      <SheetHeader>
+        <SheetTitle className="flex items-center gap-2">
+          {step.name}
+          <Button size="sm" variant="outline" className="ml-auto" onClick={() => onEdit(step)}>
+            <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+          </Button>
+        </SheetTitle>
+        <SheetDescription>
+          {familyName(step.track_id)} · {levelName(step.level)}
+          {salaryRange(step) ? ` · ${salaryRange(step)}` : ""}
+        </SheetDescription>
+      </SheetHeader>
+      {step.description && <p className="whitespace-pre-line text-sm">{step.description}</p>}
+
+      {viewing && fit && !viewingHere && (
+        <section className={cn("space-y-2 rounded-xl border-2 p-3", FIT_STYLE[fit.fit])}>
+          <p className="text-sm font-semibold">
+            {viewing.name}: {FIT_LABEL[fit.fit].toLowerCase()} —{" "}
+            {fit.r.total ? `${fit.r.met} of ${fit.r.total} skills` : "this role asks for no skills"}
+          </p>
+          {fit.r.missing.length > 0 && (
+            <p className="text-sm text-muted-foreground">Missing: {missingText(fit.r)}.</p>
+          )}
+          <Button size="sm" disabled={busy} onClick={() => onPlace(viewing.id, step.id)}>
+            <MapPin className="mr-1 h-3.5 w-3.5" /> Place {viewing.name} here
+          </Button>
+        </section>
+      )}
+
+      <section className="space-y-1.5">
+        <h3 className="text-sm font-semibold">Skills it asks for</h3>
+        {asks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">None yet: add them with Edit.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-1.5">
+            {asks.map((k) => (
+              <li key={k.skill} className="rounded-full border-2 border-border px-2 py-0.5 text-xs">
+                {k.skill} · at least {skillLevelLabel(k.min_level, levelNames)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-1.5">
+        <h3 className="text-sm font-semibold">People in this role ({here.length})</h3>
+        <ul className="space-y-1">
+          {here.map((a) => (
+            <li key={a.person_id} className="flex items-center gap-2 text-sm">
+              <UserRound className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="flex-1">{nameOf(a.person_id)}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                disabled={busy}
+                aria-label={`Take ${nameOf(a.person_id)} off this role`}
+                onClick={() => onPlace(a.person_id, null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        {notHere.length > 0 && (
+          <Select value="" onValueChange={(v) => v && onPlace(v, step.id)}>
+            <SelectTrigger className="h-8" aria-label="Place someone in this role">
+              <SelectValue placeholder="Place someone in this role" />
+            </SelectTrigger>
+            <SelectContent>
+              {notHere.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                  {c.assignments.some((a) => a.person_id === p.id)
+                    ? " (moves from their role)"
+                    : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </section>
+
+      <section className="space-y-1.5">
+        <h3 className="text-sm font-semibold">Moves sideways from here</h3>
+        <ul className="space-y-1">
+          {out.map((m) => (
+            <li key={m.id} className="flex items-center gap-2 text-sm">
+              <ArrowRight className="h-3.5 w-3.5 text-sky-500" />
+              <button
+                type="button"
+                className="flex-1 text-left hover:underline"
+                onClick={() => onOpen(m.to_step)}
+              >
+                {label(m.to_step)}
+              </button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                disabled={busy}
+                aria-label={`Remove the move to ${label(m.to_step)}`}
+                onClick={() => onDeleteMove(m.id)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+          {out.length === 0 && <li className="text-sm text-muted-foreground">None yet.</li>}
+        </ul>
+        {targets.length > 0 && (
+          <Select value="" onValueChange={(v) => v && onAddMove(step.id, v)}>
+            <SelectTrigger className="h-8" aria-label="Add a move sideways">
+              <SelectValue placeholder="Add a move to another role" />
+            </SelectTrigger>
+            <SelectContent>
+              {c.tracks.map((t) => {
+                const list = targets
+                  .filter((s) => s.track_id === t.id)
+                  .sort((a, b) => a.level - b.level);
+                return list.length ? (
+                  <SelectGroup key={t.id}>
+                    <SelectLabel>{t.name}</SelectLabel>
+                    {list.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} ({levelName(s.level)})
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ) : null;
+              })}
+            </SelectContent>
+          </Select>
+        )}
+        {into.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            People come here sideways from:{" "}
+            {into.map((m, i) => (
+              <span key={m.id}>
+                {i > 0 && ", "}
+                <button
+                  type="button"
+                  className="hover:underline"
+                  onClick={() => onOpen(m.from_step)}
+                >
+                  {label(m.from_step)}
+                </button>
+              </span>
+            ))}
+            .
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function RoleEditor({
+  value: s,
   onChange,
+  c,
+  levels,
   skillNames,
   levelNames,
   busy,
-  trackName,
+  onCancel,
   onSave,
   onDelete,
 }: {
-  value: StepInput | null;
-  onChange: (s: StepInput | null) => void;
+  value: StepInput;
+  onChange: (s: StepInput) => void;
+  c: Careers;
+  levels: { rank: number; name: string }[];
   skillNames: string[];
   levelNames: string[];
   busy: boolean;
-  trackName: string;
+  onCancel: () => void;
   onSave: (s: StepInput) => void;
   onDelete: (s: StepInput) => void;
 }) {
-  const [min, setMin] = useState<string | null>(null);
-  const [max, setMax] = useState<string | null>(null);
-  const s = value;
-  if (!s) return null;
-  const minText = min ?? (s.salary_min === null ? "" : String(s.salary_min));
-  const maxText = max ?? (s.salary_max === null ? "" : String(s.salary_max));
-  const minN = parseNum(minText);
-  const maxN = parseNum(maxText);
+  const [min, setMin] = useState(s.salary_min === null ? "" : String(s.salary_min));
+  const [max, setMax] = useState(s.salary_max === null ? "" : String(s.salary_max));
+  const minN = parseNum(min);
+  const maxN = parseNum(max);
   const bad =
     Number.isNaN(minN) || Number.isNaN(maxN) || (minN !== null && maxN !== null && maxN < minN);
   const set = (patch: Partial<StepInput>) => onChange({ ...s, ...patch });
   const free = skillNames.filter((n) => !s.skills.some((k) => k.skill === n));
-  const close = () => {
-    setMin(null);
-    setMax(null);
-    onChange(null);
-  };
 
   return (
-    <Dialog open onOpenChange={(o) => !o && close()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{s.id ? "Edit the step" : "Add a step"}</DialogTitle>
-          <DialogDescription>On the path {trackName}.</DialogDescription>
-        </DialogHeader>
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!s.name.trim() || bad) return;
-            onSave({ ...s, salary_min: minN, salary_max: maxN });
-            setMin(null);
-            setMax(null);
-          }}
-        >
-          <div className="grid grid-cols-[1fr_5rem] gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="step-name">Name</Label>
-              <Input
-                id="step-name"
-                autoFocus
-                maxLength={MAX_NAME}
-                placeholder="e.g. Senior developer"
-                value={s.name}
-                onChange={(e) => set({ name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="step-level">Step</Label>
-              <Input
-                id="step-level"
-                type="number"
-                min={1}
-                max={100}
-                value={s.level}
-                onChange={(e) =>
-                  set({ level: Math.max(1, Math.min(100, Number(e.target.value) || 1)) })
-                }
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="step-desc">What the step means (optional)</Label>
-            <Textarea
-              id="step-desc"
-              rows={2}
-              className="min-h-[3.25rem]"
-              maxLength={MAX_DESCRIPTION}
-              value={s.description}
-              onChange={(e) => set({ description: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Salary range (optional)</Label>
-            <div className="grid grid-cols-[1fr_1fr_5.5rem_7rem] gap-2">
-              <Input
-                inputMode="decimal"
-                placeholder="From"
-                aria-label="Salary from"
-                value={minText}
-                onChange={(e) => setMin(e.target.value)}
-              />
-              <Input
-                inputMode="decimal"
-                placeholder="To"
-                aria-label="Salary to"
-                value={maxText}
-                onChange={(e) => setMax(e.target.value)}
-              />
-              <Select value={s.currency} onValueChange={(v) => set({ currency: v })}>
-                <SelectTrigger aria-label="Currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SALARY_CURRENCIES.map((cur) => (
-                    <SelectItem key={cur} value={cur}>
-                      {cur}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={s.salary_period}
-                onValueChange={(v) => set({ salary_period: v as SalaryPeriod })}
-              >
-                <SelectTrigger aria-label="Per">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">a month</SelectItem>
-                  <SelectItem value="annual">a year</SelectItem>
-                  <SelectItem value="hourly">an hour</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {bad && (
-              <p className="text-xs text-destructive">Use numbers, and "to" at least "from".</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Skills it asks for</Label>
-            <ul className="space-y-1.5">
-              {s.skills.map((k, i) => (
-                <li key={k.skill} className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm">{k.skill}</span>
-                  <Select
-                    value={String(k.min_level)}
-                    onValueChange={(v) =>
-                      set({
-                        skills: s.skills.map((x, j) =>
-                          j === i ? { ...x, min_level: Number(v) } : x,
-                        ),
-                      })
-                    }
-                  >
-                    <SelectTrigger className="w-36" aria-label={`Level of ${k.skill}`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {skillLevelValues(levelNames).map((l) => (
-                        <SelectItem key={l} value={String(l)}>
-                          at least {skillLevelLabel(l, levelNames)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={`Remove ${k.skill}`}
-                    onClick={() => set({ skills: s.skills.filter((_, j) => j !== i) })}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </li>
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!s.name.trim() || bad) return;
+        onSave({ ...s, salary_min: minN, salary_max: maxN });
+      }}
+    >
+      <SheetHeader>
+        <SheetTitle>{s.id ? `Edit ${s.name || "the role"}` : "New role"}</SheetTitle>
+        <SheetDescription>A role in a job family, at a level.</SheetDescription>
+      </SheetHeader>
+      <div className="space-y-1.5">
+        <Label htmlFor="role-name">Name</Label>
+        <Input
+          id="role-name"
+          autoFocus
+          maxLength={MAX_NAME}
+          placeholder="e.g. Senior developer"
+          value={s.name}
+          onChange={(e) => set({ name: e.target.value })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Job family</Label>
+          <Select value={s.track_id} onValueChange={(v) => set({ track_id: v })}>
+            <SelectTrigger aria-label="Job family">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {c.tracks.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
               ))}
-            </ul>
-            {free.length > 0 ? (
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Level</Label>
+          <Select value={String(s.level)} onValueChange={(v) => set({ level: Number(v) })}>
+            <SelectTrigger aria-label="Level">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {levels.map((l) => (
+                <SelectItem key={l.rank} value={String(l.rank)}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="role-desc">What the role means (optional)</Label>
+        <Textarea
+          id="role-desc"
+          rows={3}
+          maxLength={MAX_DESCRIPTION}
+          value={s.description}
+          onChange={(e) => set({ description: e.target.value })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Salary range (optional)</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            inputMode="decimal"
+            placeholder="From"
+            aria-label="Salary from"
+            value={min}
+            onChange={(e) => setMin(e.target.value)}
+          />
+          <Input
+            inputMode="decimal"
+            placeholder="To"
+            aria-label="Salary to"
+            value={max}
+            onChange={(e) => setMax(e.target.value)}
+          />
+          <Select value={s.currency} onValueChange={(v) => set({ currency: v })}>
+            <SelectTrigger aria-label="Currency">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SALARY_CURRENCIES.map((cur) => (
+                <SelectItem key={cur} value={cur}>
+                  {cur}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={s.salary_period}
+            onValueChange={(v) => set({ salary_period: v as SalaryPeriod })}
+          >
+            <SelectTrigger aria-label="Per">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">a month</SelectItem>
+              <SelectItem value="annual">a year</SelectItem>
+              <SelectItem value="hourly">an hour</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {bad && <p className="text-xs text-destructive">Use numbers, and "to" at least "from".</p>}
+      </div>
+      <div className="space-y-1.5">
+        <Label>Skills it asks for</Label>
+        <ul className="space-y-1.5">
+          {s.skills.map((k, i) => (
+            <li key={k.skill} className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-sm">{k.skill}</span>
               <Select
-                value=""
+                value={String(k.min_level)}
                 onValueChange={(v) =>
-                  v &&
                   set({
-                    skills: [...s.skills, { skill: v, min_level: Math.min(2, levelNames.length) }],
+                    skills: s.skills.map((x, j) => (j === i ? { ...x, min_level: Number(v) } : x)),
                   })
                 }
               >
-                <SelectTrigger aria-label="Add a skill">
-                  <SelectValue placeholder="Add a skill" />
+                <SelectTrigger className="h-8 w-40" aria-label={`Level of ${k.skill}`}>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {free.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
+                  {skillLevelValues(levelNames).map((l) => (
+                    <SelectItem key={l} value={String(l)}>
+                      at least {skillLevelLabel(l, levelNames)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {skillNames.length
-                  ? "Every skill is already listed."
-                  : "Add skills on the Skills page first."}
-              </p>
-            )}
-          </div>
-          <DialogFooter className="sticky -bottom-6 z-10 -mx-6 -mb-6 gap-2 border-t border-border bg-background px-6 py-3">
-            {s.id && (
               <Button
                 type="button"
-                variant="outline"
-                className="sm:mr-auto"
-                onClick={() => onDelete(s)}
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                aria-label={`Remove ${k.skill}`}
+                onClick={() => set({ skills: s.skills.filter((_, j) => j !== i) })}
               >
-                <Trash2 className="mr-1 h-4 w-4" /> Delete
+                <X className="h-4 w-4" />
               </Button>
-            )}
-            <Button type="button" variant="outline" onClick={close}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || !s.name.trim() || bad}>
-              {s.id ? "Save" : "Add"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PeopleTab({
-  c,
-  people,
-  memberSkills,
-  levelNames,
-  stepLabel,
-  busy,
-  onAssign,
-}: {
-  c: Careers;
-  people: { id: string; name: string }[];
-  memberSkills: Map<string, Skill[]>;
-  levelNames: string[];
-  stepLabel: (id: string) => string;
-  busy: boolean;
-  onAssign: (personId: string, stepId: string | null) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = people.filter((p) => words.every((w) => p.name.toLowerCase().includes(w)));
-  const asks = (stepId: string) => c.skills.filter((k) => k.step_id === stepId);
-  const missingText = (m: ReturnType<typeof readiness>["missing"]) =>
-    m
-      .map(
-        (x) =>
-          `${x.skill}: ${skillLevelLabel(x.need, levelNames)}${x.have ? ` (now ${skillLevelLabel(x.have, levelNames)})` : " (not yet)"}`,
-      )
-      .join("\n");
-
-  return (
-    <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="flex-1 text-sm text-muted-foreground">
-          Put each person on their step. Readiness compares their skills on the Skills page with
-          what the next step asks for; point at it to see what is missing.
-        </p>
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a person"
-          aria-label="Find a person"
-          className="h-8 sm:max-w-xs"
-        />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground">
-              <th className="py-2 pr-3 font-semibold">Person</th>
-              <th className="py-2 pr-3 font-semibold">Step now</th>
-              <th className="py-2 pr-3 font-semibold">Up the path</th>
-              <th className="py-2 font-semibold">Sideways</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((p) => {
-              const a = c.assignments.find((x) => x.person_id === p.id);
-              const has = memberSkills.get(p.id) ?? [];
-              const next = a ? nextSteps(c, a.step_id) : null;
-              const up = next?.up ? readiness(has, asks(next.up.id)) : null;
-              const side = (next?.sideways ?? [])
-                .map((x) => ({ ...x, r: readiness(has, asks(x.step.id)) }))
-                .sort((x, y) => y.r.pct - x.r.pct);
-              return (
-                <tr key={p.id} className="border-b border-border/60 align-top">
-                  <td className="py-2 pr-3 font-medium">{p.name}</td>
-                  <td className="py-2 pr-3">
-                    <Select
-                      value={a?.step_id ?? NONE}
-                      disabled={busy}
-                      onValueChange={(v) => onAssign(p.id, v === NONE ? null : v)}
-                    >
-                      <SelectTrigger className="h-8 w-56" aria-label={`Step of ${p.name}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>Not on a path</SelectItem>
-                        {c.tracks.map((t) => (
-                          <SelectGroup key={t.id}>
-                            <SelectLabel>{t.name}</SelectLabel>
-                            {c.steps
-                              .filter((s) => s.track_id === t.id)
-                              .sort((x, y) => x.level - y.level)
-                              .map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.level}. {s.name}
-                                </SelectItem>
-                              ))}
-                          </SelectGroup>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="py-2 pr-3">
-                    {!a ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : next?.up && up ? (
-                      <ReadinessBar label={next.up.name} r={up} missing={missingText(up.missing)} />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">At the top of the path</span>
-                    )}
-                  </td>
-                  <td className="py-2">
-                    {side.length === 0 ? (
-                      <span className="text-muted-foreground">—</span>
-                    ) : (
-                      <div className="space-y-1">
-                        {side.slice(0, 3).map((x) => (
-                          <ReadinessBar
-                            key={x.move.id}
-                            label={stepLabel(x.step.id)}
-                            r={x.r}
-                            missing={missingText(x.r.missing)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {people.length === 0 && (
-          <p className="py-4 text-sm text-muted-foreground">No one in People yet.</p>
+            </li>
+          ))}
+        </ul>
+        {free.length > 0 ? (
+          <Select
+            value=""
+            onValueChange={(v) =>
+              v &&
+              set({
+                skills: [...s.skills, { skill: v, min_level: Math.min(2, levelNames.length) }],
+              })
+            }
+          >
+            <SelectTrigger className="h-8" aria-label="Add a skill">
+              <SelectValue placeholder="Add a skill" />
+            </SelectTrigger>
+            <SelectContent>
+              {free.map((n) => (
+                <SelectItem key={n} value={n}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {skillNames.length
+              ? "Every skill is already listed."
+              : "Add skills on the Skills page first."}
+          </p>
         )}
       </div>
-    </div>
+      <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+        {s.id && (
+          <Button type="button" variant="outline" onClick={() => onDelete(s)}>
+            <Trash2 className="mr-1 h-4 w-4" /> Delete
+          </Button>
+        )}
+        <span className="flex-1" />
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={busy || !s.name.trim() || bad}>
+          {s.id ? "Save" : "Add"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
-function ReadinessBar({
-  label,
-  r,
-  missing,
+// ---------------------------------------------------------------- levels
+
+function LevelsDialog({
+  open,
+  onClose,
+  levels,
+  used,
+  busy,
+  onSave,
 }: {
-  label: string;
-  r: ReturnType<typeof readiness>;
-  missing: string;
+  open: boolean;
+  onClose: () => void;
+  levels: { rank: number; name: string; description: string | null }[];
+  used: Set<number>;
+  busy: boolean;
+  onSave: (next: { rank: number; name: string; description: string }[]) => void;
 }) {
+  const [draft, setDraft] = useState<{ rank: number; name: string; description: string }[]>([]);
+  useLayoutEffect(() => {
+    if (open)
+      setDraft(
+        [...levels]
+          .sort((a, b) => b.rank - a.rank)
+          .map((l) => ({ rank: l.rank, name: l.name, description: l.description ?? "" })),
+      );
+    // Filled each time the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  const top = draft.length ? Math.max(...draft.map((l) => l.rank)) : 0;
   return (
-    <div className="w-56" title={missing ? `Missing:\n${missing}` : "Has every skill it asks for"}>
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="truncate font-medium">{label}</span>
-        <span
-          className={cn(
-            "shrink-0 tabular-nums",
-            r.pct === 100 && "font-semibold text-emerald-700 dark:text-emerald-300",
-          )}
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Levels</DialogTitle>
+          <DialogDescription>
+            The map's rows, shared by every job family: the highest first. For example Junior, Mid,
+            Senior, Lead, Head.
+          </DialogDescription>
+        </DialogHeader>
+        <ul className="space-y-2">
+          {draft.map((l, i) => (
+            <li key={l.rank} className="flex items-center gap-2">
+              <span className="w-6 text-right text-xs tabular-nums text-muted-foreground">
+                {l.rank}
+              </span>
+              <Input
+                value={l.name}
+                maxLength={MAX_LEVEL_NAME}
+                aria-label={`Name of level ${l.rank}`}
+                onChange={(e) =>
+                  setDraft(draft.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                }
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={used.has(l.rank)}
+                title={
+                  used.has(l.rank) ? "Roles sit on this level; move them first" : "Remove the level"
+                }
+                aria-label={`Remove level ${l.rank}`}
+                onClick={() => setDraft(draft.filter((_, j) => j !== i))}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setDraft([{ rank: top + 1, name: "", description: "" }, ...draft])}
         >
-          {r.total ? `${r.met}/${r.total} skills` : "no skills asked"}
-        </span>
-      </div>
-      <Progress value={r.pct} className="mt-0.5 h-1.5" />
-    </div>
+          <Plus className="mr-1 h-4 w-4" /> A level at the top
+        </Button>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={busy || draft.some((l) => !l.name.trim())}
+            onClick={() => onSave(draft)}
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
