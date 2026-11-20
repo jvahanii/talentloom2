@@ -8,9 +8,7 @@ export const getRouter = () => {
   // so data queries fail — don't retry them, show the empty state right away.
   const designMode = isPreviewDesignMode();
   const queryClient = new QueryClient({
-    defaultOptions: designMode
-      ? { queries: { retry: false, staleTime: Infinity } }
-      : undefined,
+    defaultOptions: designMode ? { queries: { retry: false, staleTime: Infinity } } : undefined,
   });
 
   const router = createRouter({

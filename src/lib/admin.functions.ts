@@ -175,7 +175,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
     const profileById = new Map(profiles.map((p) => [p.id as string, p]));
     const label = (id: string | null | undefined) => {
       const p = id ? profileById.get(id) : null;
-      return p ? ((p.full_name as string | null) || (p.email as string | null) || null) : null;
+      return p ? (p.full_name as string | null) || (p.email as string | null) || null : null;
     };
     const orgName = new Map(orgs.map((o) => [o.id as string, o.name as string]));
     const titleName = new Map(titles.map((t) => [t.id as string, t.name as string]));
@@ -226,7 +226,8 @@ export const getAdminOverview = createServerFn({ method: "GET" })
           const mine = membershipsByUser.get(p.id) ?? [];
           const email = lower(p.email);
           const applications = applicationsByUser.get(p.id) ?? 0;
-          const surveysOwned = (surveysByOwner.get(p.id) ?? 0) + (email ? (coOwnedByEmail.get(email) ?? 0) : 0);
+          const surveysOwned =
+            (surveysByOwner.get(p.id) ?? 0) + (email ? (coOwnedByEmail.get(email) ?? 0) : 0);
           const surveysInvited = email ? (invitedByEmail.get(email) ?? 0) : 0;
           const types: AccountType[] = [];
           if (superuserIds.has(p.id)) types.push("Superuser");
@@ -256,7 +257,9 @@ export const getAdminOverview = createServerFn({ method: "GET" })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       surveys: surveys
         .map((s) => {
-          const linked = surveyOrgs.filter((x) => x.survey_id === s.id).map((x) => orgName.get(x.org_id) ?? "Unknown");
+          const linked = surveyOrgs
+            .filter((x) => x.survey_id === s.id)
+            .map((x) => orgName.get(x.org_id) ?? "Unknown");
           const coOwners = surveyOwners.filter((x) => x.survey_id === s.id).length;
           const shared = [
             s.all_orgs ? "All owner's organisations" : linked.join(", "),
@@ -387,7 +390,9 @@ export const adminRemoveAccount = createServerFn({ method: "POST" })
       .select("org_id, organization_titles(can_manage_titles), organizations(name)")
       .eq("user_id", data.id);
     if (memError) throw new Error(memError.message);
-    const managed = ((memberships ?? []) as Loose[]).filter((m) => m.organization_titles?.can_manage_titles);
+    const managed = ((memberships ?? []) as Loose[]).filter(
+      (m) => m.organization_titles?.can_manage_titles,
+    );
     const stuck: string[] = [];
     for (const m of managed) {
       const { data: others, error: othersError } = await admin
@@ -408,19 +413,34 @@ export const adminRemoveAccount = createServerFn({ method: "POST" })
 
     // As the signed-in superuser, for the same reason as deleting an organisation.
     must(
-      await (context.supabase as Loose).from("organization_members").delete().eq("user_id", data.id),
+      await (context.supabase as Loose)
+        .from("organization_members")
+        .delete()
+        .eq("user_id", data.id),
       "Memberships",
     );
     const { count: left } = await admin
       .from("organization_members")
       .select("user_id", { count: "exact", head: true })
       .eq("user_id", data.id);
-    if (left) throw new Error("Could not remove this person's organisation memberships. Nothing else was changed.");
-    must(await admin.from("candidate_board_prefs").delete().eq("user_id", data.id), "Job board preferences");
-    must(await admin.from("candidate_position_ratings").delete().eq("user_id", data.id), "Position ratings");
+    if (left)
+      throw new Error(
+        "Could not remove this person's organisation memberships. Nothing else was changed.",
+      );
+    must(
+      await admin.from("candidate_board_prefs").delete().eq("user_id", data.id),
+      "Job board preferences",
+    );
+    must(
+      await admin.from("candidate_position_ratings").delete().eq("user_id", data.id),
+      "Position ratings",
+    );
     must(await admin.from("candidate_documents").delete().eq("user_id", data.id), "Documents");
     must(
-      await admin.from("candidates").update({ applicant_user_id: null }).eq("applicant_user_id", data.id),
+      await admin
+        .from("candidates")
+        .update({ applicant_user_id: null })
+        .eq("applicant_user_id", data.id),
       "Applications",
     );
     // Deleting the profile also deletes the surveys they own (with their answers).
@@ -501,7 +521,11 @@ export const adminDeleteSurvey = createServerFn({ method: "POST" })
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const admin = await requireSuperuser(context);
-    const { data: gone, error } = await admin.from("pulse_surveys").delete().eq("id", data.id).select("id, title");
+    const { data: gone, error } = await admin
+      .from("pulse_surveys")
+      .delete()
+      .eq("id", data.id)
+      .select("id, title");
     if (error) throw new Error(error.message);
     if (!gone?.length) throw new Error("Survey not found");
     return { title: gone[0].title as string };

@@ -224,7 +224,8 @@ function AdminPage() {
       `Delete "${o.name}"?\n\nThis permanently deletes its ${o.candidates} candidates, ${o.positions} positions, pipeline history and invites, and removes its ${o.members} members from it. Surveys shared with it stay but lose the link.\n\nType the organisation's name to confirm:`,
     );
     if (typed === null) return;
-    if (typed.trim() !== o.name.trim()) return void toast.error("The name didn't match. Nothing was deleted.");
+    if (typed.trim() !== o.name.trim())
+      return void toast.error("The name didn't match. Nothing was deleted.");
     setBusyId(o.id);
     try {
       const { name } = await adminDeleteOrganisation({ data: { id: o.id } });
@@ -243,7 +244,8 @@ function AdminPage() {
       `Delete the survey "${sv.title}"?\n\nThis permanently deletes its ${sv.questions} questions, ${sv.rounds} rounds, ${sv.invited} invited people and ${sv.responses} answers.\n\nType the survey's title to confirm:`,
     );
     if (typed === null) return;
-    if (typed.trim() !== sv.title.trim()) return void toast.error("The title didn't match. Nothing was deleted.");
+    if (typed.trim() !== sv.title.trim())
+      return void toast.error("The title didn't match. Nothing was deleted.");
     setBusyId(sv.id);
     try {
       const { title } = await adminDeleteSurvey({ data: { id: sv.id } });
@@ -271,7 +273,10 @@ function AdminPage() {
     try {
       const r = await adminRemoveAccount({ data: { id: a.id } });
       if (r.signInRemoved) toast.success(`Removed ${r.email ?? "the account"}`);
-      else toast.warning(`Removed ${r.email ?? "the account"} from Talentloom, but its sign-in couldn't be deleted at Clerk. Delete it in the Clerk dashboard.`);
+      else
+        toast.warning(
+          `Removed ${r.email ?? "the account"} from Talentloom, but its sign-in couldn't be deleted at Clerk. Delete it in the Clerk dashboard.`,
+        );
       await qc.invalidateQueries({ queryKey: ["admin-overview"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not remove the account");
@@ -348,7 +353,17 @@ function AdminPage() {
 
         <TabsContent value="organisations">
           <Table
-            head={["Organisation", "Owners", "Members", "Candidates", "Positions", "Surveys", "Open invites", "Created", ""]}
+            head={[
+              "Organisation",
+              "Owners",
+              "Members",
+              "Candidates",
+              "Positions",
+              "Surveys",
+              "Open invites",
+              "Created",
+              "",
+            ]}
           >
             {organisations.map((o) => (
               <tr key={o.id}>
@@ -389,7 +404,18 @@ function AdminPage() {
         </TabsContent>
 
         <TabsContent value="accounts">
-          <Table head={["Name", "Email", "Type", "Organisations", "Applications", "Surveys", "Created", ""]}>
+          <Table
+            head={[
+              "Name",
+              "Email",
+              "Type",
+              "Organisations",
+              "Applications",
+              "Surveys",
+              "Created",
+              "",
+            ]}
+          >
             {accounts.map((a) => (
               <tr key={a.id}>
                 <td className={`${td} font-medium`}>{a.name || "—"}</td>
@@ -402,18 +428,25 @@ function AdminPage() {
                 <td className={td}>
                   <div className="flex flex-wrap gap-1">
                     {a.types.map((t) => (
-                      <span key={t} className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[t]}`}>
+                      <span
+                        key={t}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[t]}`}
+                      >
                         {t}
                       </span>
                     ))}
                   </div>
                   {a.types.includes("Recruiter") && !a.onboarded && (
-                    <span className="mt-1 block text-xs text-muted-foreground">onboarding not finished</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      onboarding not finished
+                    </span>
                   )}
                 </td>
                 <td className={td}>
                   {a.organisations.length
-                    ? a.organisations.map((o) => `${o.name}${o.title ? ` (${o.title})` : ""}`).join(", ")
+                    ? a.organisations
+                        .map((o) => `${o.name}${o.title ? ` (${o.title})` : ""}`)
+                        .join(", ")
                     : "—"}
                 </td>
                 <td className={td}>{a.applications}</td>
@@ -445,18 +478,36 @@ function AdminPage() {
             ))}
           </Table>
           <p className="mt-2 text-xs text-muted-foreground">
-            Types: <strong>Recruiter</strong> is a member of an organisation, <strong>Candidate</strong> has their own
-            applications or documents, <strong>Pulse user</strong> owns or is invited to a survey, and{" "}
-            <strong>New</strong> has none of these yet. An account can have several types.
+            Types: <strong>Recruiter</strong> is a member of an organisation,{" "}
+            <strong>Candidate</strong> has their own applications or documents,{" "}
+            <strong>Pulse user</strong> owns or is invited to a survey, and <strong>New</strong> has
+            none of these yet. An account can have several types.
           </p>
         </TabsContent>
 
         <TabsContent value="surveys">
-          <Table head={["Survey", "Type", "Owner", "Shared with", "Questions", "Rounds", "Invited", "Answers", "Created", ""]}>
+          <Table
+            head={[
+              "Survey",
+              "Type",
+              "Owner",
+              "Shared with",
+              "Questions",
+              "Rounds",
+              "Invited",
+              "Answers",
+              "Created",
+              "",
+            ]}
+          >
             {surveys.map((s) => (
               <tr key={s.id}>
                 <td className={`${td} font-medium`}>
-                  <Link to="/surveys/$id" params={{ id: s.id }} className="text-primary hover:underline">
+                  <Link
+                    to="/surveys/$id"
+                    params={{ id: s.id }}
+                    className="text-primary hover:underline"
+                  >
                     {s.title}
                   </Link>
                 </td>

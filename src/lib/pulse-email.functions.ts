@@ -31,13 +31,26 @@ export const sendPulseRoundEmails = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
     const { data: canManage } = await sb.rpc("can_manage_pulse_survey", { _survey: data.surveyId });
-    if (canManage !== true) throw new Error("Only the survey's owners and organisation admins can email invited people");
+    if (canManage !== true)
+      throw new Error("Only the survey's owners and organisation admins can email invited people");
 
     const [{ data: survey, error: surveyError }, { data: rounds }, { data: people }, { data: me }] =
       await Promise.all([
-        sb.from("pulse_surveys").select("id, title, description, kind, response_mode").eq("id", data.surveyId).maybeSingle(),
-        sb.from("pulse_rounds").select("id, number, closes_on, status").eq("survey_id", data.surveyId).eq("status", "open").order("number", { ascending: false }),
-        sb.from("pulse_respondents").select("id, name, email, token").eq("survey_id", data.surveyId),
+        sb
+          .from("pulse_surveys")
+          .select("id, title, description, kind, response_mode")
+          .eq("id", data.surveyId)
+          .maybeSingle(),
+        sb
+          .from("pulse_rounds")
+          .select("id, number, closes_on, status")
+          .eq("survey_id", data.surveyId)
+          .eq("status", "open")
+          .order("number", { ascending: false }),
+        sb
+          .from("pulse_respondents")
+          .select("id, name, email, token")
+          .eq("survey_id", data.surveyId),
         sb.from("profiles").select("full_name").eq("id", context.userId).maybeSingle(),
       ]);
     if (surveyError) throw new Error(surveyError.message);
@@ -49,9 +62,19 @@ export const sendPulseRoundEmails = createServerFn({ method: "POST" })
     const round = ((rounds ?? []) as Loose[]).find((r) => !r.closes_on || r.closes_on >= today);
     if (!round) throw new Error("There is no open round. Start a round first.");
 
-    const { data: responses } = await sb.from("pulse_responses").select("respondent_id").eq("round_id", round.id);
-    const answered = new Set(((responses ?? []) as Loose[]).map((r) => r.respondent_id as string | null));
-    const invited = (people ?? []) as { id: string; name: string | null; email: string | null; token: string }[];
+    const { data: responses } = await sb
+      .from("pulse_responses")
+      .select("respondent_id")
+      .eq("round_id", round.id);
+    const answered = new Set(
+      ((responses ?? []) as Loose[]).map((r) => r.respondent_id as string | null),
+    );
+    const invited = (people ?? []) as {
+      id: string;
+      name: string | null;
+      email: string | null;
+      token: string;
+    }[];
     const pending = invited.filter((p) => !answered.has(p.id));
     const recipients = pending.filter((p) => p.email?.trim());
 
@@ -73,7 +96,17 @@ export const sendPulseRoundEmails = createServerFn({ method: "POST" })
           ? `A reminder that round ${round.number} of "${title}" is still waiting for your answer.${closes}`
           : `${sender} invites you to answer round ${round.number} of "${title}".${closes}`;
       const note = "This link is personal to you, so please don't forward it.";
-      const text = [hello, "", lead, "", `Answer here: ${link}`, "", note, "", "Sent with Talentloom Pulse"].join("\n");
+      const text = [
+        hello,
+        "",
+        lead,
+        "",
+        `Answer here: ${link}`,
+        "",
+        note,
+        "",
+        "Sent with Talentloom Pulse",
+      ].join("\n");
       const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#2d2433;max-width:520px">
 <p>${escapeHtml(hello)}</p>
 <p>${escapeHtml(lead)}</p>

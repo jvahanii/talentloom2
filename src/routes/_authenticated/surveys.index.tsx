@@ -4,24 +4,47 @@ import { useState } from "react";
 import { Plus, ClipboardList, MessagesSquare, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import { listPulseSurveys, createPulseSurvey, listPulseAwaiting } from "@/lib/pulse.functions";
-import { OwnershipPicker, emptyOwnership, ownershipPayload, ownershipLabel } from "@/components/pulse/OwnershipPicker";
+import {
+  OwnershipPicker,
+  emptyOwnership,
+  ownershipPayload,
+  ownershipLabel,
+} from "@/components/pulse/OwnershipPicker";
 import { useOrg } from "@/lib/org";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/surveys/")({
   head: () => ({
     meta: [
       { title: "Pulse surveys — Talentloom" },
-      { name: "description", content: "Create surveys and structured interviews and compare every round with the last." },
+      {
+        name: "description",
+        content: "Create surveys and structured interviews and compare every round with the last.",
+      },
       { property: "og:title", content: "Pulse surveys — Talentloom" },
-      { property: "og:description", content: "Create surveys and structured interviews and compare every round with the last." },
+      {
+        property: "og:description",
+        content: "Create surveys and structured interviews and compare every round with the last.",
+      },
     ],
   }),
   component: PulseList,
@@ -30,17 +53,27 @@ export const Route = createFileRoute("/_authenticated/surveys/")({
 const STATUS: Record<string, string> = { draft: "Draft", open: "Open", closed: "Closed" };
 
 function PulseList() {
-  const { data, isLoading, refetch } = useQuery({ queryKey: ["pulse-list"], queryFn: () => listPulseSurveys() });
-  const { data: awaiting } = useQuery({ queryKey: ["pulse-awaiting"], queryFn: () => listPulseAwaiting() });
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["pulse-list"],
+    queryFn: () => listPulseSurveys(),
+  });
+  const { data: awaiting } = useQuery({
+    queryKey: ["pulse-awaiting"],
+    queryFn: () => listPulseAwaiting(),
+  });
   const [open, setOpen] = useState(false);
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Pulse</h1>
-          <p className="text-sm text-muted-foreground">Surveys and structured interviews with results compared round by round.</p>
+          <p className="text-sm text-muted-foreground">
+            Surveys and structured interviews with results compared round by round.
+          </p>
         </div>
-        <Button onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" /> New survey</Button>
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="mr-1 h-4 w-4" /> New survey
+        </Button>
       </div>
       {!!awaiting?.length && (
         <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4 shadow-[0_3px_0_var(--brand-butter)]">
@@ -82,13 +115,20 @@ function PulseList() {
               className="rounded-2xl border-2 border-border bg-card p-4 shadow-[0_3px_0_var(--brand-mint)] transition hover:-translate-y-0.5"
             >
               <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-                {s.kind === "interview" ? <MessagesSquare className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
+                {s.kind === "interview" ? (
+                  <MessagesSquare className="h-4 w-4" />
+                ) : (
+                  <ClipboardList className="h-4 w-4" />
+                )}
                 {s.kind === "interview" ? "Interview" : "Survey"} · {ownershipLabel(s)}
-                <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 font-medium">{STATUS[s.status]}</span>
+                <span className="ml-auto rounded-full bg-secondary px-2 py-0.5 font-medium">
+                  {STATUS[s.status]}
+                </span>
               </div>
               <p className="font-semibold">{s.title}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {s.roundCount} round{s.roundCount === 1 ? "" : "s"} · {s.latestResponses} answers in latest · updated {formatDate(s.updated_at)}
+                {s.roundCount} round{s.roundCount === 1 ? "" : "s"} · {s.latestResponses} answers in
+                latest · updated {formatDate(s.updated_at)}
               </p>
             </Link>
           ))}
@@ -99,7 +139,15 @@ function PulseList() {
   );
 }
 
-function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: () => void }) {
+function CreateDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCreated: () => void;
+}) {
   const { orgId } = useOrg();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
@@ -150,21 +198,43 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             }
           }}
         >
-          <DialogHeader><DialogTitle>New survey</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>New survey</DialogTitle>
+          </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="pt" required>Survey title</Label>
-            <Input id="pt" value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
+            <Label htmlFor="pt" required>
+              Survey title
+            </Label>
+            <Input
+              id="pt"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              maxLength={200}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="pd">Survey description</Label>
-            <Textarea id="pd" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+            <Textarea
+              id="pd"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={2000}
+            />
           </div>
-          <OwnershipPicker value={own} onChange={setOwn} emailText={emails} onEmailText={setEmails} />
+          <OwnershipPicker
+            value={own}
+            onChange={setOwn}
+            emailText={emails}
+            onEmailText={setEmails}
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Type</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="survey">Survey (people answer themselves)</SelectItem>
                   <SelectItem value="interview">Structured interview (you fill in)</SelectItem>
@@ -179,7 +249,9 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
                   disabled={shareWithOrg && mode === "link"}
                   onValueChange={(v) => setMode(v as typeof mode)}
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="link">Anyone with the link</SelectItem>
                     <SelectItem value="invite">Invited people only</SelectItem>
@@ -206,8 +278,12 @@ function CreateDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpen
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy || !title.trim()}>{busy ? "Creating…" : "Create"}</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy || !title.trim()}>
+              {busy ? "Creating…" : "Create"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
