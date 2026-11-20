@@ -139,7 +139,7 @@ const MEMBERS_SHOWN = 6;
  * Units shows and nothing on the page mentions roles, while roles, dotted
  * lines and the code stay as they are.
  */
-const REPORTING_LINES_ENABLED = true;
+const REPORTING_LINES_ENABLED = false;
 
 /** The chart last opened in this browser, per organisation. */
 function useRememberedChart(orgId: string | null) {
