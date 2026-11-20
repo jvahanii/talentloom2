@@ -20,6 +20,8 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VersionDotjsonRouteImport } from './routes/version[.]json'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedBonusSchemesRouteImport } from './routes/_authenticated/bonus-schemes'
+import { Route as AuthenticatedCareerPathsRouteImport } from './routes/_authenticated/career-paths'
 import { Route as AuthenticatedExportRouteImport } from './routes/_authenticated/export'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedOrgChartRouteImport } from './routes/_authenticated/org-chart'
@@ -98,6 +100,18 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBonusSchemesRoute =
+  AuthenticatedBonusSchemesRouteImport.update({
+    id: '/bonus-schemes',
+    path: '/bonus-schemes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCareerPathsRoute =
+  AuthenticatedCareerPathsRouteImport.update({
+    id: '/career-paths',
+    path: '/career-paths',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedExportRoute = AuthenticatedExportRouteImport.update({
   id: '/export',
   path: '/export',
@@ -230,6 +244,8 @@ export interface FileRoutesByFullPath {
   '/version.json': typeof VersionDotjsonRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/bonus-schemes': typeof AuthenticatedBonusSchemesRoute
+  '/career-paths': typeof AuthenticatedCareerPathsRoute
   '/export': typeof AuthenticatedExportRoute
   '/import': typeof AuthenticatedImportRoute
   '/org-chart': typeof AuthenticatedOrgChartRoute
@@ -264,6 +280,8 @@ export interface FileRoutesByTo {
   '/version.json': typeof VersionDotjsonRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/bonus-schemes': typeof AuthenticatedBonusSchemesRoute
+  '/career-paths': typeof AuthenticatedCareerPathsRoute
   '/export': typeof AuthenticatedExportRoute
   '/import': typeof AuthenticatedImportRoute
   '/org-chart': typeof AuthenticatedOrgChartRoute
@@ -301,6 +319,8 @@ export interface FileRoutesById {
   '/version.json': typeof VersionDotjsonRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/bonus-schemes': typeof AuthenticatedBonusSchemesRoute
+  '/_authenticated/career-paths': typeof AuthenticatedCareerPathsRoute
   '/_authenticated/export': typeof AuthenticatedExportRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/org-chart': typeof AuthenticatedOrgChartRoute
@@ -338,6 +358,8 @@ export interface FileRouteTypes {
     | '/version.json'
     | '/admin'
     | '/analytics'
+    | '/bonus-schemes'
+    | '/career-paths'
     | '/export'
     | '/import'
     | '/org-chart'
@@ -372,6 +394,8 @@ export interface FileRouteTypes {
     | '/version.json'
     | '/admin'
     | '/analytics'
+    | '/bonus-schemes'
+    | '/career-paths'
     | '/export'
     | '/import'
     | '/org-chart'
@@ -408,6 +432,8 @@ export interface FileRouteTypes {
     | '/version.json'
     | '/_authenticated/admin'
     | '/_authenticated/analytics'
+    | '/_authenticated/bonus-schemes'
+    | '/_authenticated/career-paths'
     | '/_authenticated/export'
     | '/_authenticated/import'
     | '/_authenticated/org-chart'
@@ -527,6 +553,20 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/bonus-schemes': {
+      id: '/_authenticated/bonus-schemes'
+      path: '/bonus-schemes'
+      fullPath: '/bonus-schemes'
+      preLoaderRoute: typeof AuthenticatedBonusSchemesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/career-paths': {
+      id: '/_authenticated/career-paths'
+      path: '/career-paths'
+      fullPath: '/career-paths'
+      preLoaderRoute: typeof AuthenticatedCareerPathsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/export': {
@@ -696,6 +736,8 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedBonusSchemesRoute: typeof AuthenticatedBonusSchemesRoute
+  AuthenticatedCareerPathsRoute: typeof AuthenticatedCareerPathsRoute
   AuthenticatedExportRoute: typeof AuthenticatedExportRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedOrgChartRoute: typeof AuthenticatedOrgChartRoute
@@ -716,6 +758,8 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedBonusSchemesRoute: AuthenticatedBonusSchemesRoute,
+  AuthenticatedCareerPathsRoute: AuthenticatedCareerPathsRoute,
   AuthenticatedExportRoute: AuthenticatedExportRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedOrgChartRoute: AuthenticatedOrgChartRoute,
