@@ -332,10 +332,13 @@ export type OrgUnit = {
 };
 export const orgUnitsKey = (orgId: string | null) => ["bonus-org-units", orgId];
 
-/** Every unit on every org chart of the organisation. */
+/**
+ * Every unit on the organisation's active org chart: only it is today's
+ * organisation. Past and planned charts never change who a bonus covers.
+ */
 export async function fetchOrgUnits(orgId: string): Promise<OrgUnit[]> {
   const [c, u, m] = await Promise.all([
-    db.from("org_charts").select("id, name").eq("org_id", orgId),
+    db.from("org_charts").select("id, name").eq("org_id", orgId).eq("status", "active"),
     db
       .from("org_chart_nodes")
       .select("id, chart_id, parent_id, role, person_id")
@@ -356,19 +359,21 @@ export async function fetchOrgUnits(orgId: string): Promise<OrgUnit[]> {
       role: string;
       person_id: string | null;
     }[]
-  ).map((x) => ({
-    id: x.id,
-    chart_id: x.chart_id,
-    chart: charts.get(x.chart_id) ?? "",
-    parent_id: x.parent_id,
-    name: x.role,
-    people: [
-      ...new Set([
-        ...(x.person_id ? [x.person_id] : []),
-        ...members.flatMap((y) => (y.node_id === x.id && y.person_id ? [y.person_id] : [])),
-      ]),
-    ],
-  }));
+  )
+    .filter((x) => charts.has(x.chart_id))
+    .map((x) => ({
+      id: x.id,
+      chart_id: x.chart_id,
+      chart: charts.get(x.chart_id) ?? "",
+      parent_id: x.parent_id,
+      name: x.role,
+      people: [
+        ...new Set([
+          ...(x.person_id ? [x.person_id] : []),
+          ...members.flatMap((y) => (y.node_id === x.id && y.person_id ? [y.person_id] : [])),
+        ]),
+      ],
+    }));
 }
 
 /**

@@ -72,6 +72,14 @@ import {
 } from "@/lib/salaries";
 import { BulkSalaryAdjustDialog } from "@/components/BulkSalaryAdjustDialog";
 import {
+  addSalaryPlans,
+  chartSalaryPlansKey,
+  copySalaryPlans,
+  deleteSalaryPlans,
+  fetchSalaryPlans,
+  makeSalaryPlansReal,
+} from "@/lib/chartSalaryPlans";
+import {
   buildBulkSalaryNote,
   computeBulkSalaryPlan,
   createInitialBulkDraft,
@@ -94,6 +102,10 @@ import {
   chartsKey,
   childrenOf,
   copyChart,
+  CHART_STATUS_LABELS,
+  setActiveChart,
+  setChartStatus,
+  type ChartStatus,
   copyIntoEmptyChart,
   createChart,
   deleteChart,
@@ -324,8 +336,14 @@ function OrgChartPage() {
     queryFn: () => fetchCharts(orgId!),
   });
   const list = charts.data ?? [];
+  // The chart last opened here, else the organisation's active one.
   const chart: OrgChart | null =
-    list.find((c) => c.id === remembered) ?? (list.length > 0 ? list[0]! : null);
+    list.find((c) => c.id === remembered) ??
+    list.find((c) => c.status === "active") ??
+    (list.length > 0 ? list[0]! : null);
+  const activeChart = list.find((c) => c.status === "active") ?? null;
+  /** Only the active chart is today's organisation; pay changed on another is a plan. */
+  const planning = !!chart && chart.status !== "active";
 
   const nodesQuery = useQuery({
     queryKey: chartNodesKey(chart?.id ?? null),
@@ -400,9 +418,27 @@ function OrgChartPage() {
     queryFn: () => fetchWorkSettings(orgId!),
   });
   const hoursPerYear = hoursPerYearFromWorkSettings(workSettingsQuery.data);
+  const plansQuery = useQuery({
+    queryKey: chartSalaryPlansKey(chart?.id ?? null),
+    enabled: planning,
+    queryFn: () => fetchSalaryPlans(chart!.id),
+  });
+  const plans = useMemo(
+    () => (planning ? (plansQuery.data ?? []) : []),
+    [planning, plansQuery.data],
+  );
+  // A chart that isn't active shows pay as it will be once its plans take effect.
+  const payAsOf = useMemo(
+    () =>
+      plans.reduce(
+        (latest, p) => (p.effective_date > latest ? p.effective_date : latest),
+        todayIsoDate(),
+      ),
+    [plans],
+  );
   const salariesByUser = useMemo(
-    () => groupSalariesByUser(salariesQuery.data ?? []),
-    [salariesQuery.data],
+    () => groupSalariesByUser([...(salariesQuery.data ?? []), ...plans]),
+    [salariesQuery.data, plans],
   );
   const showSalariesKey = orgId ? `talentloom:org-chart:show-salaries:${orgId}` : null;
   const [showCosts, setShowCosts] = useState(true);
@@ -483,8 +519,9 @@ function OrgChartPage() {
         salariesByUser,
         unitsOf,
         hoursPerYear,
+        today: payAsOf,
       }),
-    [bulkDraft, people, units, members, salariesByUser, unitsOf, hoursPerYear],
+    [bulkDraft, people, units, members, salariesByUser, unitsOf, hoursPerYear, payAsOf],
   );
 
   const isLivePreview =
@@ -502,7 +539,7 @@ function OrgChartPage() {
     }
     const nextMap = new Map<string, SalaryEntry[]>(salariesByUser);
     const deltaMap = new Map<string, CurrencyCost>();
-    const today = todayIsoDate();
+    const today = payAsOf;
     for (const row of bulkPlan.selectedRows) {
       const virtualEntry: SalaryEntry = {
         ...row.current,
@@ -521,11 +558,11 @@ function OrgChartPage() {
       });
     }
     return { effectiveSalariesByUser: nextMap, previewDeltaByUser: deltaMap };
-  }, [isLivePreview, salariesByUser, bulkPlan.selectedRows, hoursPerYear]);
+  }, [isLivePreview, salariesByUser, bulkPlan.selectedRows, hoursPerYear, payAsOf]);
 
   const personCost = (personId: string | null): CurrencyCost | null => {
     if (!personId) return null;
-    const cur = currentSalaryOf(effectiveSalariesByUser.get(personId) ?? []);
+    const cur = currentSalaryOf(effectiveSalariesByUser.get(personId) ?? [], payAsOf);
     return cur ? salaryToMonthlyAnnual(cur.entry, hoursPerYear) : null;
   };
 
@@ -703,6 +740,49 @@ function OrgChartPage() {
     const pctLabel = formatSignedPct(bulkPlan.signedPct);
     const effDate = bulkDraft.effectiveDate;
     setBulkSaving(true);
+    if (planning && chart) {
+      // Not today's organisation: keep the change as a plan on this chart only.
+      const c = chart;
+      try {
+        const planned = await addSalaryPlans(
+          orgId,
+          c.id,
+          bulkPlan.selectedRows.map((row) => ({
+            userId: row.userId,
+            input: {
+              amount: row.newAmount,
+              currency: row.current.currency,
+              period: row.current.period,
+              effective_date: effDate,
+              note,
+            },
+          })),
+        );
+        await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(c.id) });
+        setBulkDialogOpen(false);
+        setBulkPreviewActive(false);
+        toast.success(
+          `Planned ${pctLabel} pay change for ${count} ${count === 1 ? "person" : "people"} on ${c.name}. Real pay is unchanged.`,
+          {
+            duration: 10000,
+            action: {
+              label: "Undo",
+              onClick: () =>
+                void deleteSalaryPlans(planned.map((x) => x.id))
+                  .then(() => qc.invalidateQueries({ queryKey: chartSalaryPlansKey(c.id) }))
+                  .catch((err) =>
+                    toast.error(err instanceof Error ? err.message : "Could not undo the plan"),
+                  ),
+            },
+          },
+        );
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not save the planned pay change");
+      } finally {
+        setBulkSaving(false);
+      }
+      return;
+    }
     try {
       const created = await addSalaryEntriesBulk(
         orgId,
@@ -756,6 +836,7 @@ function OrgChartPage() {
   const [nameDialog, setNameDialog] = useState<NameDialog>(null);
   const [boxDialog, setBoxDialog] = useState<BoxDialog>(null);
   const [confirmChartDelete, setConfirmChartDelete] = useState(false);
+  const [confirmActivate, setConfirmActivate] = useState(false);
   const [confirmBoxDelete, setConfirmBoxDelete] = useState<ChartNode | null>(null);
   const [dragging, setDragging] = useState<DragData | null>(null);
   /** Where the dragged item would land, for the label on the dragged chip. */
@@ -922,9 +1003,21 @@ function OrgChartPage() {
     const ok = await run(
       async () => {
         if (nameDialog.mode === "rename" && chart) await renameChart(chart.id, name);
-        else if (nameDialog.mode === "copy" && chart)
-          remember((await copyChart(orgId, chart.id, name)).id);
-        else remember((await createChart(orgId, name)).id);
+        else if (nameDialog.mode === "copy" && chart) {
+          const copy = await copyChart(orgId, chart.id, name);
+          // A copy is a plan; it keeps the original's planned pay.
+          if (chart.status !== "active") await copySalaryPlans(orgId, chart.id, copy.id);
+          remember(copy.id);
+        } else
+          remember(
+            (
+              await createChart(
+                orgId,
+                name,
+                list.some((c) => c.status === "active") ? "planned" : "active",
+              )
+            ).id,
+          );
       },
       nameDialog.mode === "rename" ? "Renamed the chart" : `Created ${name}`,
     );
@@ -1403,6 +1496,9 @@ function OrgChartPage() {
               {list.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
+                  <span className="ml-1.5 text-xs text-muted-foreground">
+                    · {CHART_STATUS_LABELS[c.status]}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1468,6 +1564,29 @@ function OrgChartPage() {
           )}
         </div>
       </div>
+
+      {chart && (
+        <ChartStatusBar
+          chart={chart}
+          activeName={list.find((c) => c.status === "active")?.name ?? null}
+          planCount={plans.length}
+          canEditPay={canEditSalaries}
+          busy={busy}
+          onMakeActive={() => setConfirmActivate(true)}
+          onMark={(status) =>
+            void run(
+              () => setChartStatus(chart.id, status),
+              `Marked ${chart.name} as ${CHART_STATUS_LABELS[status].toLowerCase()}`,
+            )
+          }
+          onDiscardPlans={() =>
+            void run(async () => {
+              await deleteSalaryPlans(plans.map((p) => p.id));
+              await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(chart.id) });
+            }, "Discarded the planned pay changes")
+          }
+        />
+      )}
 
       {!charts.isLoading && list.length === 0 && (
         <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center">
@@ -1557,6 +1676,7 @@ function OrgChartPage() {
                       onEdit={() => setBulkDialogOpen(true)}
                       onDiscard={() => setBulkPreviewActive(false)}
                       onApply={() => void applyBulkAdjustment()}
+                      planning={planning}
                     />
                   )}
                   {showCosts && (
@@ -2064,6 +2184,7 @@ function OrgChartPage() {
           onClose={() => setBulkDialogOpen(false)}
           onPreviewOnChart={previewBulkOnChart}
           onApply={() => void applyBulkAdjustment()}
+          planningChart={planning ? (chart?.name ?? null) : null}
         />
       )}
 
@@ -2178,6 +2299,53 @@ function OrgChartPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmActivate} onOpenChange={setConfirmActivate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make “{chart?.name}” the active chart?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The active chart is today's organisation: bonus schemes count people by its units.
+              {activeChart && activeChart.id !== chart?.id
+                ? ` “${activeChart.name}” becomes a past chart.`
+                : ""}
+              {plans.length > 0 &&
+                ` This chart has ${plans.length} planned pay ${plans.length === 1 ? "change" : "changes"}: make ${plans.length === 1 ? "it" : "them"} real now, or keep ${plans.length === 1 ? "it" : "them"} as a plan only.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {plans.length > 0 && canEditSalaries && (
+              <AlertDialogAction
+                onClick={() => {
+                  if (!chart) return;
+                  const c = chart;
+                  void run(async () => {
+                    await setActiveChart(c.id);
+                    const n = await makeSalaryPlansReal(orgId, c.id);
+                    await qc.invalidateQueries({ queryKey: orgSalariesKey(orgId) });
+                    await qc.invalidateQueries({ queryKey: chartSalaryPlansKey(c.id) });
+                    toast.success(
+                      `${n} planned pay ${n === 1 ? "change is" : "changes are"} now real`,
+                    );
+                  }, `${c.name} is now the active chart`);
+                }}
+              >
+                Make active and make pay real
+              </AlertDialogAction>
+            )}
+            <AlertDialogAction
+              onClick={() => {
+                if (!chart) return;
+                const c = chart;
+                void run(() => setActiveChart(c.id), `${c.name} is now the active chart`);
+              }}
+            >
+              {plans.length > 0 ? "Make active only" : "Make active"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmChartDelete} onOpenChange={setConfirmChartDelete}>
         <AlertDialogContent>
@@ -3632,6 +3800,75 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   );
 }
 
+/**
+ * Under the chart picker: whether this chart is today's organisation (active)
+ * or a past or planned one, where pay changes are only a plan.
+ */
+function ChartStatusBar({
+  chart,
+  activeName,
+  planCount,
+  canEditPay,
+  busy,
+  onMakeActive,
+  onMark,
+  onDiscardPlans,
+}: {
+  chart: OrgChart;
+  activeName: string | null;
+  planCount: number;
+  canEditPay: boolean;
+  busy: boolean;
+  onMakeActive: () => void;
+  onMark: (status: "past" | "planned") => void;
+  onDiscardPlans: () => void;
+}) {
+  if (chart.status === "active") {
+    return (
+      <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground print:hidden">
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200">
+          Active
+        </span>
+        Today's organisation. Pay changes here are real, and bonus schemes count people by its
+        units.
+      </p>
+    );
+  }
+  const past = chart.status === "past";
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 print:hidden dark:border-amber-500/50 dark:bg-amber-500/10 dark:text-amber-100">
+      <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold dark:bg-amber-500/30">
+        {CHART_STATUS_LABELS[chart.status as ChartStatus]}
+      </span>
+      <span className="min-w-0 flex-1">
+        {past ? "A past structure" : "A plan for a future structure"}
+        {activeName ? `, not the active chart (“${activeName}”).` : ". No chart is active yet."} Pay
+        changes here are only a plan and don't change anyone's real pay or bonuses.
+        {planCount > 0 &&
+          ` ${planCount} planned pay ${planCount === 1 ? "change" : "changes"} on this chart.`}
+      </span>
+      <span className="flex flex-wrap gap-2">
+        {planCount > 0 && canEditPay && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={onDiscardPlans}>
+            Discard planned pay
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => onMark(past ? "planned" : "past")}
+        >
+          Mark as {past ? "planned" : "past"}
+        </Button>
+        <Button size="sm" disabled={busy} onClick={onMakeActive}>
+          Make active
+        </Button>
+      </span>
+    </div>
+  );
+}
+
 /** On an empty chart: fill it with a copy of another chart (units, roles and members). */
 function CopyFromChart({
   charts,
@@ -3914,6 +4151,7 @@ function LiveSalaryPreviewBanner({
   onEdit,
   onDiscard,
   onApply,
+  planning = false,
 }: {
   draft: BulkSalaryDraft;
   plan: BulkSalaryPlan;
@@ -3921,6 +4159,8 @@ function LiveSalaryPreviewBanner({
   onEdit: () => void;
   onDiscard: () => void;
   onApply: () => void;
+  /** On a chart that isn't active: applying only saves a plan. */
+  planning?: boolean;
 }) {
   const isIncrease = (plan.signedPct ?? 0) >= 0;
   return (
@@ -3948,7 +4188,11 @@ function LiveSalaryPreviewBanner({
           <p className="flex flex-wrap items-center gap-2 text-xs text-foreground">
             <span className="font-medium">Total impact:</span>
             <DeltaBadge deltas={plan.deltaTotals} />
-            <span className="text-foreground/75">Not saved yet — figures below are projected.</span>
+            <span className="text-foreground/75">
+              {planning
+                ? "Not saved yet. Saving keeps it as a plan on this chart; real pay doesn't change."
+                : "Not saved yet — figures below are projected."}
+            </span>
           </p>
         </div>
 
@@ -3961,7 +4205,13 @@ function LiveSalaryPreviewBanner({
           </Button>
           <Button type="button" size="sm" onClick={onApply} disabled={busy}>
             <Check className="mr-1 h-3.5 w-3.5" />
-            {busy ? "Applying…" : "Apply changes"}
+            {busy
+              ? planning
+                ? "Saving…"
+                : "Applying…"
+              : planning
+                ? "Save as plan"
+                : "Apply changes"}
           </Button>
         </div>
       </div>

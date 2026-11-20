@@ -52,6 +52,7 @@ export function BulkSalaryAdjustDialog({
   onClose,
   onPreviewOnChart,
   onApply,
+  planningChart = null,
 }: {
   open: boolean;
   draft: BulkSalaryDraft;
@@ -63,6 +64,8 @@ export function BulkSalaryAdjustDialog({
   onClose: () => void;
   onPreviewOnChart: () => void;
   onApply: () => void;
+  /** The chart's name when it isn't the active one: then the change is only a plan. */
+  planningChart?: string | null;
 }) {
   const today = todayIsoDate();
   const isFutureDate =
@@ -127,6 +130,12 @@ export function BulkSalaryAdjustDialog({
             Adjust salaries by a percentage (rounded to 2 decimals). Preview the impact here or live
             on the org chart before applying.
           </DialogDescription>
+          {planningChart && (
+            <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/50 dark:bg-amber-500/10 dark:text-amber-200">
+              “{planningChart}” isn't the active chart, so this is saved as a plan on it and doesn't
+              change anyone's real pay.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
@@ -587,8 +596,10 @@ export function BulkSalaryAdjustDialog({
             </Button>
             <Button type="button" size="sm" disabled={!canApply} onClick={onApply}>
               {busy
-                ? "Applying…"
-                : `Apply to ${plan.selectedRows.length} ${plan.selectedRows.length === 1 ? "person" : "people"}`}
+                ? planningChart
+                  ? "Saving…"
+                  : "Applying…"
+                : `${planningChart ? "Plan for" : "Apply to"} ${plan.selectedRows.length} ${plan.selectedRows.length === 1 ? "person" : "people"}`}
             </Button>
           </div>
         </DialogFooter>

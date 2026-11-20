@@ -19,7 +19,20 @@ import { supabase } from "@/integrations/supabase/app-client";
  * on org_charts and org_chart_nodes). The database keeps a box out from under
  * itself, and a deleted box's boxes below go to the top unless moved first.
  */
-export type OrgChart = { id: string; name: string; updated_at: string };
+/**
+ * active: today's organisation, one per organisation (the database allows
+ * no second one). past: how it used to be. planned: a plan for later.
+ * Only the active chart counts for real pay and bonuses; pay changed on the
+ * others is a plan kept with the chart (org_chart_salary_plans).
+ */
+export type ChartStatus = "active" | "past" | "planned";
+export type OrgChart = { id: string; name: string; updated_at: string; status: ChartStatus };
+
+export const CHART_STATUS_LABELS: Record<ChartStatus, string> = {
+  active: "Active",
+  past: "Past",
+  planned: "Planned",
+};
 /** role: a job someone holds; unit: an organisational unit such as Finance. */
 export type NodeKind = "role" | "unit";
 
@@ -52,21 +65,44 @@ export const chartNodesKey = (chartId: string | null) => ["org-chart-nodes", cha
 export async function fetchCharts(orgId: string): Promise<OrgChart[]> {
   const { data, error } = await db
     .from("org_charts")
-    .select("id, name, updated_at")
+    .select("id, name, updated_at, status")
     .eq("org_id", orgId)
     .order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []) as OrgChart[];
 }
 
-export async function createChart(orgId: string, name: string): Promise<OrgChart> {
+/** A new chart: planned, unless the organisation has no active chart yet. */
+export async function createChart(
+  orgId: string,
+  name: string,
+  status: ChartStatus = "planned",
+): Promise<OrgChart> {
   const { data, error } = await db
     .from("org_charts")
-    .insert({ org_id: orgId, name: name.trim().slice(0, MAX_CHART_NAME) })
-    .select("id, name, updated_at")
+    .insert({ org_id: orgId, name: name.trim().slice(0, MAX_CHART_NAME), status })
+    .select("id, name, updated_at, status")
     .single();
   if (error) throw error;
   return data as OrgChart;
+}
+
+/** Makes a chart the active one; the one active before becomes past. */
+export async function setActiveChart(id: string) {
+  const { error } = await db.rpc("set_active_org_chart", { _chart: id });
+  if (error) throw error;
+}
+
+/** Marks a chart that isn't active as past or planned. */
+export async function setChartStatus(id: string, status: "past" | "planned") {
+  const { data, error } = await db
+    .from("org_charts")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .neq("status", "active")
+    .select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Make another chart active first");
 }
 
 export async function renameChart(id: string, name: string) {

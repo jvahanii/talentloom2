@@ -1589,7 +1589,10 @@ function Coverage({
     if (t.kind === "company") return { icon: Building2, text: "Entire company" };
     if (t.kind === "unit") {
       const u = unitOf(t.ref_id);
-      return { icon: Network, text: u ? `${u.name} (${u.chart})` : "A unit no longer on a chart" };
+      return {
+        icon: Network,
+        text: u ? `${u.name} (${u.chart})` : "A unit not on the active org chart",
+      };
     }
     if (t.kind === "team")
       return { icon: UsersRound, text: teamOf(t.ref_id)?.name ?? "A deleted team" };
