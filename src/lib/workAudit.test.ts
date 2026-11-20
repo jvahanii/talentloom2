@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { deepStrictEqual, strictEqual } from "node:assert";
-import { describe as describeEntry, type AuditEntry, type Describe } from "./workAudit";
+import { describe as describeEntry, shortDate, type AuditEntry, type Describe } from "./workAudit";
 
 const d: Describe = {
   personName: (id) => ({ p1: "Mikko Uosukainen" })[id] ?? "someone",
@@ -46,7 +46,8 @@ test("an edited absence lists only what changed, in words", () => {
   strictEqual(x.verb, "changed");
   deepStrictEqual(x.lines, [
     { field: "Kind", from: "Annual leave", to: "Sick leave" },
-    { field: "To", from: "23 Dec 2026", to: "24 Dec 2026" },
+    // Dates show in the viewer's own format.
+    { field: "To", from: shortDate("2026-12-23"), to: shortDate("2026-12-24") },
   ]);
 });
 
