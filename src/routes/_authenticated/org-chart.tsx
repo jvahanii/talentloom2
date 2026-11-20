@@ -1086,7 +1086,8 @@ function OrgChartPage() {
                 <Label htmlFor="box-note">Note (optional)</Label>
                 <Textarea
                   id="box-note"
-                  rows={3}
+                  rows={2}
+                  className="min-h-[3.25rem]"
                   value={boxDialog.fields.note}
                   maxLength={MAX_NOTE}
                   onChange={(e) =>
@@ -1128,7 +1129,8 @@ function OrgChartPage() {
                   </div>
                 </>
               )}
-              <DialogFooter className="gap-2">
+              {/* Stays in view at the bottom of the dialog however long the form gets. */}
+              <DialogFooter className="sticky -bottom-6 z-10 -mx-6 -mb-6 gap-2 border-t border-border bg-background px-6 py-3">
                 {boxDialog.mode === "edit" && (
                   <Button
                     type="button"
@@ -1407,7 +1409,7 @@ function PeoplePicker({
           className="w-full bg-transparent text-sm outline-none"
         />
       </label>
-      <ul className="max-h-48 overflow-y-auto" aria-label="People">
+      <ul className="max-h-32 overflow-y-auto" aria-label="People">
         {loading && <li className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</li>}
         {!loading && matches.length === 0 && !(typed && onTyped) && (
           <li className="px-2 py-1.5 text-sm text-muted-foreground">
