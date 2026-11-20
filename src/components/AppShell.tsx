@@ -18,6 +18,7 @@ import {
   Sparkles,
   Network,
   Workflow,
+  CalendarDays,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -55,6 +56,7 @@ const NAV = [
   { to: "/people", label: "People", icon: UsersRound, org: true },
   { to: "/teams", label: "Teams", icon: Network, org: true },
   { to: "/org-chart", label: "Org chart", icon: Workflow, org: true },
+  { to: "/work-and-vacations", label: "Work and vacations", icon: CalendarDays, org: true },
   { to: "/skills", label: "Skills", icon: Sparkles, org: true },
   { to: "/surveys", label: "My surveys", icon: Activity, org: false },
   { to: "/import", label: "Import", icon: Upload, org: true },
