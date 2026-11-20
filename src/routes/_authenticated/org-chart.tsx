@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -371,6 +371,7 @@ function OrgChartPage() {
     "chart",
   );
   const linkedSection = Route.useSearch().section;
+  const navigateHere = useNavigate({ from: "/org-chart" });
   useEffect(() => {
     if (linkedSection === "teams") chooseSection("teams");
   }, [linkedSection, chooseSection]);
@@ -1506,6 +1507,8 @@ function OrgChartPage() {
       <Tabs
         value={onTeams ? "teams" : tab}
         onValueChange={(v) => {
+          // A link to Teams (?section=teams) has done its job once a tab is picked.
+          if (linkedSection) void navigateHere({ search: {}, replace: true });
           if (v === "teams") chooseSection("teams");
           else {
             chooseSection("chart");
