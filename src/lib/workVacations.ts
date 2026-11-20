@@ -218,19 +218,91 @@ export type LeaveKind = {
   vacation?: boolean;
   /** Tailwind classes for its chip. */
   tone: string;
+  /** The organisation's own kind: its id and colour name, and whether it was removed. */
+  custom?: { id: string; toneName: ToneName; archived: boolean };
 };
 
-const TONES = {
-  vacation:
+/** Chip colours by name; the organisation's own kinds pick one. */
+export const TONE_CLASSES = {
+  green:
     "bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-100 dark:border-emerald-800",
-  unpaid:
+  amber:
     "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800",
-  sick: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950 dark:text-rose-100 dark:border-rose-800",
-  family:
-    "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950 dark:text-sky-100 dark:border-sky-800",
-  other:
+  rose: "bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950 dark:text-rose-100 dark:border-rose-800",
+  sky: "bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950 dark:text-sky-100 dark:border-sky-800",
+  violet:
     "bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-950 dark:text-violet-100 dark:border-violet-800",
+  teal: "bg-teal-100 text-teal-900 border-teal-300 dark:bg-teal-950 dark:text-teal-100 dark:border-teal-800",
+  orange:
+    "bg-orange-100 text-orange-900 border-orange-300 dark:bg-orange-950 dark:text-orange-100 dark:border-orange-800",
+  slate:
+    "bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600",
+} as const;
+export type ToneName = keyof typeof TONE_CLASSES;
+export const TONE_NAMES = Object.keys(TONE_CLASSES) as ToneName[];
+
+const TONES = {
+  vacation: TONE_CLASSES.green,
+  unpaid: TONE_CLASSES.amber,
+  sick: TONE_CLASSES.rose,
+  family: TONE_CLASSES.sky,
+  other: TONE_CLASSES.violet,
 };
+
+// ---------------------------------------------------------------- own kinds
+
+export const customKindsKey = (orgId: string | null) => ["work-leave-kinds", orgId];
+
+export const MAX_KIND_LABEL = 80;
+
+/** The organisation's own kinds of absence, removed ones included (absences keep their name). */
+export async function fetchCustomKinds(orgId: string): Promise<LeaveKind[]> {
+  const { data, error } = await db
+    .from("work_leave_kinds")
+    .select("id, key, label, vacation, tone, archived")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (
+    (data ?? []) as {
+      id: string;
+      key: string;
+      label: string;
+      vacation: boolean;
+      tone: ToneName;
+      archived: boolean;
+    }[]
+  ).map((k) => ({
+    key: k.key,
+    label: k.label,
+    vacation: k.vacation,
+    tone: TONE_CLASSES[k.tone] ?? TONE_CLASSES.teal,
+    custom: { id: k.id, toneName: k.tone, archived: k.archived },
+  }));
+}
+
+export type KindFields = { label: string; vacation: boolean; tone: ToneName };
+
+export async function addCustomKind(orgId: string, k: KindFields) {
+  const { error } = await db.from("work_leave_kinds").insert({
+    org_id: orgId,
+    label: k.label.trim().slice(0, MAX_KIND_LABEL),
+    vacation: k.vacation,
+    tone: k.tone,
+  });
+  if (error) throw error;
+}
+
+export async function updateCustomKind(
+  id: string,
+  change: Partial<KindFields> & { archived?: boolean },
+) {
+  const row: Record<string, unknown> = { ...change };
+  if (change.label !== undefined) row.label = change.label.trim().slice(0, MAX_KIND_LABEL);
+  const { data, error } = await db.from("work_leave_kinds").update(row).eq("id", id).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("That kind of absence was not found");
+}
 
 /** For everyone, whatever their country. */
 export const GENERAL_LEAVE: LeaveKind[] = [
@@ -288,8 +360,9 @@ const ALL_LEAVE = [
 const OTHER = GENERAL_LEAVE.find((k) => k.key === "other")!;
 
 /** A kind of absence by its key; unknown keys read as "Other absence". */
-export const leaveKind = (key: string): LeaveKind =>
-  ALL_LEAVE.find((k) => k.key === key) ?? { ...OTHER, key, label: key };
+export const leaveKind = (key: string, own: LeaveKind[] = []): LeaveKind =>
+  ALL_LEAVE.find((k) => k.key === key) ??
+  own.find((k) => k.key === key) ?? { ...OTHER, key, label: "Other absence" };
 
 // ---------------------------------------------------------------- dates
 
@@ -452,14 +525,16 @@ export function vacationBalance(args: {
   calendar: WorkCalendar;
   country: string;
   workDays: number[];
+  /** The organisation's own kinds, some of which may use vacation days. */
+  ownKinds?: LeaveKind[];
 }): VacationBalance {
-  const { today, settings, person, absences, calendar, country, workDays } = args;
+  const { today, settings, person, absences, calendar, country, workDays, ownKinds } = args;
   const period = vacationYear(today, settings.accrual_year_start);
   const months = fullMonths(period.start, today);
   const rate = person?.accrual_per_month ?? settings.accrual_per_month;
   const earnedCalculated = Math.round(months * rate * 10) / 10;
   const usedCalculated = absences
-    .filter((a) => leaveKind(a.kind).vacation)
+    .filter((a) => leaveKind(a.kind, ownKinds).vacation)
     .reduce((sum, a) => {
       const from = a.start_date > period.start ? a.start_date : period.start;
       const to = a.end_date < period.end ? a.end_date : period.end;

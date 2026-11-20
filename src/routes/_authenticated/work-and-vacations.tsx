@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   Pencil,
@@ -23,11 +24,14 @@ import {
   MAX_ABSENCE_NOTE,
   WEEKDAYS,
   absencesKey,
+  addCustomKind,
   addDayOff,
+  customKindsKey,
   daysOffKey,
   deleteAbsence,
   deleteDayOff,
   fetchAbsences,
+  fetchCustomKinds,
   fetchDaysOff,
   fetchPersonSettings,
   fetchWorkSettings,
@@ -45,13 +49,20 @@ import {
   saveWorkSettings,
   statutoryLeaveFor,
   todayIso,
+  TONE_CLASSES,
+  TONE_NAMES,
+  MAX_KIND_LABEL,
+  updateCustomKind,
   vacationBalance,
   vacationYear,
   workSettingsKey,
   type Absence,
   type DayOff,
+  type KindFields,
+  type LeaveKind,
   type NationalHoliday,
   type PersonSettings,
+  type ToneName,
   type WorkCalendar,
   type WorkSettings,
 } from "@/lib/workVacations";
@@ -120,6 +131,9 @@ type Ctx = {
   workDaysOf: (personId: string) => number[];
   countryName: (code: string) => string;
   balanceOf: (personId: string, leaving?: string) => ReturnType<typeof vacationBalance>;
+  /** The organisation's own kinds of absence, removed ones included. */
+  ownKinds: LeaveKind[];
+  kindOf: (key: string) => LeaveKind;
 };
 
 /** "2,5" or "2.5" as a number; empty as null. */
@@ -137,7 +151,7 @@ function WorkPage() {
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "your organisation";
   const [tab, chooseTab] = useRememberedTab(
     "work-and-vacations",
-    ["calendar", "vacations", "holidays", "time"] as const,
+    ["calendar", "vacations", "holidays", "kinds", "time"] as const,
     "calendar",
   );
   const today = todayIso();
@@ -168,6 +182,13 @@ function WorkPage() {
     enabled: !!orgId,
     queryFn: () => fetchAbsences(orgId!),
   });
+  const kindsQ = useQuery({
+    queryKey: customKindsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchCustomKinds(orgId!),
+  });
+  const ownKinds = kindsQ.data ?? [];
+  const kindOf = (key: string) => leaveKind(key, ownKinds);
   const peopleQ = useQuery({
     queryKey: orgPeopleKey(orgId),
     enabled: !!orgId,
@@ -228,6 +249,7 @@ function WorkPage() {
       calendar,
       country: countryOf(pid),
       workDays: workDaysOf(pid),
+      ownKinds,
     });
 
   const [busy, setBusy] = useState(false);
@@ -247,7 +269,7 @@ function WorkPage() {
       return false;
     } finally {
       await Promise.all(
-        [workSettingsKey, daysOffKey, personSettingsKey, absencesKey].map((k) =>
+        [workSettingsKey, daysOffKey, personSettingsKey, absencesKey, customKindsKey].map((k) =>
           qc.invalidateQueries({ queryKey: k(orgId) }),
         ),
       );
@@ -267,6 +289,8 @@ function WorkPage() {
     workDaysOf,
     countryName,
     balanceOf,
+    ownKinds,
+    kindOf,
   };
 
   const addAbsence = (date?: string) =>
@@ -301,6 +325,7 @@ function WorkPage() {
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="vacations">Vacation days</TabsTrigger>
           <TabsTrigger value="holidays">Holidays and days off</TabsTrigger>
+          <TabsTrigger value="kinds">Kinds of absence</TabsTrigger>
           <TabsTrigger value="time">Working time</TabsTrigger>
         </TabsList>
 
@@ -336,6 +361,15 @@ function WorkPage() {
                 for (const id of ids) await deleteDayOff(id);
               }, ok)
             }
+          />
+        </TabsContent>
+
+        <TabsContent value="kinds">
+          <KindsTab
+            ctx={ctx}
+            busy={busy}
+            onAdd={(k) => run(() => addCustomKind(orgId, k), `Added ${k.label.trim()}`)}
+            onChange={(id, change, ok) => run(() => updateCustomKind(id, change), ok)}
           />
         </TabsContent>
 
@@ -404,7 +438,7 @@ function CalendarTab({
   const monthKey = `${y}-${String(m).padStart(2, "0")}`;
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = absences.filter((a) => {
-    const text = `${ctx.nameOf(a.person_id)} ${leaveKind(a.kind).label}`.toLowerCase();
+    const text = `${ctx.nameOf(a.person_id)} ${ctx.kindOf(a.kind).label}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
   const on = (iso: string) => shown.filter((a) => a.start_date <= iso && a.end_date >= iso);
@@ -424,7 +458,7 @@ function CalendarTab({
   const inMonth = grid.filter((d) => d.startsWith(monthKey));
   const kindsShown = [
     ...new Map(
-      inMonth.flatMap(on).map((a) => [leaveKind(a.kind).key, leaveKind(a.kind)] as const),
+      inMonth.flatMap(on).map((a) => [ctx.kindOf(a.kind).key, ctx.kindOf(a.kind)] as const),
     ).values(),
   ];
 
@@ -616,7 +650,7 @@ function CalendarTab({
 }
 
 function AbsenceChip({ a, ctx, onEdit }: { a: Absence; ctx: Ctx; onEdit: (a: Absence) => void }) {
-  const k = leaveKind(a.kind);
+  const k = ctx.kindOf(a.kind);
   const name = ctx.nameOf(a.person_id);
   return (
     <button
@@ -656,7 +690,8 @@ function AbsenceDialog({
   const e = editing;
   const country = e?.person_id ? ctx.countryOf(e.person_id) : ctx.settings.countries[0]!;
   const statutory = statutoryLeaveFor(country);
-  const listed = [...GENERAL_LEAVE, ...statutory].some((k) => k.key === e?.kind);
+  const own = ctx.ownKinds.filter((k) => !k.custom?.archived);
+  const listed = [...GENERAL_LEAVE, ...own, ...statutory].some((k) => k.key === e?.kind);
   const set = (patch: Partial<NonNullable<Editing>>) =>
     setEditing((d) => (d ? { ...d, ...patch } : d));
   const valid =
@@ -665,7 +700,7 @@ function AbsenceDialog({
     valid && e
       ? ctx.calendar.workingDays(e.start_date, e.end_date, country, ctx.workDaysOf(e.person_id))
       : 0;
-  const vacation = !!e && !!leaveKind(e.kind).vacation;
+  const vacation = !!e && !!ctx.kindOf(e.kind).vacation;
   const balance = valid && e && vacation ? ctx.balanceOf(e.person_id, e.id) : null;
 
   return (
@@ -715,6 +750,16 @@ function AbsenceDialog({
                       </SelectItem>
                     ))}
                   </SelectGroup>
+                  {own.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>Our own</SelectLabel>
+                      {own.map((k) => (
+                        <SelectItem key={k.key} value={k.key}>
+                          {k.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                   <SelectGroup>
                     <SelectLabel>Statutory leave — {ctx.countryName(country)}</SelectLabel>
                     {statutory.map((k) => (
@@ -723,7 +768,7 @@ function AbsenceDialog({
                       </SelectItem>
                     ))}
                   </SelectGroup>
-                  {!listed && <SelectItem value={e.kind}>{leaveKind(e.kind).label}</SelectItem>}
+                  {!listed && <SelectItem value={e.kind}>{ctx.kindOf(e.kind).label}</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -1497,5 +1542,241 @@ function WorkTimeTab({
         Save
       </Button>
     </form>
+  );
+}
+
+// ---------------------------------------------------------------- kinds of absence
+
+function ToneSwatches({ value, onChange }: { value: ToneName; onChange: (t: ToneName) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Colour">
+      {TONE_NAMES.map((t) => (
+        <button
+          key={t}
+          type="button"
+          role="radio"
+          aria-checked={value === t}
+          aria-label={t}
+          title={t}
+          onClick={() => onChange(t)}
+          className={cn(
+            "flex h-6 w-6 items-center justify-center rounded-full border-2",
+            TONE_CLASSES[t],
+            value === t && "ring-2 ring-primary ring-offset-1 ring-offset-card",
+          )}
+        >
+          {value === t && <Check className="h-3 w-3" />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function KindsTab({
+  ctx,
+  busy,
+  onAdd,
+  onChange,
+}: {
+  ctx: Ctx;
+  busy: boolean;
+  onAdd: (k: KindFields) => Promise<boolean>;
+  onChange: (
+    id: string,
+    change: Partial<KindFields> & { archived?: boolean },
+    ok: string,
+  ) => Promise<boolean>;
+}) {
+  const [label, setLabel] = useState("");
+  const [vacation, setVacation] = useState(false);
+  const [tone, setTone] = useState<ToneName>("teal");
+  const [editing, setEditing] = useState<({ id: string } & KindFields) | null>(null);
+  const own = ctx.ownKinds.filter((k) => !k.custom?.archived);
+  const removed = ctx.ownKinds.filter((k) => k.custom?.archived);
+  const taken = (name: string, except?: string) =>
+    [...GENERAL_LEAVE, ...own].some(
+      (k) => k.label.toLowerCase() === name.trim().toLowerCase() && k.custom?.id !== except,
+    );
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+        <h2 className="font-semibold">Our own kinds</h2>
+        <p className="text-sm text-muted-foreground">
+          Kinds of absence of the organisation's own, such as pekkasvapaa or a company sabbatical.
+          They are offered for everyone, whatever their country.
+        </p>
+        <form
+          className="space-y-2 rounded-xl border border-border p-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!label.trim() || taken(label)) return;
+            if (await onAdd({ label, vacation, tone })) {
+              setLabel("");
+              setVacation(false);
+            }
+          }}
+        >
+          <Input
+            value={label}
+            maxLength={MAX_KIND_LABEL}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Pekkasvapaa"
+            aria-label="Name"
+          />
+          {taken(label) && label.trim() && (
+            <p className="text-xs text-destructive">There's already a kind with that name.</p>
+          )}
+          <ToneSwatches value={tone} onChange={setTone} />
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={vacation} onCheckedChange={(v) => setVacation(v === true)} />
+              Uses vacation days, like annual leave
+            </label>
+            <Button type="submit" size="sm" disabled={busy || !label.trim() || taken(label)}>
+              <Plus className="mr-1 h-4 w-4" /> Add
+            </Button>
+          </div>
+        </form>
+        <ul className="divide-y divide-border/60">
+          {own.map((k) =>
+            editing && editing.id === k.custom!.id ? (
+              <li key={k.key} className="space-y-2 py-2">
+                <Input
+                  value={editing.label}
+                  maxLength={MAX_KIND_LABEL}
+                  autoFocus
+                  onChange={(e) => setEditing({ ...editing, label: e.target.value })}
+                  aria-label="Name"
+                />
+                <ToneSwatches
+                  value={editing.tone}
+                  onChange={(t) => setEditing({ ...editing, tone: t })}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={editing.vacation}
+                      onCheckedChange={(v) => setEditing({ ...editing, vacation: v === true })}
+                    />
+                    Uses vacation days
+                  </label>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditing(null)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={busy || !editing.label.trim() || taken(editing.label, editing.id)}
+                      onClick={async () => {
+                        const { id, ...change } = editing;
+                        if (await onChange(id, change, `Saved ${change.label.trim()}`))
+                          setEditing(null);
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            ) : (
+              <li key={k.key} className="flex items-center gap-2 py-1.5 text-sm">
+                <span className={cn("min-w-0 truncate rounded border px-1.5", k.tone)}>
+                  {k.label}
+                </span>
+                {k.vacation && (
+                  <span className="text-xs text-muted-foreground">uses vacation days</span>
+                )}
+                <span className="ml-auto flex shrink-0 gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Edit ${k.label}`}
+                    onClick={() =>
+                      setEditing({
+                        id: k.custom!.id,
+                        label: k.label,
+                        vacation: !!k.vacation,
+                        tone: k.custom!.toneName,
+                      })
+                    }
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={busy}
+                    aria-label={`Remove ${k.label}`}
+                    onClick={() => onChange(k.custom!.id, { archived: true }, `Removed ${k.label}`)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </span>
+              </li>
+            ),
+          )}
+          {own.length === 0 && <li className="py-2 text-sm text-muted-foreground">None yet.</li>}
+        </ul>
+        {removed.length > 0 && (
+          <div className="space-y-1 border-t border-border pt-2">
+            <p className="text-xs text-muted-foreground">
+              Removed: no longer offered, but absences already marked with them keep their name.
+            </p>
+            <ul className="flex flex-wrap gap-1.5">
+              {removed.map((k) => (
+                <li
+                  key={k.key}
+                  className="flex items-center gap-1 rounded-full border border-dashed border-border py-0.5 pl-2 pr-1 text-xs text-muted-foreground"
+                >
+                  {k.label}
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      onChange(k.custom!.id, { archived: false }, `${k.label} is back`)
+                    }
+                    className="rounded-full px-1.5 hover:bg-muted hover:text-foreground"
+                  >
+                    Bring back
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+        <h2 className="font-semibold">Built in</h2>
+        <div>
+          <h3 className="mb-1 text-sm font-semibold">General, for everyone</h3>
+          <KindList kinds={GENERAL_LEAVE} />
+        </div>
+        {ctx.settings.countries.map((c) => (
+          <div key={c}>
+            <h3 className="mb-1 text-sm font-semibold">Statutory leave — {ctx.countryName(c)}</h3>
+            <KindList kinds={statutoryLeaveFor(c)} />
+          </div>
+        ))}
+        <p className="text-xs text-muted-foreground">
+          Statutory leave is listed by name for Finland and Sweden, and as a general set for other
+          countries. Add any other leave you need as your own kind.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function KindList({ kinds }: { kinds: LeaveKind[] }) {
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {kinds.map((k) => (
+        <li key={k.key} className={cn("rounded border px-1.5 text-xs", k.tone)}>
+          {k.label}
+          {k.vacation && <span className="ml-1 opacity-70">· uses vacation days</span>}
+        </li>
+      ))}
+    </ul>
   );
 }
