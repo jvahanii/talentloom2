@@ -134,6 +134,13 @@ const TOP = "__top__";
 /** How many of a unit's members its box lists before "+N more". */
 const MEMBERS_SHOWN = 6;
 
+/**
+ * The Reporting lines tab is switched off until it is reworked: only Units
+ * shows, and nothing on the page mentions roles. Roles, dotted lines and
+ * the code stay as they are; set this to true to bring the tab back.
+ */
+const REPORTING_LINES_ENABLED = false;
+
 /** The chart last opened in this browser, per organisation. */
 function useRememberedChart(orgId: string | null) {
   const key = `talentloom:org-chart:${orgId ?? ""}`;
@@ -276,7 +283,12 @@ function OrgChartPage() {
   const nodes = nodesQuery.data ?? [];
 
   // Two trees per chart, one per tab: units, and roles with their reporting lines.
-  const [tab, chooseTab] = useRememberedTab("org-chart", ["units", "reporting"] as const, "units");
+  const [savedTab, chooseTab] = useRememberedTab(
+    "org-chart",
+    ["units", "reporting"] as const,
+    "units",
+  );
+  const tab = REPORTING_LINES_ENABLED ? savedTab : "units";
   const kind: NodeKind = tab === "units" ? "unit" : "role";
   const units = nodes.filter((n) => n.kind === "unit");
   const roles = nodes.filter((n) => n.kind === "role");
@@ -336,7 +348,10 @@ function OrgChartPage() {
     if (!personId) return;
     placesOf.set(personId, [...(placesOf.get(personId) ?? []), place]);
   };
-  for (const n of nodes) addPlace(n.person_id, n.kind === "unit" ? `Head of ${n.role}` : n.role);
+  for (const n of nodes) {
+    if (n.kind === "unit") addPlace(n.person_id, `Head of ${n.role}`);
+    else if (REPORTING_LINES_ENABLED) addPlace(n.person_id, n.role);
+  }
   for (const m of members) addPlace(m.person_id, nodes.find((n) => n.id === m.node_id)?.role ?? "");
 
   /** The units each person from People heads or belongs to, by name. */
@@ -974,10 +989,20 @@ function OrgChartPage() {
       <div>
         <h1 className="text-2xl font-bold">Org chart</h1>
         <p className="text-sm text-muted-foreground">
-          Draw how {orgName} is organised. <strong>Units</strong> shows what is part of what, such
-          as Finance and Accounting, and who is in each. <strong>Reporting lines</strong> shows the
-          roles and who reports to whom, which can cross units. Keep as many charts as you like, for
-          example today's and a planned one. Everyone in the organisation can see and edit them.
+          {REPORTING_LINES_ENABLED ? (
+            <>
+              Draw how {orgName} is organised. <strong>Units</strong> shows what is part of what,
+              such as Finance and Accounting, and who is in each. <strong>Reporting lines</strong>{" "}
+              shows the roles and who reports to whom, which can cross units.
+            </>
+          ) : (
+            <>
+              Draw how {orgName} is organised: its units, such as Finance and Accounting, what is
+              part of what, and who is in each.
+            </>
+          )}{" "}
+          Keep as many charts as you like, for example today's and a planned one. Everyone in the
+          organisation can see and edit them.
         </p>
       </div>
 
@@ -1057,7 +1082,7 @@ function OrgChartPage() {
         </div>
       )}
 
-      {chart && (
+      {chart && REPORTING_LINES_ENABLED && (
         <Tabs value={tab} onValueChange={chooseTab}>
           <TabsList className="flex-wrap">
             <TabsTrigger value="units">
@@ -1729,7 +1754,9 @@ function OrgChartPage() {
               {confirmBoxDelete && membersOf(confirmBoxDelete.id).length > 0
                 ? " Its members are removed with it."
                 : ""}
-              {confirmBoxDelete?.kind === "unit" && view.roleCount(confirmBoxDelete.id) > 0
+              {REPORTING_LINES_ENABLED &&
+              confirmBoxDelete?.kind === "unit" &&
+              view.roleCount(confirmBoxDelete.id) > 0
                 ? " Roles in it stay in Reporting lines, without a unit."
                 : ""}
             </AlertDialogDescription>
@@ -2488,7 +2515,7 @@ function CompareResult({ changes }: { changes: { units: ChartChange[]; roles: Ch
   return (
     <div className="space-y-4">
       {section("Units", changes.units)}
-      {section("Reporting lines", changes.roles)}
+      {REPORTING_LINES_ENABLED && section("Reporting lines", changes.roles)}
     </div>
   );
 }
@@ -2870,7 +2897,7 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               <span className="truncate">{view.unitName(n)}</span>
             </span>
           )}
-          {unit && view.roleCount(n.id) > 0 && (
+          {REPORTING_LINES_ENABLED && unit && view.roleCount(n.id) > 0 && (
             <span className="mt-1 block text-[11px] text-muted-foreground">
               {view.roleCount(n.id)} {view.roleCount(n.id) === 1 ? "role" : "roles"} in Reporting
               lines
