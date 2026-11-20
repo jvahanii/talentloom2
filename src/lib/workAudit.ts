@@ -8,7 +8,7 @@
 // the organisation can read its entries, as they can read the records.
 
 import { supabase } from "@/integrations/supabase/app-client";
-import { WEEKDAYS } from "./workVacations";
+import { dateFormat, type DateFormat } from "./workVacations";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -101,13 +101,19 @@ const FIELDS: Record<AuditTable, Record<string, string>> = {
   },
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** Dates in the viewer's own format, made once (in the browser, with its locale). */
+let formats: DateFormat | null = null;
+const fmt = () => (formats ??= dateFormat());
 
-/** "2026-03-05" as "5 Mar 2026". */
-export const shortDate = (iso: string) => {
-  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-  return y && m && d ? `${d} ${MONTHS[m - 1]} ${y}` : iso;
-};
+/** "2026-03-05" as the viewer's locale writes it, e.g. "5.3.2026". */
+export const shortDate = (iso: string) =>
+  /^\d{4}-\d{2}-\d{2}/.test(iso) ? fmt().date(iso.slice(0, 10)) : iso;
+
+/** A moment, as the viewer's locale writes its date and time. */
+export const dateTime = (iso: string) =>
+  new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(
+    new Date(iso),
+  );
 
 export type Describe = {
   personName: (id: string) => string;
@@ -120,11 +126,14 @@ function show(table: AuditTable, field: string, v: unknown, d: Describe): string
   if (field === "person_id") return d.personName(String(v));
   if (table === "work_absences" && field === "kind") return d.kindLabel(String(v));
   if (field === "work_days" && Array.isArray(v))
-    return v.length ? v.map((n) => WEEKDAYS[Number(n) - 1] ?? n).join(", ") : "none";
+    return v.length ? v.map((n) => fmt().weekday(Number(n))).join(", ") : "none";
   if (field === "countries" && Array.isArray(v))
     return v.map((c) => d.countryName(String(c))).join(", ");
   if (field === "country") return d.countryName(String(v));
-  if (field === "accrual_year_start") return MONTHS[Number(v) - 1] ?? String(v);
+  if (field === "accrual_year_start") {
+    const m = Number(v);
+    return m >= 1 && m <= 12 ? fmt().firstOfMonth(m) : String(v);
+  }
   if (table === "work_days_off" && field === "kind")
     return v === "working_day" ? "Working day (holiday worked)" : "Day off";
   if (typeof v === "boolean") return v ? "yes" : "no";

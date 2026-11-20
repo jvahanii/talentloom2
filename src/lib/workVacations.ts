@@ -397,10 +397,11 @@ export const isoWeekday = (iso: string) => {
 
 export const monthStart = (year: number, month: number) => `${year}-${pad(month)}-01`;
 
-/** The 6 weeks (Monday first) that show a month. */
-export function monthGrid(year: number, month: number): string[] {
+/** The 6 weeks that show a month, each starting on `firstDay` (1 = Monday ... 7 = Sunday). */
+export function monthGrid(year: number, month: number, firstDay = 1): string[] {
   const first = monthStart(year, month);
-  const start = addDays(first, 1 - isoWeekday(first));
+  const back = (isoWeekday(first) - firstDay + 7) % 7;
+  const start = addDays(first, -back);
   return Array.from({ length: 42 }, (_, i) => addDays(start, i));
 }
 
@@ -410,8 +411,6 @@ export function eachDay(start: string, end: string): string[] {
   for (let d = start, i = 0; d <= end && i < 4000; d = addDays(d, 1), i++) out.push(d);
   return out;
 }
-
-export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // ---------------------------------------------------------------- holidays
 
@@ -554,8 +553,61 @@ export function vacationBalance(args: {
   };
 }
 
-/** "1.4.2026", the Finnish way. */
-export const fiDate = (iso: string) =>
-  `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
+/** The first day of the week where `locale` is used: 1 = Monday ... 7 = Sunday. */
+export function firstDayOfWeek(locale?: string): number {
+  try {
+    const l = new Intl.Locale(
+      locale ?? Intl.DateTimeFormat().resolvedOptions().locale,
+    ) as Intl.Locale & {
+      getWeekInfo?: () => { firstDay: number };
+      weekInfo?: { firstDay: number };
+    };
+    const day = l.getWeekInfo?.().firstDay ?? l.weekInfo?.firstDay;
+    if (day && day >= 1 && day <= 7) return day;
+  } catch {
+    /* an unknown locale: Monday */
+  }
+  return 1;
+}
+
+/**
+ * Dates, months and weekdays the way the viewer's locale writes them
+ * ("20.11.2026" in Finland, "11/20/2026" in the US), and the week starting
+ * on its usual first day. Dates are "YYYY-MM-DD" and shown as UTC days, so
+ * they never shift with the time zone.
+ */
+export function dateFormat(locale?: string) {
+  const f = (o: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { timeZone: "UTC", ...o });
+  const full = f({ day: "numeric", month: "numeric", year: "numeric" });
+  const dayMonth = f({ day: "numeric", month: "numeric" });
+  const monthYear = f({ month: "long", year: "numeric" });
+  const dayMonthLong = f({ day: "numeric", month: "long" });
+  const weekdayShort = f({ weekday: "short" });
+  const firstDay = firstDayOfWeek(locale);
+  /** 2024-01-01 was a Monday. */
+  const weekdayDate = (isoDay: number) => dateOf(addDays("2024-01-01", isoDay - 1));
+  return {
+    firstDay,
+    /** The ISO weekdays in the order the locale's week runs. */
+    weekOrder: Array.from({ length: 7 }, (_, i) => ((firstDay - 1 + i) % 7) + 1),
+    /** "20.11.2026" */
+    date: (iso: string) => full.format(dateOf(iso)),
+    /** "20.11." — for something every year, or within a year shown elsewhere. */
+    dayMonth: (iso: string) => dayMonth.format(dateOf(iso)),
+    /** "20.11.2026–31.12.2026", or one date when they are the same. */
+    range: (from: string, to: string) =>
+      from === to
+        ? full.format(dateOf(from))
+        : `${full.format(dateOf(from))}–${full.format(dateOf(to))}`,
+    /** "November 2026" */
+    monthYear: (year: number, month: number) => monthYear.format(dateOf(monthStart(year, month))),
+    /** "1 April": the first day of a month. */
+    firstOfMonth: (month: number) => dayMonthLong.format(dateOf(monthStart(2026, month))),
+    /** "Mon": 1 = Monday ... 7 = Sunday. */
+    weekday: (isoDay: number) => weekdayShort.format(weekdayDate(isoDay)),
+  };
+}
+export type DateFormat = ReturnType<typeof dateFormat>;
 
 export const fmtDays = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));

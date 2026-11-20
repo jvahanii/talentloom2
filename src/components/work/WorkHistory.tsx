@@ -7,8 +7,8 @@ import {
   TABLE_LABELS,
   auditKey,
   describe,
+  dateTime,
   fetchAudit,
-  shortDate,
   type AuditEntry,
   type AuditFilter,
   type AuditTable,
@@ -40,12 +40,8 @@ function useDescribe({ people, kindLabel, countryName }: Omit<Props, "orgId">) {
   return { d, who };
 }
 
-const time = (iso: string) => {
-  const t = new Date(iso);
-  return `${shortDate(t.toISOString().slice(0, 10))} ${String(t.getHours()).padStart(2, "0")}:${String(
-    t.getMinutes(),
-  ).padStart(2, "0")}`;
-};
+/** When a change was made, in the viewer's own date and time format and time zone. */
+const time = dateTime;
 
 function EntryRow({ e, d, who }: { e: AuditEntry; d: Describe; who: string }) {
   const x = describe(e, d);

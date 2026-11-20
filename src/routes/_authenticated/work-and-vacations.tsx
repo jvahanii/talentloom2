@@ -23,7 +23,6 @@ import {
   DEFAULT_SETTINGS,
   GENERAL_LEAVE,
   MAX_ABSENCE_NOTE,
-  WEEKDAYS,
   absencesKey,
   addCustomKind,
   addDayOff,
@@ -36,7 +35,7 @@ import {
   fetchDaysOff,
   fetchPersonSettings,
   fetchWorkSettings,
-  fiDate,
+  dateFormat,
   fmtDays,
   isoWeekday,
   leaveKind,
@@ -58,6 +57,7 @@ import {
   vacationYear,
   workSettingsKey,
   type Absence,
+  type DateFormat,
   type DayOff,
   type KindFields,
   type LeaveKind,
@@ -97,20 +97,15 @@ export const Route = createFileRoute("/_authenticated/work-and-vacations")({
   component: WorkPage,
 });
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
+/**
+ * The viewer's locale for dates. The server renders with a fixed one; in the
+ * browser it becomes the viewer's own (undefined = the browser's locale).
+ */
+function useDateFormat(): DateFormat {
+  const [locale, setLocale] = useState<string | undefined>("en-GB");
+  useEffect(() => setLocale(undefined), []);
+  return useMemo(() => dateFormat(locale), [locale]);
+}
 
 type Editing = {
   id?: string;
@@ -135,6 +130,8 @@ type Ctx = {
   /** The organisation's own kinds of absence, removed ones included. */
   ownKinds: LeaveKind[];
   kindOf: (key: string) => LeaveKind;
+  /** Dates, months and weekdays in the viewer's own format. */
+  fmt: DateFormat;
 };
 
 /** "2,5" or "2.5" as a number; empty as null. */
@@ -253,6 +250,7 @@ function WorkPage() {
       ownKinds,
     });
 
+  const fmt = useDateFormat();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Editing>(null);
   const [editingPerson, setEditingPerson] = useState<string | null>(null);
@@ -294,6 +292,7 @@ function WorkPage() {
     balanceOf,
     ownKinds,
     kindOf,
+    fmt,
   };
 
   const addAbsence = (date?: string) =>
@@ -379,6 +378,7 @@ function WorkPage() {
 
         <TabsContent value="time">
           <WorkTimeTab
+            fmt={fmt}
             settings={settings}
             busy={busy}
             onSave={(next) => saveSettings(next, "Saved the working time")}
@@ -448,7 +448,7 @@ function CalendarTab({
 }) {
   const [query, setQuery] = useState("");
   const { y, m } = cursor;
-  const grid = monthGrid(y, m);
+  const grid = monthGrid(y, m, ctx.fmt.firstDay);
   const monthKey = `${y}-${String(m).padStart(2, "0")}`;
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = absences.filter((a) => {
@@ -492,9 +492,7 @@ function CalendarTab({
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <h2 className="min-w-40 text-lg font-semibold">
-          {MONTHS[m - 1]} {y}
-        </h2>
+        <h2 className="min-w-40 text-lg font-semibold">{ctx.fmt.monthYear(y, m)}</h2>
         <Button
           size="sm"
           variant="outline"
@@ -517,12 +515,12 @@ function CalendarTab({
 
       {/* A month grid on wider screens. */}
       <div className="hidden overflow-hidden rounded-xl border-l border-t border-border sm:grid sm:grid-cols-7">
-        {WEEKDAYS.map((w) => (
+        {ctx.fmt.weekOrder.map((d) => (
           <div
-            key={w}
+            key={d}
             className="border-b border-r border-border bg-muted/50 px-2 py-1 text-xs font-semibold"
           >
-            {w}
+            {ctx.fmt.weekday(d)}
           </div>
         ))}
         {grid.map((iso) => {
@@ -554,7 +552,7 @@ function CalendarTab({
                     e.stopPropagation();
                     onAdd(iso);
                   }}
-                  aria-label={`Add an absence on ${fiDate(iso)}`}
+                  aria-label={`Add an absence on ${ctx.fmt.date(iso)}`}
                   className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -616,7 +614,7 @@ function CalendarTab({
             return (
               <li key={iso} className="rounded-xl border border-border p-2">
                 <div className="text-sm font-semibold">
-                  {WEEKDAYS[isoWeekday(iso) - 1]} {fiDate(iso)}
+                  {ctx.fmt.weekday(isoWeekday(iso))} {ctx.fmt.date(iso)}
                 </div>
                 {holidays.map((h) => (
                   <div
@@ -673,7 +671,7 @@ function AbsenceChip({ a, ctx, onEdit }: { a: Absence; ctx: Ctx; onEdit: (a: Abs
         e.stopPropagation();
         onEdit(a);
       }}
-      title={`${name}: ${k.label}, ${fiDate(a.start_date)}–${fiDate(a.end_date)}${a.note ? `\n${a.note}` : ""}`}
+      title={`${name}: ${k.label}, ${ctx.fmt.range(a.start_date, a.end_date)}${a.note ? `\n${a.note}` : ""}`}
       className={cn(
         "mt-0.5 block w-full truncate rounded border px-1 text-left text-[11px] leading-snug",
         k.tone,
@@ -894,14 +892,14 @@ function VacationsTab({
   const dayNames = (days: number[]) =>
     days.length === 0
       ? "No days"
-      : [...days]
-          .sort()
-          .map((d) => WEEKDAYS[d - 1])
+      : ctx.fmt.weekOrder
+          .filter((d) => days.includes(d))
+          .map((d) => ctx.fmt.weekday(d))
           .join(" ");
   return (
     <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
       <p className="text-sm text-muted-foreground">
-        Vacation year {fiDate(period.start)}–{fiDate(period.end)}
+        Vacation year {ctx.fmt.range(period.start, period.end)}
         {sample ? `, ${sample.months} full ${sample.months === 1 ? "month" : "months"} so far` : ""}
         . This is a demo accrual: {fmtDays(ctx.settings.accrual_per_month)} vacation days for each
         full month, and annual leave uses one day for each working day. Each person's rate, earned
@@ -1079,7 +1077,7 @@ function PersonDialog({
               <Checkbox checked={ownWeek} onCheckedChange={(v) => setOwnWeek(v === true)} />
               Their own working week
             </label>
-            {ownWeek && <WeekPicker value={days} onChange={setDays} />}
+            {ownWeek && <WeekPicker value={days} onChange={setDays} fmt={ctx.fmt} />}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <NumberField
@@ -1153,15 +1151,23 @@ function NumberField({
   );
 }
 
-function WeekPicker({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
+function WeekPicker({
+  value,
+  onChange,
+  fmt,
+}: {
+  value: number[];
+  onChange: (v: number[]) => void;
+  fmt: DateFormat;
+}) {
   return (
     <div className="flex flex-wrap gap-1" role="group" aria-label="Working days">
-      {WEEKDAYS.map((w, i) => {
-        const d = i + 1;
+      {fmt.weekOrder.map((d) => {
+        const w = fmt.weekday(d);
         const on = value.includes(d);
         return (
           <button
-            key={w}
+            key={d}
             type="button"
             aria-pressed={on}
             onClick={() => onChange(on ? value.filter((x) => x !== d) : [...value, d].sort())}
@@ -1362,7 +1368,7 @@ function HolidaysTab({
                       className="flex items-center gap-3 py-1.5 text-sm"
                     >
                       <span className="w-24 shrink-0 tabular-nums text-muted-foreground">
-                        {WEEKDAYS[isoWeekday(h.date) - 1]} {fiDate(h.date).replace(/\.\d{4}$/, "")}
+                        {ctx.fmt.weekday(isoWeekday(h.date))} {ctx.fmt.dayMonth(h.date)}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={cn(h.off && "font-medium")}>{h.name}</span>
@@ -1440,7 +1446,7 @@ function HolidaysTab({
               <li key={d.id} className="flex items-center gap-3 py-1.5 text-sm">
                 <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
                 <span className="w-24 shrink-0 tabular-nums text-muted-foreground">
-                  {d.every_year ? fiDate(d.day).replace(/\.\d{4}$/, ".") : fiDate(d.day)}
+                  {d.every_year ? ctx.fmt.dayMonth(d.day) : ctx.fmt.date(d.day)}
                 </span>
                 <span className="min-w-0 flex-1 truncate">
                   {d.name}
@@ -1472,10 +1478,12 @@ function HolidaysTab({
 // ---------------------------------------------------------------- working time
 
 function WorkTimeTab({
+  fmt,
   settings,
   busy,
   onSave,
 }: {
+  fmt: DateFormat;
   settings: WorkSettings;
   busy: boolean;
   onSave: (next: WorkSettings) => void;
@@ -1523,7 +1531,7 @@ function WorkTimeTab({
       </p>
       <div className="space-y-1.5">
         <Label>Working days</Label>
-        <WeekPicker value={days} onChange={setDays} />
+        <WeekPicker value={days} onChange={setDays} fmt={fmt} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <NumberField
@@ -1548,15 +1556,15 @@ function WorkTimeTab({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {MONTHS.map((name, i) => (
-              <SelectItem key={name} value={String(i + 1)}>
-                1 {name}
+            {Array.from({ length: 12 }, (_, i) => (
+              <SelectItem key={i} value={String(i + 1)}>
+                {fmt.firstOfMonth(i + 1)}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
-          In Finland the vacation year runs from 1 April to 31 March.
+          In Finland the vacation year runs from {fmt.firstOfMonth(4)} to the end of March.
         </p>
       </div>
       {bad && (
