@@ -55,9 +55,10 @@ export type Result = {
 
 /**
  * Who a scheme covers: the entire company, an org chart unit (with the units
- * within it), a team or a person; "exclude" takes a person out again.
+ * within it), a team, a team of teams (the members of all its teams) or a
+ * person; "exclude" takes a person out again.
  */
-export type TargetKind = "company" | "unit" | "team" | "person" | "exclude";
+export type TargetKind = "company" | "unit" | "team" | "team_group" | "person" | "exclude";
 export type Target = { id: string; scheme_id: string; kind: TargetKind; ref_id: string | null };
 
 export type Bonuses = {
@@ -386,8 +387,10 @@ export function coveredPeople(args: {
   members: string[];
   units: OrgUnit[];
   teams: { id: string; name: string; members: string[] }[];
+  /** Teams of teams: their teams by id. */
+  groups?: { id: string; name: string; teams: string[] }[];
 }): Map<string, string[]> {
-  const { targets, members, units, teams } = args;
+  const { targets, members, units, teams, groups = [] } = args;
   const inOrg = new Set(members);
   const out = new Map<string, string[]>();
   const add = (person: string, why: string) => {
@@ -414,6 +417,11 @@ export function coveredPeople(args: {
     } else if (t.kind === "team") {
       const team = teams.find((x) => x.id === t.ref_id);
       if (team) team.members.forEach((p) => add(p, team.name));
+    } else if (t.kind === "team_group") {
+      const g = groups.find((x) => x.id === t.ref_id);
+      if (g)
+        for (const team of teams.filter((x) => g.teams.includes(x.id)))
+          team.members.forEach((p) => add(p, g.name));
     } else if (t.kind === "person" && t.ref_id) add(t.ref_id, "Added by name");
   }
   for (const t of targets) if (t.kind === "exclude" && t.ref_id) out.delete(t.ref_id);

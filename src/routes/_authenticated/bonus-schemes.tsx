@@ -8,6 +8,7 @@ import {
   Check,
   Download,
   Gift,
+  Layers,
   Pencil,
   Plus,
   Trash2,
@@ -32,7 +33,7 @@ import {
   type SalaryCurrency,
 } from "@/lib/salaries";
 import { fetchWorkSettings, workSettingsKey } from "@/lib/workVacations";
-import { fetchTeams, teamsKey } from "@/lib/teams";
+import { fetchTeamGroups, fetchTeams, teamGroupsKey, teamsKey, type TeamGroup } from "@/lib/teams";
 import {
   STATUS_LABEL,
   addTargets,
@@ -187,8 +188,14 @@ function BonusPage() {
     enabled: !!orgId,
     queryFn: () => fetchTeams(orgId!),
   });
+  const groupsQ = useQuery({
+    queryKey: teamGroupsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchTeamGroups(orgId!),
+  });
   const units = unitsQ.data ?? [];
   const teams = teamsQ.data ?? [];
+  const groups = groupsQ.data ?? [];
   const workQ = useQuery({
     queryKey: workSettingsKey(orgId),
     enabled: !!orgId,
@@ -245,6 +252,7 @@ function BonusPage() {
       members: people.map((p) => p.id),
       units,
       teams,
+      groups,
     });
   /** Everyone a scheme covers, with what they earn. */
   const rowsOf = (s: Scheme): Row[] => {
@@ -397,6 +405,7 @@ function BonusPage() {
               onAddPeople={() => setAdding(true)}
               units={units}
               teams={teams}
+              groups={groups}
               nameOf={nameOf}
             />
           )}
@@ -667,6 +676,7 @@ function SchemeView({
   onAddPeople,
   units,
   teams,
+  groups,
   nameOf,
 }: {
   orgId: string;
@@ -680,6 +690,7 @@ function SchemeView({
   onAddPeople: () => void;
   units: OrgUnit[];
   teams: { id: string; name: string; members: string[] }[];
+  groups: TeamGroup[];
   nameOf: (id: string) => string;
 }) {
   const targets = b.targets.filter((t) => t.scheme_id === scheme.id);
@@ -784,6 +795,7 @@ function SchemeView({
               targets={targets}
               units={units}
               teams={teams}
+              groups={groups}
               nameOf={nameOf}
               busy={busy}
               run={run}
@@ -1563,6 +1575,7 @@ function Coverage({
   targets,
   units,
   teams,
+  groups,
   nameOf,
   busy,
   run,
@@ -1573,6 +1586,7 @@ function Coverage({
   targets: Target[];
   units: OrgUnit[];
   teams: { id: string; name: string; members: string[] }[];
+  groups: TeamGroup[];
   nameOf: (id: string) => string;
   busy: boolean;
   run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
@@ -1584,6 +1598,10 @@ function Coverage({
     targets.some((t) => t.kind === kind && t.ref_id === ref);
   const unitOf = (id: string | null) => units.find((u) => u.id === id);
   const teamOf = (id: string | null) => teams.find((t) => t.id === id);
+  const groupOf = (id: string | null) => groups.find((g) => g.id === id);
+  /** Everyone in a team of teams, counted once. */
+  const groupSize = (g: TeamGroup) =>
+    new Set(teams.filter((t) => g.teams.includes(t.id)).flatMap((t) => t.members)).size;
   const charts = [...new Set(units.map((u) => u.chart))].sort((a, b) => a.localeCompare(b));
   const chip = (t: Target) => {
     if (t.kind === "company") return { icon: Building2, text: "Entire company" };
@@ -1596,10 +1614,15 @@ function Coverage({
     }
     if (t.kind === "team")
       return { icon: UsersRound, text: teamOf(t.ref_id)?.name ?? "A deleted team" };
+    if (t.kind === "team_group")
+      return { icon: Layers, text: groupOf(t.ref_id)?.name ?? "A deleted team of teams" };
     return { icon: UserRound, text: nameOf(t.ref_id ?? "") };
   };
-  const add = (kind: "company" | "unit" | "team", ref: string | null, label: string) =>
-    run(() => addTargets(orgId, schemeId, [{ kind, ref_id: ref }]), `Added ${label}`);
+  const add = (
+    kind: "company" | "unit" | "team" | "team_group",
+    ref: string | null,
+    label: string,
+  ) => run(() => addTargets(orgId, schemeId, [{ kind, ref_id: ref }]), `Added ${label}`);
 
   return (
     <div className="space-y-2 rounded-xl bg-muted/40 p-3">
@@ -1696,6 +1719,32 @@ function Coverage({
               ))}
           </SelectContent>
         </Select>
+        <Select
+          value=""
+          onValueChange={(id) => {
+            const g = groupOf(id);
+            if (g) void add("team_group", id, g.name);
+          }}
+        >
+          <SelectTrigger className="h-9 w-52" aria-label="Add a team of teams">
+            <SelectValue placeholder="Add a team of teams" />
+          </SelectTrigger>
+          <SelectContent>
+            {groups.length === 0 && (
+              <SelectItem value="__none__" disabled>
+                No teams of teams yet
+              </SelectItem>
+            )}
+            {groups
+              .filter((g) => !has("team_group", g.id))
+              .map((g) => (
+                <SelectItem key={g.id} value={g.id}>
+                  {g.name} ({g.teams.length} {g.teams.length === 1 ? "team" : "teams"},{" "}
+                  {groupSize(g)} people)
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="outline" onClick={onAddPeople}>
           <UserPlus className="mr-1 h-3.5 w-3.5" /> People
         </Button>
@@ -1726,8 +1775,9 @@ function Coverage({
         </div>
       )}
       <p className="text-xs text-muted-foreground">
-        A unit brings in its head, its members and those of the units within it. The list follows
-        changes: someone who joins a covered unit or team, or the company, is in the scheme too.
+        A unit brings in its head, its members and those of the units within it; a team of teams
+        brings in the members of all its teams. The list follows changes: someone who joins a
+        covered unit or team, or the company, is in the scheme too.
       </p>
     </div>
   );
