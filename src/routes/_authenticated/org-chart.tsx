@@ -16,8 +16,6 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  ArrowLeft,
-  ArrowRight,
   Building2,
   Copy,
   GripVertical,
@@ -491,23 +489,6 @@ function OrgChartPage() {
     if (ok) setBoxDialog(null);
   };
 
-  /** Swaps a box with its neighbour on the left (-1) or right (+1). */
-  const shift = async (node: ChartNode, by: -1 | 1) => {
-    const siblings = kidsOf(node.kind).get(node.parent_id ?? "") ?? [];
-    const i = siblings.findIndex((s) => s.id === node.id);
-    const other = siblings[i + by];
-    if (!other) return;
-    await run(async () => {
-      // Positions may tie; renumber the row so the swap always shows.
-      const order = siblings.map((s) => s.id);
-      [order[i], order[i + by]] = [order[i + by]!, order[i]!];
-      for (const [p, id] of order.entries()) {
-        const s = siblings.find((x) => x.id === id)!;
-        if (s.position !== p) await updateNode(id, { position: p });
-      }
-    });
-  };
-
   const onDragStart = (e: DragStartEvent) => {
     setDragging((e.active.data.current as DragData | undefined) ?? null);
   };
@@ -714,10 +695,6 @@ function OrgChartPage() {
 
   const editing = boxDialog?.mode === "edit" ? boxDialog.node : null;
   const blockedParents = editing ? subtreeIds(nodes, editing.id) : new Set<string>();
-  const siblingsOfEditing = editing
-    ? (kidsOf(editing.kind).get(editing.parent_id ?? "") ?? [])
-    : [];
-  const editingIndex = editing ? siblingsOfEditing.findIndex((s) => s.id === editing.id) : -1;
   const dialogKind: NodeKind = boxDialog?.fields.kind ?? kind;
   /** Units listed top-down, indented by depth, for the role's Unit select. */
   const unitOptions: { node: ChartNode; depth: number }[] = [];
@@ -1148,39 +1125,6 @@ function OrgChartPage() {
                           ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy || editingIndex <= 0}
-                      onClick={() => void shift(boxDialog.node, -1)}
-                    >
-                      <ArrowLeft className="mr-1 h-4 w-4" /> Move left
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={
-                        busy || editingIndex < 0 || editingIndex >= siblingsOfEditing.length - 1
-                      }
-                      onClick={() => void shift(boxDialog.node, 1)}
-                    >
-                      Move right <ArrowRight className="ml-1 h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => addBelow(boxDialog.node)}
-                    >
-                      <Plus className="mr-1 h-4 w-4" />{" "}
-                      {dialogKind === "unit"
-                        ? "Add a unit within it"
-                        : "Add a role reporting to it"}
-                    </Button>
                   </div>
                 </>
               )}
@@ -1653,8 +1597,7 @@ function PeoplePanel({
   );
   const unitsFor = (id: string) => [...(unitsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
   const unplaced = people.filter((p) => unitsFor(p.id).length === 0).length;
-  const headedBy = (id: string) =>
-    [...(headsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
+  const headedBy = (id: string) => [...(headsOf.get(id) ?? [])].sort((a, b) => a.localeCompare(b));
   // By unit: each unit in turn, then those in no unit. Each person is
   // listed once (so each row can be dragged): under the unit they head, or
   // else the first unit they belong to, alphabetically. A unit's head comes
