@@ -16,16 +16,28 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
+  AlertTriangle,
   Building2,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Copy,
+  GitCompare,
   GripVertical,
   Link2,
+  List,
+  Maximize2,
+  Minus,
+  Network,
   Pencil,
+  Printer,
   Search,
   Plus,
   Trash2,
   UserRound,
   Users,
+  Wand2,
   Workflow,
   X,
 } from "lucide-react";
@@ -59,6 +71,7 @@ import {
   moveMember,
   orgPeopleKey,
   impliedReporting,
+  isImpliedKey,
   planMove,
   renameChart,
   subtreeIds,
@@ -75,6 +88,13 @@ import {
   type OrgChart,
   type OrgPerson,
 } from "@/lib/orgCharts";
+import {
+  compareCharts,
+  impliedInCreationOrder,
+  reportingConflicts,
+  spanCounts,
+  type ChartChange,
+} from "@/lib/orgChartInsights";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -211,7 +231,27 @@ type View = {
   onRemoveMember: (m: ChartMember, unit: ChartNode) => void;
   /** Clears a unit's head, straight from the chart (with Undo). */
   onRemoveHead: (unit: ChartNode) => void;
+  /** Where a role disagrees with the Units tab (Reporting lines only). */
+  conflictsOf: (id: string) => string[];
+  /** Direct reports and everyone below a role or implied line. */
+  spanOf: (key: string) => { direct: number; total: number } | undefined;
+  /** Branches folded away, by the key of the box above them. */
+  isCollapsed: (key: string) => boolean;
+  onToggle: (key: string) => void;
+  /** Boxes matching the Find field, and the boxes above them. */
+  found: Set<string>;
+  foundChain: Set<string>;
+  /** Mark roles nobody holds. */
+  markOpen: boolean;
+  /** Scrolls to a box and lights it up for a moment. */
+  onJump: (key: string) => void;
+  flash: string | null;
 };
+
+/** Many direct reports: shown in amber on the role. */
+const WIDE_SPAN = 10;
+
+const boxDomId = (key: string) => `org-box-${key}`;
 
 function OrgChartPage() {
   const qc = useQueryClient();
@@ -325,6 +365,71 @@ function OrgChartPage() {
   const [impliedOpen, setImpliedOpen] = useState<ImpliedLine | null>(null);
   /** A drop can end in a click on the box under it; that click opens nothing. */
   const dragEndedAt = useRef(0);
+
+  // Tools for big charts: folded branches (remembered per chart in this
+  // browser), zoom, Find, and a list layout instead of the tree.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const collapsedKey = chart ? `talentloom:org-chart:collapsed:${chart.id}` : null;
+  useEffect(() => {
+    if (!collapsedKey) return;
+    try {
+      const raw = window.localStorage.getItem(collapsedKey);
+      setCollapsed(new Set(raw ? (JSON.parse(raw) as string[]) : []));
+    } catch {
+      setCollapsed(new Set());
+    }
+  }, [collapsedKey]);
+  const saveCollapsed = (next: Set<string>) => {
+    setCollapsed(next);
+    try {
+      if (collapsedKey) window.localStorage.setItem(collapsedKey, JSON.stringify([...next]));
+    } catch {
+      /* not remembered, still works */
+    }
+  };
+  const [zoom, setZoom] = useState(1);
+  const [findText, setFindText] = useState("");
+  const [markOpen, setMarkOpen] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [layout, chooseLayout] = useRememberedTab(
+    "org-chart-layout",
+    ["tree", "list"] as const,
+    "tree",
+  );
+  const [confirmMakeAll, setConfirmMakeAll] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareWith, setCompareWith] = useState("");
+  const compareNodes = useQuery({
+    queryKey: chartNodesKey(compareWith || null),
+    enabled: compareOpen && !!compareWith,
+    queryFn: () => fetchNodes(compareWith),
+  });
+  const compareMembers = useQuery({
+    queryKey: chartMembersKey(compareWith || null),
+    enabled: compareOpen && !!compareWith,
+    queryFn: () => fetchMembers(compareWith),
+  });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  /** The first box Find matches, for scrolling to it once typing pauses. */
+  const firstFound = useRef<string | null>(null);
+  useEffect(() => {
+    if (!findText.trim()) return;
+    const t = setTimeout(() => {
+      const key = firstFound.current;
+      if (key)
+        document
+          .getElementById(boxDomId(key))
+          ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [findText]);
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 2200);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -607,6 +712,149 @@ function OrgChartPage() {
   const impliedLines = kind === "role" ? allImplied : [];
   const implied = new Map<string, ImpliedLine[]>();
   for (const l of impliedLines) implied.set(l.parent, [...(implied.get(l.parent) ?? []), l]);
+  const impliedByParent = new Map<string, ImpliedLine[]>();
+  for (const l of allImplied)
+    impliedByParent.set(l.parent, [...(impliedByParent.get(l.parent) ?? []), l]);
+  const impliedByKey = new Map(allImplied.map((l) => [l.key, l]));
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+
+  // Notes where Reporting lines and Units disagree, team sizes, open roles.
+  const conflicts = reportingConflicts(nodes, members, nameOf, memberName);
+  const conflictCount = [...conflicts.values()].reduce((sum, l) => sum + l.length, 0);
+  const keysBelow = (key: string) => [
+    ...(roleKids.get(key) ?? []).map((r) => r.id),
+    ...(impliedByParent.get(key) ?? []).map((l) => l.key),
+  ];
+  const spans = spanCounts(keysBelow(""), keysBelow);
+  const openRoles = roles.filter((r) => !nameOf(r));
+
+  /** The boxes above a box or implied line, nearest first. */
+  const ancestorsOf = (key: string) => {
+    const out: string[] = [];
+    let cur: string | null = key;
+    for (let i = 0; cur && i < 1000; i++) {
+      const n = nodeById.get(cur);
+      const up: string | null = n ? n.parent_id : impliedByKey.get(cur)?.parent || null;
+      if (!up) break;
+      out.push(up);
+      cur = up;
+    }
+    return out;
+  };
+
+  // Find: boxes on this tab whose name, holder or members hold every word typed.
+  const findWords = findText.toLowerCase().split(/\s+/).filter(Boolean);
+  const matchesFind = (texts: (string | null | undefined)[]) => {
+    const hay = texts.filter(Boolean).join(" ").toLowerCase();
+    return findWords.every((w) => hay.includes(w));
+  };
+  const found = new Set<string>();
+  if (findWords.length > 0) {
+    for (const n of shown) {
+      const texts = [
+        n.role,
+        nameOf(n),
+        ...(n.kind === "unit" ? membersOf(n.id).map(memberName) : []),
+      ];
+      if (matchesFind(texts)) found.add(n.id);
+    }
+    for (const l of impliedLines) if (matchesFind([l.title, l.name])) found.add(l.key);
+  }
+  const foundChain = new Set<string>();
+  for (const k of found) for (const a of ancestorsOf(k)) foundChain.add(a);
+  firstFound.current = [...found][0] ?? null;
+
+  /** Keys on this tab that have something below them, for folding everything. */
+  const foldable = [
+    ...shown.filter((n) => (kids.get(n.id) ?? []).length > 0).map((n) => n.id),
+    ...(kind === "role"
+      ? [...shown.map((n) => n.id), ...impliedLines.map((l) => l.key)].filter(
+          (k) => (implied.get(k) ?? []).length > 0,
+        )
+      : []),
+  ];
+
+  const jumpTo = (key: string) => {
+    const above = ancestorsOf(key).filter((a) => collapsed.has(a));
+    if (above.length > 0) saveCollapsed(new Set([...collapsed].filter((k) => !above.includes(k))));
+    if (layout === "tree" && zoom < 0.6) setZoom(1);
+    setFlash(key);
+    setTimeout(
+      () =>
+        document
+          .getElementById(boxDomId(key))
+          ?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }),
+      80,
+    );
+  };
+
+  /** Shrinks the tree until it fits the width of the chart area. */
+  const fitToWidth = () => {
+    const area = scrollRef.current;
+    const tree = treeRef.current;
+    if (!area || !tree) return;
+    const natural = tree.getBoundingClientRect().width / zoom;
+    if (natural > 0) setZoom(Math.max(0.3, Math.min(1, (area.clientWidth - 8) / natural)));
+  };
+
+  /** Every implied line becomes a role of its own, reporting where it did. */
+  const makeAllRoles = () => {
+    if (!chart) return;
+    const c = chart;
+    const lines = impliedInCreationOrder(allImplied);
+    void run(
+      async () => {
+        const created = new Map<string, string>();
+        const nextPos = new Map<string, number>();
+        for (const l of lines) {
+          const parentId =
+            l.parent === ""
+              ? null
+              : isImpliedKey(l.parent)
+                ? (created.get(l.parent) ?? null)
+                : l.parent;
+          const slot = parentId ?? "";
+          const pos = nextPos.get(slot) ?? nextPosition(parentId, "role");
+          nextPos.set(slot, pos + 1);
+          const id = await addNode(orgId, c.id, parentId, pos, {
+            ...emptyFields,
+            kind: "role",
+            // A head's role is "Head of HR"; a member's is named after the unit.
+            role: (l.isHead ? l.title : l.unitName).slice(0, MAX_ROLE),
+            person_id: l.personId,
+            person_name: l.name.slice(0, MAX_PERSON),
+            unit_id: l.unitId,
+          });
+          created.set(l.key, id);
+        }
+      },
+      `Added ${lines.length} ${lines.length === 1 ? "role" : "roles"} from the Units tab`,
+    );
+  };
+
+  /** Prints just the chart (or saves it as PDF), fitted across a landscape page. */
+  const printChart = () => {
+    const before = zoom;
+    const tree = treeRef.current;
+    if (layout === "tree" && tree) {
+      // About the width of a landscape A4 page at 96 dpi, inside the margins.
+      const natural = tree.getBoundingClientRect().width / zoom;
+      setZoom(Math.min(1, 1040 / Math.max(natural, 1)));
+    }
+    const page = document.createElement("style");
+    page.textContent = "@page { size: landscape; margin: 10mm; }";
+    document.head.appendChild(page);
+    document.body.classList.add("printing-org-chart");
+    const done = () => {
+      document.body.classList.remove("printing-org-chart");
+      page.remove();
+      setZoom(before);
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    // Let the zoom apply before the print preview is taken.
+    setTimeout(() => window.print(), 150);
+  };
   /** A role for someone shown by an implied line, reporting where the line does. */
   const roleFromLine = (l: ImpliedLine) => {
     setImpliedOpen(null);
@@ -672,6 +920,21 @@ function OrgChartPage() {
   };
 
   const view: View = {
+    conflictsOf: (id) => (kind === "role" ? (conflicts.get(id) ?? []) : []),
+    spanOf: (key) => (kind === "role" ? spans.get(key) : undefined),
+    // Find opens the branches it found something in.
+    isCollapsed: (key) => collapsed.has(key) && !foundChain.has(key),
+    onToggle: (key) => {
+      const next = new Set(collapsed);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      saveCollapsed(next);
+    },
+    found,
+    foundChain,
+    markOpen: markOpen && kind === "role",
+    onJump: jumpTo,
+    flash,
     onRemoveMember: removeMember,
     onRemoveHead: removeHead,
     implied,
@@ -760,6 +1023,22 @@ function OrgChartPage() {
               <Button size="sm" variant="outline" onClick={() => setConfirmChartDelete(true)}>
                 <Trash2 className="mr-1 h-4 w-4" /> Delete
               </Button>
+              {list.length > 1 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    if (!compareWith || compareWith === chart.id)
+                      setCompareWith(list.find((c) => c.id !== chart.id)?.id ?? "");
+                    setCompareOpen(true);
+                  }}
+                >
+                  <GitCompare className="mr-1 h-4 w-4" /> Compare
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={printChart}>
+                <Printer className="mr-1 h-4 w-4" /> Print / PDF
+              </Button>
             </>
           )}
         </div>
@@ -805,7 +1084,13 @@ function OrgChartPage() {
           }}
         >
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
-            <div className="min-w-0 rounded-2xl border-2 border-border bg-card p-4">
+            <div
+              id="org-chart-print"
+              className="min-w-0 rounded-2xl border-2 border-border bg-card p-4"
+            >
+              <h2 className="mb-3 hidden text-lg font-bold print:block">
+                {chart.name} — {kind === "unit" ? "Units" : "Reporting lines"}
+              </h2>
               {nodesQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
               ) : shown.length === 0 && impliedLines.length === 0 ? (
@@ -839,18 +1124,156 @@ function OrgChartPage() {
                 </div>
               ) : (
                 <>
+                  <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
+                    <label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-border px-2 py-1">
+                      <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <input
+                        value={findText}
+                        onChange={(e) => setFindText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && firstFound.current) jumpTo(firstFound.current);
+                        }}
+                        placeholder={
+                          kind === "unit" ? "Find a unit or person" : "Find a role or person"
+                        }
+                        aria-label="Find in the chart"
+                        className="w-full bg-transparent text-sm outline-none"
+                      />
+                      {findWords.length > 0 && (
+                        <span className="shrink-0 text-xs text-muted-foreground" aria-live="polite">
+                          {found.size === 0 ? "None found" : `${found.size} found`}
+                        </span>
+                      )}
+                    </label>
+                    <div
+                      className="flex items-center rounded-lg border border-border"
+                      role="group"
+                      aria-label="Layout"
+                    >
+                      {(["tree", "list"] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          aria-pressed={layout === v}
+                          onClick={() => chooseLayout(v)}
+                          className={
+                            "flex items-center gap-1 px-2 py-1 text-xs font-medium first:rounded-l-lg last:rounded-r-lg " +
+                            (layout === v
+                              ? "bg-primary/15 text-foreground"
+                              : "text-muted-foreground hover:text-foreground")
+                          }
+                        >
+                          {v === "tree" ? (
+                            <Network className="h-3.5 w-3.5" />
+                          ) : (
+                            <List className="h-3.5 w-3.5" />
+                          )}
+                          {v === "tree" ? "Tree" : "List"}
+                        </button>
+                      ))}
+                    </div>
+                    {layout === "tree" && (
+                      <div
+                        className="flex items-center rounded-lg border border-border"
+                        role="group"
+                        aria-label="Zoom"
+                      >
+                        <button
+                          type="button"
+                          aria-label="Zoom out"
+                          onClick={() =>
+                            setZoom((z) => Math.max(0.3, Math.round((z - 0.1) * 10) / 10))
+                          }
+                          className="px-2 py-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setZoom(1)}
+                          title="Back to 100%"
+                          className="w-12 py-1 text-center text-xs tabular-nums text-muted-foreground hover:text-foreground"
+                        >
+                          {Math.round(zoom * 100)}%
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Zoom in"
+                          onClick={() =>
+                            setZoom((z) => Math.min(1.5, Math.round((z + 0.1) * 10) / 10))
+                          }
+                          className="px-2 py-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={fitToWidth}
+                          title="Fit the chart to the width"
+                          className="flex items-center gap-1 border-l border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <Maximize2 className="h-3.5 w-3.5" /> Fit
+                        </button>
+                      </div>
+                    )}
+                    {foldable.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          saveCollapsed(collapsed.size > 0 ? new Set() : new Set(foldable))
+                        }
+                      >
+                        {collapsed.size > 0 ? (
+                          <>
+                            <ChevronsUpDown className="mr-1 h-3.5 w-3.5" /> Expand all
+                          </>
+                        ) : (
+                          <>
+                            <ChevronsDownUp className="mr-1 h-3.5 w-3.5" /> Collapse all
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  {kind === "role" && (
+                    <ReportingSummary
+                      conflictCount={conflictCount}
+                      conflicts={[...conflicts.entries()].flatMap(([id, notes]) => {
+                        const r = nodeById.get(id);
+                        return r ? [{ role: r, notes }] : [];
+                      })}
+                      showNotes={showNotes}
+                      onShowNotes={setShowNotes}
+                      openCount={openRoles.length}
+                      markOpen={markOpen}
+                      onMarkOpen={setMarkOpen}
+                      impliedCount={impliedLines.length}
+                      onMakeAll={() => setConfirmMakeAll(true)}
+                      busy={busy}
+                      nameOf={nameOf}
+                      onJump={jumpTo}
+                    />
+                  )}
                   {impliedLines.length > 0 && (
                     <div className="mb-2 flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
                       <span className="inline-block h-3 w-5 rounded border-2 border-dashed border-muted-foreground/60" />
                       Dashed: follows from the Units tab
                     </div>
                   )}
-                  <TopZone active={dragging?.type === "box"} kind={kind} />
-                  <div className="overflow-x-auto pb-4">
-                    <div className="org-tree mx-auto w-max min-w-full">
-                      <Branch parentKey="" view={view} />
-                    </div>
-                  </div>
+                  {layout === "tree" ? (
+                    <>
+                      <TopZone active={dragging?.type === "box"} kind={kind} />
+                      <div ref={scrollRef} className="overflow-x-auto pb-4 print:overflow-visible">
+                        <div ref={treeRef} className="org-tree mx-auto w-max" style={{ zoom }}>
+                          <Branch parentKey="" view={view} />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <OutlineList parentKey="" view={view} depth={0} />
+                  )}
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
                     <p className="text-xs text-muted-foreground">
                       {kind === "unit"
@@ -1196,6 +1619,71 @@ function OrgChartPage() {
                 </Button>
               </DialogFooter>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmMakeAll} onOpenChange={setConfirmMakeAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Make{" "}
+              {allImplied.length === 1
+                ? "the dashed box a role"
+                : `all ${allImplied.length} dashed boxes roles`}
+              ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Each one becomes a role of its own, held by the same person, in the same unit and
+              reporting where the dashed line does. A head's role is called “Head of …”; a member's
+              role is named after their unit, so you may want to rename those.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={makeAllRoles}>Make them roles</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Compare charts</DialogTitle>
+            <DialogDescription>
+              What changes going from the chart you pick to “{chart?.name}”. Units and roles are
+              matched by their names.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label>From</Label>
+            <Select value={compareWith} onValueChange={setCompareWith}>
+              <SelectTrigger aria-label="Chart to compare with">
+                <SelectValue placeholder="Pick a chart" />
+              </SelectTrigger>
+              <SelectContent>
+                {list
+                  .filter((c) => c.id !== chart?.id)
+                  .map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {compareWith && (compareNodes.isLoading || compareMembers.isLoading) && (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          )}
+          {compareWith && compareNodes.data && compareMembers.data && (
+            <CompareResult
+              changes={compareCharts(
+                { nodes: compareNodes.data, members: compareMembers.data },
+                { nodes, members },
+                nameOf,
+                memberName,
+              )}
+            />
           )}
         </DialogContent>
       </Dialog>
@@ -1776,7 +2264,7 @@ function TopZone({ active, kind }: { active: boolean; kind: NodeKind }) {
     <div
       ref={drop.setNodeRef}
       className={
-        "mb-3 truncate rounded-xl border-2 border-dashed px-3 py-2 text-center text-xs transition " +
+        "mb-3 truncate rounded-xl border-2 border-dashed px-3 py-2 text-center text-xs transition print:hidden " +
         (!active
           ? "border-transparent text-muted-foreground"
           : drop.isOver
@@ -1855,6 +2343,315 @@ function Zone({
   );
 }
 
+/**
+ * Above Reporting lines: where it disagrees with Units, how many roles are
+ * open, and a way to make every dashed (implied) box a role at once.
+ */
+function ReportingSummary({
+  conflictCount,
+  conflicts,
+  showNotes,
+  onShowNotes,
+  openCount,
+  markOpen,
+  onMarkOpen,
+  impliedCount,
+  onMakeAll,
+  busy,
+  nameOf,
+  onJump,
+}: {
+  conflictCount: number;
+  conflicts: { role: ChartNode; notes: string[] }[];
+  showNotes: boolean;
+  onShowNotes: (v: boolean) => void;
+  openCount: number;
+  markOpen: boolean;
+  onMarkOpen: (v: boolean) => void;
+  impliedCount: number;
+  onMakeAll: () => void;
+  busy: boolean;
+  nameOf: (n: ChartNode) => string | null;
+  onJump: (key: string) => void;
+}) {
+  if (conflictCount === 0 && openCount === 0 && impliedCount === 0) return null;
+  return (
+    <div className="mb-3 print:hidden">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {conflictCount > 0 && (
+          <button
+            type="button"
+            aria-expanded={showNotes}
+            onClick={() => onShowNotes(!showNotes)}
+            className="flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-500/50 dark:bg-amber-500/10 dark:text-amber-200"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {conflictCount} {conflictCount === 1 ? "difference" : "differences"} from Units
+            {showNotes ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
+        {openCount > 0 && (
+          <button
+            type="button"
+            aria-pressed={markOpen}
+            onClick={() => onMarkOpen(!markOpen)}
+            title="Outline the roles nobody holds"
+            className={
+              "rounded-full border px-2.5 py-1 font-semibold transition " +
+              (markOpen
+                ? "border-primary bg-primary/15 text-foreground"
+                : "border-border text-muted-foreground hover:text-foreground")
+            }
+          >
+            {openCount} open {openCount === 1 ? "role" : "roles"}
+            {markOpen ? " · shown" : ""}
+          </button>
+        )}
+        {impliedCount > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2.5 text-xs"
+            disabled={busy}
+            onClick={onMakeAll}
+          >
+            <Wand2 className="mr-1 h-3.5 w-3.5" /> Make all {impliedCount} dashed boxes roles
+          </Button>
+        )}
+      </div>
+      {showNotes && conflictCount > 0 && (
+        <ul className="mt-2 space-y-1.5 rounded-xl border border-amber-300 bg-amber-50/60 p-3 text-xs dark:border-amber-500/40 dark:bg-amber-500/10">
+          {conflicts.map(({ role, notes }) => (
+            <li key={role.id} className="flex items-start gap-2">
+              <button
+                type="button"
+                onClick={() => onJump(role.id)}
+                className="shrink-0 font-semibold text-foreground underline-offset-2 hover:underline"
+              >
+                {role.role}
+                {nameOf(role) ? ` (${nameOf(role)})` : ""}
+              </button>
+              <span className="text-muted-foreground">{notes.join(" ")}</span>
+            </li>
+          ))}
+          <li className="pt-1 text-muted-foreground">
+            Sometimes this is on purpose, for example in a matrix organisation. Change the role's
+            unit or manager, or the Units tab, to line them up.
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** The differences between two charts, units first. */
+function CompareResult({ changes }: { changes: { units: ChartChange[]; roles: ChartChange[] } }) {
+  const total = changes.units.length + changes.roles.length;
+  if (total === 0) return <p className="text-sm text-muted-foreground">No differences.</p>;
+  const label = { added: "Added", removed: "Removed", changed: "Changed" } as const;
+  const tone = {
+    added: "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200",
+    removed: "bg-rose-100 text-rose-900 dark:bg-rose-500/20 dark:text-rose-200",
+    changed: "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200",
+  } as const;
+  const section = (title: string, list: ChartChange[]) =>
+    list.length > 0 && (
+      <div>
+        <h3 className="mb-1.5 text-sm font-semibold">
+          {title} ({list.length})
+        </h3>
+        <ul className="space-y-1">
+          {(["added", "removed", "changed"] as const).flatMap((k) =>
+            list
+              .filter((c) => c.kind === k)
+              .map((c, i) => (
+                <li key={`${k}-${i}-${c.what}`} className="flex items-start gap-2 text-sm">
+                  <span
+                    className={`shrink-0 rounded-full px-1.5 text-[11px] font-semibold ${tone[k]}`}
+                  >
+                    {label[k]}
+                  </span>
+                  <span>
+                    <span className="font-medium">{c.what}</span>
+                    {c.detail && <span className="text-muted-foreground"> — {c.detail}</span>}
+                  </span>
+                </li>
+              )),
+          )}
+        </ul>
+      </div>
+    );
+  return (
+    <div className="space-y-4">
+      {section("Units", changes.units)}
+      {section("Reporting lines", changes.roles)}
+    </div>
+  );
+}
+
+/**
+ * The chart as an indented list: easier on a phone, with a screen reader, and
+ * for long charts. Editing works as in the tree; moving is done in the box's
+ * own dialog (Below).
+ */
+function OutlineList({ parentKey, view, depth }: { parentKey: string; view: View; depth: number }) {
+  const list = view.kids.get(parentKey) ?? [];
+  const implied = view.implied.get(parentKey) ?? [];
+  if (list.length === 0 && implied.length === 0) return null;
+  const row = (
+    key: string,
+    content: React.ReactNode,
+    hasKids: boolean,
+    extra?: React.ReactNode,
+  ) => {
+    const folded = view.isCollapsed(key);
+    return (
+      <li key={key}>
+        <div
+          id={boxDomId(key)}
+          className={
+            "flex items-center gap-1.5 rounded-lg px-1.5 py-1 " +
+            (view.flash === key
+              ? "bg-primary/20"
+              : view.found.has(key)
+                ? "bg-amber-100 dark:bg-amber-500/20"
+                : "hover:bg-muted")
+          }
+          style={{ paddingLeft: `${depth * 1.25 + 0.375}rem` }}
+        >
+          {hasKids ? (
+            <button
+              type="button"
+              aria-label={folded ? "Expand" : "Collapse"}
+              aria-expanded={!folded}
+              onClick={() => view.onToggle(key)}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              {folded ? (
+                <ChevronRight className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          ) : (
+            <span className="w-[18px] shrink-0" />
+          )}
+          {content}
+          {extra}
+        </div>
+        {!folded && <OutlineList parentKey={key} view={view} depth={depth + 1} />}
+      </li>
+    );
+  };
+  return (
+    <ul className={depth === 0 ? "space-y-0.5" : "space-y-0.5"}>
+      {list.map((n) => {
+        const unit = n.kind === "unit";
+        const name = view.nameOf(n);
+        const span = view.spanOf(n.id);
+        const notes = view.conflictsOf(n.id);
+        const kidsHere =
+          (view.kids.get(n.id) ?? []).length + (view.implied.get(n.id) ?? []).length > 0;
+        return row(
+          n.id,
+          <button
+            type="button"
+            onClick={() => view.onOpen(n)}
+            className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-left text-sm"
+          >
+            <span className="font-semibold">
+              {unit && <Building2 className="mr-1 inline h-3.5 w-3.5 text-primary" />}
+              {n.role}
+            </span>
+            <span
+              className={
+                "text-xs " +
+                (!unit && !name
+                  ? "font-medium text-amber-700 dark:text-amber-400"
+                  : "text-muted-foreground")
+              }
+            >
+              {unit
+                ? [name && `Head: ${name}`, `${view.membersOf(n.id).length} members`]
+                    .filter(Boolean)
+                    .join(" · ")
+                : name || "Open"}
+            </span>
+            {!unit && view.unitName(n) && (
+              <span className="text-xs text-primary">{view.unitName(n)}</span>
+            )}
+            {span && span.direct > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {span.direct} direct · {span.total} in total
+              </span>
+            )}
+          </button>,
+          kidsHere,
+          <>
+            {notes.length > 0 && (
+              <span title={notes.join("\n")} aria-label={notes.join(" ")}>
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => view.onAdd(n)}
+              aria-label={
+                unit ? `Add a unit within ${n.role}` : `Add a role reporting to ${n.role}`
+              }
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </>,
+        );
+      })}
+      {implied.map((l) =>
+        row(
+          l.key,
+          <button
+            type="button"
+            onClick={() => view.onOpenImplied(l)}
+            className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 rounded border border-dashed border-muted-foreground/40 px-1.5 text-left text-sm"
+          >
+            <span className="font-medium">{l.title}</span>
+            <span className="text-xs text-muted-foreground">{l.name} · from Units</span>
+          </button>,
+          (view.implied.get(l.key) ?? []).length > 0,
+        ),
+      )}
+    </ul>
+  );
+}
+
+/** Folds or unfolds what hangs below a box; shows how many are hidden. */
+function FoldButton({ k, view }: { k: string; view: View }) {
+  const folded = view.isCollapsed(k);
+  const hidden = view.spanOf(k)?.total;
+  return (
+    <button
+      type="button"
+      onClick={() => view.onToggle(k)}
+      aria-expanded={!folded}
+      aria-label={folded ? "Show the boxes below" : "Hide the boxes below"}
+      title={folded ? "Show the boxes below" : "Hide the boxes below"}
+      className={
+        "absolute -bottom-3 left-1/2 z-10 ml-4 flex h-6 items-center gap-0.5 rounded-full border-2 px-1.5 text-[11px] font-semibold transition print:hidden " +
+        (folded
+          ? "border-primary bg-primary/15 text-foreground"
+          : "border-border bg-card text-muted-foreground hover:border-primary hover:text-foreground")
+      }
+    >
+      {folded ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      {folded && hidden ? hidden : null}
+    </button>
+  );
+}
+
 function Branch({ parentKey, view }: { parentKey: string; view: View }) {
   const list = view.kids.get(parentKey) ?? [];
   const implied = view.implied.get(parentKey) ?? [];
@@ -1864,14 +2661,14 @@ function Branch({ parentKey, view }: { parentKey: string; view: View }) {
       {list.map((n) => (
         <li key={n.id}>
           <BoxCard n={n} view={view} />
-          <Branch parentKey={n.id} view={view} />
+          {!view.isCollapsed(n.id) && <Branch parentKey={n.id} view={view} />}
         </li>
       ))}
       {implied.map((l) => (
         // org-implied: its connector is dashed, like the box (styles.css).
         <li key={l.key} className="org-implied">
-          <ImpliedCard line={l} onOpen={() => view.onOpenImplied(l)} />
-          <Branch parentKey={l.key} view={view} />
+          <ImpliedCard line={l} view={view} onOpen={() => view.onOpenImplied(l)} />
+          {!view.isCollapsed(l.key) && <Branch parentKey={l.key} view={view} />}
         </li>
       ))}
     </ul>
@@ -1879,28 +2676,49 @@ function Branch({ parentKey, view }: { parentKey: string; view: View }) {
 }
 
 /** Someone shown on Reporting lines because of the units: dashed, and not draggable. */
-function ImpliedCard({ line, onOpen }: { line: ImpliedLine; onOpen: () => void }) {
+function ImpliedCard({
+  line,
+  view,
+  onOpen,
+}: {
+  line: ImpliedLine;
+  view: View;
+  onOpen: () => void;
+}) {
+  const hasKids = (view.implied.get(line.key) ?? []).length > 0;
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      title={
-        line.managerName
-          ? `${line.name} reports to ${line.managerName}, from the Units tab`
-          : `${line.name} heads ${line.unitName}, from the Units tab`
-      }
-      className="block w-44 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2.5 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-    >
-      <span className="block text-sm font-semibold leading-snug">{line.title}</span>
-      <span className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-        {line.personId ? (
-          <Link2 className="h-3 w-3 shrink-0 text-primary" />
-        ) : (
-          <UserRound className="h-3 w-3 shrink-0" />
-        )}
-        <span className="truncate">{line.name}</span>
-      </span>
-    </button>
+    <div id={boxDomId(line.key)} className="relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        title={
+          line.managerName
+            ? `${line.name} reports to ${line.managerName}, from the Units tab`
+            : `${line.name} heads ${line.unitName}, from the Units tab`
+        }
+        className={
+          "block w-44 rounded-xl border-2 border-dashed border-muted-foreground/40 bg-muted/30 px-3 py-2.5 text-center transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" +
+          (view.flash === line.key
+            ? " ring-4 ring-primary ring-offset-2 ring-offset-card"
+            : view.found.has(line.key)
+              ? " ring-4 ring-amber-400 ring-offset-2 ring-offset-card"
+              : view.found.size > 0 && !view.foundChain.has(line.key)
+                ? " opacity-50"
+                : "")
+        }
+      >
+        <span className="block text-sm font-semibold leading-snug">{line.title}</span>
+        <span className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+          {line.personId ? (
+            <Link2 className="h-3 w-3 shrink-0 text-primary" />
+          ) : (
+            <UserRound className="h-3 w-3 shrink-0" />
+          )}
+          <span className="truncate">{line.name}</span>
+        </span>
+      </button>
+      {hasKids && <FoldButton k={line.key} view={view} />}
+    </div>
   );
 }
 
@@ -1923,11 +2741,21 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
   const self = drag.isDragging;
   const canLand = !!dragging && !self && !view.blocked.has(n.id);
   const faded = !!dragging && !self && !canLand;
+  const notes = view.conflictsOf(n.id);
+  const span = view.spanOf(n.id);
+  const open = !unit && !view.nameOf(n);
+  const hasKids = (view.kids.get(n.id) ?? []).length + (view.implied.get(n.id) ?? []).length > 0;
+  const finding = view.found.size > 0;
+  const dimmed = finding && !view.found.has(n.id) && !view.foundChain.has(n.id);
 
   return (
     <div
       ref={drag.setNodeRef}
-      className={"relative transition-opacity " + (self ? "opacity-40" : faded ? "opacity-35" : "")}
+      id={boxDomId(n.id)}
+      className={
+        "relative transition-opacity " +
+        (self ? "opacity-40" : faded ? "opacity-35" : dimmed ? "opacity-50" : "")
+      }
     >
       <DropZones node={n} disabled={view.blocked.has(n.id)} />
       {beside && (
@@ -1966,9 +2794,26 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               ? " outline-dashed outline-2 outline-offset-4 outline-primary/60"
               : view.highlight.has(n.id)
                 ? " outline-dotted outline-[3px] outline-offset-4 outline-primary"
-                : "")
+                : view.flash === n.id
+                  ? " ring-4 ring-primary ring-offset-2 ring-offset-card"
+                  : view.found.has(n.id)
+                    ? " ring-4 ring-amber-400 ring-offset-2 ring-offset-card"
+                    : view.markOpen && open
+                      ? " outline-dashed outline-2 outline-offset-4 outline-amber-500"
+                      : "")
         }
       >
+        {notes.length > 0 && (
+          <span
+            role="img"
+            aria-label={`Differs from Units: ${notes.join(" ")}`}
+            title={notes.join(" ")}
+            className="absolute -right-2 -top-2 z-20 flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full bg-amber-400 px-1 text-[10px] font-bold text-amber-950 shadow print:hidden"
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {notes.length > 1 ? notes.length : null}
+          </span>
+        )}
         <button
           type="button"
           {...drag.listeners}
@@ -1997,31 +2842,20 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               ) : (
                 <UserRound className="h-3 w-3 shrink-0" />
               )}
-              <span className="truncate">{view.nameOf(n) || "Open"}</span>
+              <span
+                className={
+                  "truncate " +
+                  (open ? "font-medium italic text-amber-700 dark:text-amber-400" : "")
+                }
+              >
+                {view.nameOf(n) || "Open"}
+              </span>
             </span>
           )}
           {!unit && view.unitName(n) && (
             <span className="mt-1.5 inline-flex max-w-full items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               <Building2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{view.unitName(n)}</span>
-            </span>
-          )}
-          {!unit && view.alsoOf(n.id).length > 0 && (
-            // Pointing at it lights up those roles with a dotted outline.
-            <span
-              className="mt-1.5 block rounded-lg border border-dotted border-primary/60 px-1.5 py-0.5 text-[11px] leading-snug text-muted-foreground"
-              onMouseEnter={() => view.onHighlight(view.alsoOf(n.id).map((r) => r.id))}
-              onMouseLeave={() => view.onHighlight([])}
-              title={`Also reports to ${view
-                .alsoOf(n.id)
-                .map((r) => r.role + (view.nameOf(r) ? ` (${view.nameOf(r)})` : ""))
-                .join(", ")}`}
-            >
-              <span className="font-medium text-foreground">Also reports to:</span>{" "}
-              {view
-                .alsoOf(n.id)
-                .map((r) => r.role)
-                .join(", ")}
             </span>
           )}
           {unit && view.roleCount(n.id) > 0 && (
@@ -2035,7 +2869,44 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
               {n.note}
             </span>
           )}
+          {span && span.direct > 0 && (
+            <span
+              className={
+                "mt-1 block text-[11px] " +
+                (span.direct > WIDE_SPAN
+                  ? "font-semibold text-amber-700 dark:text-amber-400"
+                  : "text-muted-foreground")
+              }
+              title={span.direct > WIDE_SPAN ? "Many direct reports" : undefined}
+            >
+              {span.direct} direct · {span.total} in total
+            </span>
+          )}
         </button>
+        {!unit && view.alsoOf(n.id).length > 0 && (
+          // Outside the box's own button, so each name can take you to its role.
+          // Pointing at it lights those roles up with a dotted outline.
+          <div
+            className="mx-2 -mt-1 mb-2 rounded-lg border border-dotted border-primary/60 px-1.5 py-0.5 text-[11px] leading-snug text-muted-foreground"
+            onMouseEnter={() => view.onHighlight(view.alsoOf(n.id).map((r) => r.id))}
+            onMouseLeave={() => view.onHighlight([])}
+          >
+            <span className="font-medium text-foreground">Also reports to:</span>{" "}
+            {view.alsoOf(n.id).map((r, i) => (
+              <Fragment key={r.id}>
+                {i > 0 && ", "}
+                <button
+                  type="button"
+                  onClick={() => view.onJump(r.id)}
+                  title={`Go to ${r.role}${view.nameOf(r) ? ` (${view.nameOf(r)})` : ""}`}
+                  className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+                >
+                  {r.role}
+                </button>
+              </Fragment>
+            ))}
+          </div>
+        )}
         {unit && view.nameOf(n) && (
           // Outside the box's own button, so the head can be removed from here.
           <div
@@ -2102,10 +2973,11 @@ function BoxCard({ n, view }: { n: ChartNode; view: View }) {
         onClick={() => view.onAdd(n)}
         aria-label={unit ? `Add a unit within ${n.role}` : `Add a role reporting to ${n.role}`}
         title={unit ? "Add a unit within it" : "Add a role reporting to it"}
-        className="absolute -bottom-3 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border-2 border-border bg-card text-muted-foreground transition hover:border-primary hover:text-foreground"
+        className="absolute -bottom-3 left-1/2 z-10 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border-2 border-border bg-card text-muted-foreground transition hover:border-primary hover:text-foreground print:hidden"
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
+      {hasKids && <FoldButton k={n.id} view={view} />}
     </div>
   );
 }

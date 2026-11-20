@@ -595,6 +595,26 @@
   border-style: dashed;
 }
 
+/* Printing an org chart (Print / PDF): only the chart area is printed. The
+   page sets body.printing-org-chart and a landscape @page while it prints. */
+@media print {
+  body.printing-org-chart * {
+    visibility: hidden;
+  }
+  body.printing-org-chart #org-chart-print,
+  body.printing-org-chart #org-chart-print * {
+    visibility: visible;
+  }
+  body.printing-org-chart #org-chart-print {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* The cat and the pig (PeekingFriends): a gentle wiggle while they peek. */
 @keyframes peeking-friend-wiggle {
   0%,
