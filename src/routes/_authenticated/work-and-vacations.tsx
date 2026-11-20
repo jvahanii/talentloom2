@@ -448,8 +448,15 @@ function CalendarTab({
 }) {
   const [query, setQuery] = useState("");
   const { y, m } = cursor;
-  const grid = monthGrid(y, m, ctx.fmt.firstDay);
   const monthKey = `${y}-${String(m).padStart(2, "0")}`;
+  const full = monthGrid(y, m, ctx.fmt.firstDay);
+  const weeks = Array.from({ length: 6 }, (_, i) => full.slice(i * 7, i * 7 + 7)).filter((w) =>
+    w.some((d) => d.startsWith(monthKey)),
+  );
+  const grid = weeks.flat();
+  /** Rows share the screen height left over, so the month fits without scrolling. */
+  const rowHeight = `clamp(4.25rem, calc((100dvh - 21rem) / ${weeks.length}), 8rem)`;
+  const SHOWN = 2;
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = absences.filter((a) => {
     const text = `${ctx.nameOf(a.person_id)} ${ctx.kindOf(a.kind).label}`.toLowerCase();
@@ -477,22 +484,29 @@ function CalendarTab({
   ];
 
   return (
-    <div className="space-y-3 rounded-2xl border-2 border-border bg-card p-4">
+    <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1">
           <Button
             size="icon"
             variant="outline"
+            className="h-8 w-8"
             onClick={() => step(-1)}
             aria-label="Previous month"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="outline" onClick={() => step(1)} aria-label="Next month">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            onClick={() => step(1)}
+            aria-label="Next month"
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <h2 className="min-w-40 text-lg font-semibold">{ctx.fmt.monthYear(y, m)}</h2>
+        <h2 className="min-w-36 text-base font-semibold">{ctx.fmt.monthYear(y, m)}</h2>
         <Button
           size="sm"
           variant="outline"
@@ -507,7 +521,7 @@ function CalendarTab({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Find a person or kind of absence"
           aria-label="Find a person or kind of absence"
-          className="sm:ml-auto sm:max-w-xs"
+          className="h-8 sm:ml-auto sm:max-w-xs"
         />
       </div>
 
@@ -518,7 +532,7 @@ function CalendarTab({
         {ctx.fmt.weekOrder.map((d) => (
           <div
             key={d}
-            className="border-b border-r border-border bg-muted/50 px-2 py-1 text-xs font-semibold"
+            className="border-b border-r border-border bg-muted/50 px-1.5 py-0.5 text-[11px] font-semibold"
           >
             {ctx.fmt.weekday(d)}
           </div>
@@ -527,25 +541,57 @@ function CalendarTab({
           const { holidays, own, off } = dayInfo(iso);
           const list = on(iso);
           const isToday = iso === ctx.today;
+          // The day's names: holidays (days off first), then the organisation's own days off.
+          const names = [
+            ...[...holidays]
+              .sort((a, b) => Number(b.off) - Number(a.off))
+              .map((h) => ({
+                key: `${h.country}${h.name}`,
+                text: `${multi ? `${h.country} · ` : ""}${h.name}`,
+                title: `${h.name} (${ctx.countryName(h.country)})${h.off ? "" : ", not a day off"}`,
+                tone: h.off
+                  ? "font-semibold text-rose-700 dark:text-rose-300"
+                  : "text-muted-foreground",
+              })),
+            ...own.map((d) => ({
+              key: d.id,
+              text: `★ ${d.name}`,
+              title: `${d.name}: a day off for everyone`,
+              tone: "font-semibold text-primary",
+            })),
+          ];
           return (
             <div
               key={iso}
               onClick={() => onAdd(iso)}
+              style={{ height: rowHeight }}
               className={cn(
-                "group min-h-28 cursor-pointer border-b border-r border-border p-1.5 transition hover:bg-primary/5",
+                "group flex cursor-pointer flex-col overflow-hidden border-b border-r border-border px-1 py-0.5 transition hover:bg-primary/5",
                 !iso.startsWith(monthKey) && "opacity-45",
                 off && "bg-muted/40",
               )}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex min-w-0 items-center gap-1">
                 <span
                   className={cn(
-                    "text-xs font-semibold",
-                    isToday && "rounded-full bg-primary px-1.5 py-0.5 text-primary-foreground",
+                    "shrink-0 text-[11px] font-semibold",
+                    isToday && "rounded-full bg-primary px-1.5 text-primary-foreground",
                   )}
                 >
                   {Number(iso.slice(8))}
                 </span>
+                {names[0] && (
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-[10px] leading-tight",
+                      names[0].tone,
+                    )}
+                    title={names.map((n) => n.title).join("\n")}
+                  >
+                    {names[0].text}
+                    {names.length > 1 ? ` +${names.length - 1}` : ""}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -553,48 +599,23 @@ function CalendarTab({
                     onAdd(iso);
                   }}
                   aria-label={`Add an absence on ${ctx.fmt.date(iso)}`}
-                  className="rounded p-0.5 text-muted-foreground opacity-0 hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100"
+                  className="ml-auto shrink-0 rounded text-muted-foreground opacity-0 hover:bg-muted focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {holidays.map((h) => (
-                <div
-                  key={`${h.country}${h.name}`}
-                  title={`${h.name} (${ctx.countryName(h.country)})${h.off ? "" : ", not a day off"}`}
-                  className={cn(
-                    "truncate text-[11px] leading-tight",
-                    h.off
-                      ? "font-semibold text-rose-700 dark:text-rose-300"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {multi ? `${h.country} · ` : ""}
-                  {h.name}
-                </div>
-              ))}
-              {own.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center gap-0.5 truncate text-[11px] font-semibold leading-tight text-primary"
-                  title={`${d.name}: a day off for everyone`}
-                >
-                  <Star className="h-2.5 w-2.5 shrink-0" />
-                  <span className="truncate">{d.name}</span>
-                </div>
-              ))}
-              {list.slice(0, 3).map((a) => (
+              {list.slice(0, SHOWN).map((a) => (
                 <AbsenceChip key={a.id} a={a} ctx={ctx} onEdit={onEdit} />
               ))}
-              {list.length > 3 && (
+              {list.length > SHOWN && (
                 <div
-                  className="mt-0.5 text-[11px] text-muted-foreground"
+                  className="text-[10px] leading-tight text-muted-foreground"
                   title={list
-                    .slice(3)
+                    .slice(SHOWN)
                     .map((a) => ctx.nameOf(a.person_id))
                     .join(", ")}
                 >
-                  +{list.length - 3} more
+                  +{list.length - SHOWN} more
                 </div>
               )}
             </div>
@@ -643,7 +664,7 @@ function CalendarTab({
         )}
       </ul>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
         <span className="font-semibold text-rose-700 dark:text-rose-300">Holiday</span>
         <span className="flex items-center gap-0.5 font-semibold text-primary">
           <Star className="h-3 w-3" /> Our own day off
@@ -673,7 +694,7 @@ function AbsenceChip({ a, ctx, onEdit }: { a: Absence; ctx: Ctx; onEdit: (a: Abs
       }}
       title={`${name}: ${k.label}, ${ctx.fmt.range(a.start_date, a.end_date)}${a.note ? `\n${a.note}` : ""}`}
       className={cn(
-        "mt-0.5 block w-full truncate rounded border px-1 text-left text-[11px] leading-snug",
+        "mt-px block w-full shrink-0 truncate rounded border px-1 text-left text-[10px] leading-tight",
         k.tone,
       )}
     >
