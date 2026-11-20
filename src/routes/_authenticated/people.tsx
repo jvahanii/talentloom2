@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Copy, Link2, Mail, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Copy, History, Link2, Mail, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
 import { useOrg } from "@/lib/org";
@@ -9,6 +9,7 @@ import { getMyProfileId } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
 import { SkillChips, SkillsInput } from "@/components/SkillsInput";
+import { PersonSalaryDialog } from "@/components/PersonSalaryDialog";
 import { fetchMemberSkills, setMemberSkillLevel } from "@/lib/skillLevels";
 import { skillLevelLabel, type Skill } from "@/lib/skills";
 import { useSkillLevelNames } from "@/hooks/useSkillLevelNames";
@@ -22,6 +23,16 @@ import {
   leaveLearningGroup,
   type LearningGroup,
 } from "@/lib/learning";
+import {
+  currentSalaryOf,
+  fetchOrgSalaries,
+  formatSalary,
+  formatSignedPct,
+  groupSalariesByUser,
+  orgSalariesKey,
+  salaryDelta,
+  type SalaryEntry,
+} from "@/lib/salaries";
 import { sendInviteEmail } from "@/lib/invite.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,9 +70,9 @@ async function copyText(text: string) {
     toast.error("Couldn't copy — select and copy manually");
   }
 }
-// One row per person: four columns on wide screens, two on medium, stacked on phones.
+// One row per person: five columns on wide screens, two on medium, stacked on phones.
 const rowGrid =
-  "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,1.5fr)_minmax(0,1.3fr)] lg:gap-4";
+  "lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.75fr)_minmax(0,1.35fr)_minmax(0,1.15fr)_minmax(0,0.9fr)] lg:gap-4";
 const cellLabel = "mb-1 text-xs font-semibold text-muted-foreground lg:hidden";
 
 function PeoplePage() {
@@ -80,6 +91,13 @@ function PeoplePage() {
     enabled: !!orgId,
     queryFn: () => fetchLearningGroups(orgId!),
   });
+  const salaries = useQuery({
+    queryKey: orgSalariesKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchOrgSalaries(orgId!),
+  });
+  const salariesByUser = useMemo(() => groupSalariesByUser(salaries.data ?? []), [salaries.data]);
+  const [salaryPersonId, setSalaryPersonId] = useState<string | null>(null);
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
 
   const titles = useQuery({
@@ -217,6 +235,7 @@ function PeoplePage() {
     void qc.invalidateQueries({ queryKey: ["org-members", orgId] });
     void qc.invalidateQueries({ queryKey: ["org-invites", orgId] });
     void qc.invalidateQueries({ queryKey: ["org-join-requests", orgId] });
+    void qc.invalidateQueries({ queryKey: orgSalariesKey(orgId) });
   };
 
   if (!orgId) return null;
@@ -414,8 +433,16 @@ function PeoplePage() {
   };
   const copyLink = (token: string) => copyText(`${window.location.origin}/invite/${token}`);
 
+  const salaryPerson = salaryPersonId
+    ? ((people.data ?? []).find((x) => x.userId === salaryPersonId) ?? null)
+    : null;
+  const nameOf = (uid: string) => {
+    const found = (people.data ?? []).find((x) => x.userId === uid);
+    return found?.name || found?.email || "Member";
+  };
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="mx-auto max-w-7xl space-y-5">
       <div>
         <h1 className="text-2xl font-bold">People</h1>
         <p className="text-sm text-muted-foreground">
@@ -496,7 +523,7 @@ function PeoplePage() {
 
       <div className="rounded-2xl border-2 border-border bg-card">
         <div className={`hidden border-b border-border px-3 lg:grid ${rowGrid}`}>
-          {["Person", "Title & teams", "Skills", "Learning with"].map((h) => (
+          {["Person", "Title & teams", "Skills", "Learning with", "Salary"].map((h) => (
             <p key={h} className={th}>
               {h}
             </p>
@@ -633,6 +660,15 @@ function PeoplePage() {
                       groups={learning.data ?? []}
                     />
                   </div>
+                  <div className="min-w-0">
+                    <p className={cellLabel}>Salary</p>
+                    <SalaryCell
+                      person={p}
+                      entries={salariesByUser.get(p.userId) ?? []}
+                      canEdit={canEditName}
+                      onOpen={() => setSalaryPersonId(p.userId)}
+                    />
+                  </div>
                 </li>
               );
             })}
@@ -735,6 +771,14 @@ function PeoplePage() {
           </ul>
         </div>
       )}
+      <PersonSalaryDialog
+        orgId={orgId}
+        person={salaryPerson}
+        entries={salaryPerson ? (salariesByUser.get(salaryPerson.userId) ?? []) : []}
+        nameOf={nameOf}
+        canEdit={salaryPerson ? salaryPerson.isSelf || can("change_titles") : false}
+        onClose={() => setSalaryPersonId(null)}
+      />
     </div>
   );
 }
@@ -959,5 +1003,93 @@ function PersonTeams({
         </select>
       )}
     </div>
+  );
+}
+
+/**
+ * A person's current salary in the People table. Clicking opens their full
+ * salary change history and lets authorised editors record changes.
+ */
+function SalaryCell({
+  person,
+  entries,
+  canEdit,
+  onOpen,
+}: {
+  person: Person;
+  entries: SalaryEntry[];
+  canEdit: boolean;
+  onOpen: () => void;
+}) {
+  const current = currentSalaryOf(entries);
+  const labelName = person.name || person.email || "this person";
+
+  if (!current) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={
+          canEdit
+            ? "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 hover:underline"
+            : "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        }
+        aria-label={
+          canEdit ? `Add salary for ${labelName}` : `View salary history for ${labelName}`
+        }
+      >
+        {canEdit ? (
+          <>
+            <Plus className="h-3.5 w-3.5" /> Add salary
+          </>
+        ) : (
+          <span>—</span>
+        )}
+      </button>
+    );
+  }
+
+  const idx = entries.findIndex((e) => e.id === current.entry.id);
+  const prev = idx >= 0 ? entries[idx + 1] : undefined;
+  const delta = salaryDelta(current.entry, prev);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group -mx-2 -my-1 flex w-[calc(100%+1rem)] flex-col items-start rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-secondary/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`View salary history for ${labelName}`}
+      title="Click to view salary change history"
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-sm font-semibold tabular-nums text-foreground group-hover:text-primary">
+          {formatSalary(current.entry.amount, current.entry.currency, current.entry.period)}
+        </span>
+        {current.scheduled && (
+          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-950/70 dark:text-amber-200">
+            Scheduled
+          </span>
+        )}
+        {delta?.comparable && delta.pct !== null && delta.diff !== 0 && (
+          <span
+            className={
+              delta.diff > 0
+                ? "text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-400"
+                : "text-[11px] font-semibold tabular-nums text-rose-700 dark:text-rose-400"
+            }
+          >
+            {formatSignedPct(delta.pct)}
+          </span>
+        )}
+      </div>
+      <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-foreground/75">
+        <History className="h-3 w-3 shrink-0" />
+        <span>
+          {entries.length === 1
+            ? `Since ${formatDate(current.entry.effective_date)}`
+            : `${entries.length} entries · ${formatDate(current.entry.effective_date)}`}
+        </span>
+      </span>
+    </button>
   );
 }
