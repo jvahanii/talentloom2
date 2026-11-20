@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
+  Ban,
   Building2,
+  Network,
   Check,
   Download,
   Gift,
@@ -11,6 +13,7 @@ import {
   Trash2,
   UserPlus,
   UserRound,
+  UsersRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,20 +32,26 @@ import {
   type SalaryCurrency,
 } from "@/lib/salaries";
 import { fetchWorkSettings, workSettingsKey } from "@/lib/workVacations";
+import { fetchTeams, teamsKey } from "@/lib/teams";
 import {
   STATUS_LABEL,
-  addParticipants,
+  addTargets,
+  coveredPeople,
+  fetchOrgUnits,
+  orgUnitsKey,
   bonusesKey,
   deleteScheme,
   fetchBonuses,
   payoutOf,
-  removeParticipant,
+  removeTarget,
   saveCriteria,
   saveScheme,
   setCompanyResult,
   setResult,
   setTargetOverride,
   type Bonuses,
+  type OrgUnit,
+  type Target,
   type Criterion,
   type MeasureInput,
   type Payout,
@@ -82,7 +91,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -144,6 +155,8 @@ type Row = {
   annual: { amount: number; currency: string } | null;
   pay: Payout;
   override: number | null;
+  /** Why they are in the scheme: "Entire company", a unit, a team, "Added by name". */
+  via: string[];
 };
 
 function BonusPage() {
@@ -164,12 +177,30 @@ function BonusPage() {
     enabled: !!orgId,
     queryFn: () => fetchOrgSalaries(orgId!),
   });
+  const unitsQ = useQuery({
+    queryKey: orgUnitsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchOrgUnits(orgId!),
+  });
+  const teamsQ = useQuery({
+    queryKey: teamsKey(orgId),
+    enabled: !!orgId,
+    queryFn: () => fetchTeams(orgId!),
+  });
+  const units = unitsQ.data ?? [];
+  const teams = teamsQ.data ?? [];
   const workQ = useQuery({
     queryKey: workSettingsKey(orgId),
     enabled: !!orgId,
     queryFn: () => fetchWorkSettings(orgId!),
   });
-  const b: Bonuses = bonusesQ.data ?? { schemes: [], criteria: [], participants: [], results: [] };
+  const b: Bonuses = bonusesQ.data ?? {
+    schemes: [],
+    criteria: [],
+    targets: [],
+    participants: [],
+    results: [],
+  };
   const people = peopleQ.data ?? [];
   const salaries = groupSalariesByUser(salariesQ.data ?? []);
   const hoursPerYear = hoursPerYearFromWorkSettings(workQ.data);
@@ -207,22 +238,35 @@ function BonusPage() {
 
   if (!orgId) return null;
 
-  /** Every participant of a scheme with what they earn. */
+  /** Who a scheme covers, and why. */
+  const coverOf = (s: Scheme) =>
+    coveredPeople({
+      targets: b.targets.filter((t) => t.scheme_id === s.id),
+      members: people.map((p) => p.id),
+      units,
+      teams,
+    });
+  /** Everyone a scheme covers, with what they earn. */
   const rowsOf = (s: Scheme): Row[] => {
     const criteria = b.criteria.filter((c) => c.scheme_id === s.id);
-    return b.participants
-      .filter((p) => p.scheme_id === s.id)
-      .map((p) => {
-        const annual = annualOf(p.person_id);
+    return [...coverOf(s).entries()]
+      .map(([personId, via]) => {
+        const p = b.participants.find((x) => x.scheme_id === s.id && x.person_id === personId) ?? {
+          scheme_id: s.id,
+          person_id: personId,
+          target_override: null,
+        };
+        const annual = annualOf(personId);
         return {
-          personId: p.person_id,
-          name: nameOf(p.person_id),
+          personId,
+          name: nameOf(personId),
           annual,
           override: p.target_override,
+          via,
           pay: payoutOf({
             scheme: s,
             criteria,
-            results: b.results.filter((r) => r.scheme_id === s.id && r.person_id === p.person_id),
+            results: b.results.filter((r) => r.scheme_id === s.id && r.person_id === personId),
             participant: p,
             annualSalary: annual,
           }),
@@ -351,6 +395,9 @@ function BonusPage() {
               run={run}
               onEdit={() => setForm(formOf(scheme))}
               onAddPeople={() => setAdding(true)}
+              units={units}
+              teams={teams}
+              nameOf={nameOf}
             />
           )}
         </div>
@@ -550,14 +597,26 @@ function BonusPage() {
         <AddPeopleDialog
           open={adding}
           onClose={() => setAdding(false)}
-          people={people.filter(
-            (p) => !b.participants.some((x) => x.scheme_id === scheme.id && x.person_id === p.id),
-          )}
+          people={people.filter((p) => !coverOf(scheme).has(p.id))}
           busy={busy}
           onAdd={async (ids) => {
             if (
               await run(
-                () => addParticipants(orgId, scheme.id, ids),
+                async () => {
+                  // Someone left out before is in again.
+                  for (const t of b.targets)
+                    if (
+                      t.scheme_id === scheme.id &&
+                      t.kind === "exclude" &&
+                      ids.includes(t.ref_id ?? "")
+                    )
+                      await removeTarget(t.id);
+                  await addTargets(
+                    orgId,
+                    scheme.id,
+                    ids.map((id) => ({ kind: "person" as const, ref_id: id })),
+                  );
+                },
                 `Added ${ids.length} ${ids.length === 1 ? "person" : "people"}`,
               )
             )
@@ -606,6 +665,9 @@ function SchemeView({
   run,
   onEdit,
   onAddPeople,
+  units,
+  teams,
+  nameOf,
 }: {
   orgId: string;
   scheme: Scheme;
@@ -616,7 +678,24 @@ function SchemeView({
   run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
   onEdit: () => void;
   onAddPeople: () => void;
+  units: OrgUnit[];
+  teams: { id: string; name: string; members: string[] }[];
+  nameOf: (id: string) => string;
 }) {
+  const targets = b.targets.filter((t) => t.scheme_id === scheme.id);
+  /** Takes someone out: their own entry goes, and if a unit, team or the company brings them in, they are left out. */
+  const leaveOut = (r: Row) => {
+    const own = targets.find((t) => t.kind === "person" && t.ref_id === r.personId);
+    const onlyByName = r.via.every((v) => v === "Added by name");
+    return run(
+      async () => {
+        if (own) await removeTarget(own.id);
+        if (!onlyByName)
+          await addTargets(orgId, scheme.id, [{ kind: "exclude", ref_id: r.personId }]);
+      },
+      onlyByName ? `Removed ${r.name}` : `Left ${r.name} out`,
+    );
+  };
   const criteria = b.criteria.filter((c) => c.scheme_id === scheme.id);
   const company = criteria.filter((c) => c.scope === "company");
   const individual = criteria.filter((c) => c.scope === "individual");
@@ -699,20 +778,29 @@ function SchemeView({
             run={run}
           />
           <section className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="flex-1 font-semibold">People ({rows.length})</h3>
-              <Button size="sm" variant="outline" onClick={onAddPeople}>
-                <UserPlus className="mr-1 h-3.5 w-3.5" /> Add people
-              </Button>
-            </div>
+            <Coverage
+              orgId={orgId}
+              schemeId={scheme.id}
+              targets={targets}
+              units={units}
+              teams={teams}
+              nameOf={nameOf}
+              busy={busy}
+              run={run}
+              onAddPeople={onAddPeople}
+            />
+            <h3 className="pt-2 font-semibold">People ({rows.length})</h3>
             {rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No one in this scheme yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No one yet: add the entire company, a unit, a team or people above.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-xs text-muted-foreground">
                       <th className="py-2 pr-3 font-semibold">Person</th>
+                      <th className="py-2 pr-3 font-semibold">Included as</th>
                       <th className="py-2 pr-3 font-semibold">Annual salary</th>
                       <th className="py-2 pr-3 font-semibold">
                         Own target{scheme.kind === "percent" ? " (%)" : ""}
@@ -725,6 +813,9 @@ function SchemeView({
                     {rows.map((r) => (
                       <tr key={r.personId} className="border-b border-border/60">
                         <td className="py-1.5 pr-3 font-medium">{r.name}</td>
+                        <td className="py-1.5 pr-3 text-xs text-muted-foreground">
+                          {r.via.join(", ")}
+                        </td>
                         <td className="py-1.5 pr-3">
                           {r.annual ? (
                             money(r.annual.amount, r.annual.currency)
@@ -739,7 +830,9 @@ function SchemeView({
                             value={r.override}
                             placeholder={`${scheme.target}`}
                             label={`Own target of ${r.name}`}
-                            onSave={(v) => run(() => setTargetOverride(scheme.id, r.personId, v))}
+                            onSave={(v) =>
+                              run(() => setTargetOverride(orgId, scheme.id, r.personId, v))
+                            }
                           />
                         </td>
                         <td className="py-1.5 pr-3 text-right tabular-nums">
@@ -753,13 +846,9 @@ function SchemeView({
                             variant="ghost"
                             className="h-7 w-7"
                             disabled={busy}
-                            aria-label={`Remove ${r.name} from the scheme`}
-                            onClick={() =>
-                              run(
-                                () => removeParticipant(scheme.id, r.personId),
-                                `Removed ${r.name}`,
-                              )
-                            }
+                            aria-label={`Leave ${r.name} out of the scheme`}
+                            title="Leave out of the scheme"
+                            onClick={() => leaveOut(r)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -1463,5 +1552,180 @@ function AddPeopleDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------- who is covered
+
+function Coverage({
+  orgId,
+  schemeId,
+  targets,
+  units,
+  teams,
+  nameOf,
+  busy,
+  run,
+  onAddPeople,
+}: {
+  orgId: string;
+  schemeId: string;
+  targets: Target[];
+  units: OrgUnit[];
+  teams: { id: string; name: string; members: string[] }[];
+  nameOf: (id: string) => string;
+  busy: boolean;
+  run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
+  onAddPeople: () => void;
+}) {
+  const included = targets.filter((t) => t.kind !== "exclude");
+  const excluded = targets.filter((t) => t.kind === "exclude");
+  const has = (kind: string, ref: string | null) =>
+    targets.some((t) => t.kind === kind && t.ref_id === ref);
+  const unitOf = (id: string | null) => units.find((u) => u.id === id);
+  const teamOf = (id: string | null) => teams.find((t) => t.id === id);
+  const charts = [...new Set(units.map((u) => u.chart))].sort((a, b) => a.localeCompare(b));
+  const chip = (t: Target) => {
+    if (t.kind === "company") return { icon: Building2, text: "Entire company" };
+    if (t.kind === "unit") {
+      const u = unitOf(t.ref_id);
+      return { icon: Network, text: u ? `${u.name} (${u.chart})` : "A unit no longer on a chart" };
+    }
+    if (t.kind === "team")
+      return { icon: UsersRound, text: teamOf(t.ref_id)?.name ?? "A deleted team" };
+    return { icon: UserRound, text: nameOf(t.ref_id ?? "") };
+  };
+  const add = (kind: "company" | "unit" | "team", ref: string | null, label: string) =>
+    run(() => addTargets(orgId, schemeId, [{ kind, ref_id: ref }]), `Added ${label}`);
+
+  return (
+    <div className="space-y-2 rounded-xl bg-muted/40 p-3">
+      <h3 className="font-semibold">Who the scheme covers</h3>
+      {included.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No one yet.</p>
+      ) : (
+        <ul className="flex flex-wrap gap-1.5">
+          {included.map((t) => {
+            const c = chip(t);
+            return (
+              <li
+                key={t.id}
+                className="flex items-center gap-1 rounded-full border-2 border-border bg-background py-0.5 pl-2 pr-1 text-sm"
+              >
+                <c.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                {c.text}
+                <button
+                  type="button"
+                  disabled={busy}
+                  aria-label={`Remove ${c.text}`}
+                  onClick={() => run(() => removeTarget(t.id), `Removed ${c.text}`)}
+                  className="rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || has("company", null)}
+          onClick={() => add("company", null, "the entire company")}
+        >
+          <Building2 className="mr-1 h-3.5 w-3.5" /> Entire company
+        </Button>
+        <Select
+          value=""
+          onValueChange={(id) => {
+            const u = unitOf(id);
+            if (u) void add("unit", id, u.name);
+          }}
+        >
+          <SelectTrigger className="h-9 w-48" aria-label="Add a unit">
+            <SelectValue placeholder="Add a unit" />
+          </SelectTrigger>
+          <SelectContent>
+            {units.length === 0 && (
+              <SelectItem value="__none__" disabled>
+                No units on the org chart
+              </SelectItem>
+            )}
+            {charts.map((ch) => (
+              <SelectGroup key={ch}>
+                <SelectLabel>{ch}</SelectLabel>
+                {units
+                  .filter((u) => u.chart === ch && !has("unit", u.id))
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value=""
+          onValueChange={(id) => {
+            const t = teamOf(id);
+            if (t) void add("team", id, t.name);
+          }}
+        >
+          <SelectTrigger className="h-9 w-44" aria-label="Add a team">
+            <SelectValue placeholder="Add a team" />
+          </SelectTrigger>
+          <SelectContent>
+            {teams.length === 0 && (
+              <SelectItem value="__none__" disabled>
+                No teams yet
+              </SelectItem>
+            )}
+            {teams
+              .filter((t) => !has("team", t.id))
+              .map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name} ({t.members.length})
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" onClick={onAddPeople}>
+          <UserPlus className="mr-1 h-3.5 w-3.5" /> People
+        </Button>
+      </div>
+      {excluded.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="flex items-center gap-1 text-muted-foreground">
+            <Ban className="h-3.5 w-3.5" /> Left out:
+          </span>
+          {excluded.map((t) => (
+            <span
+              key={t.id}
+              className="flex items-center gap-1 rounded-full border border-dashed border-border py-0.5 pl-2 pr-1"
+            >
+              {nameOf(t.ref_id ?? "")}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(() => removeTarget(t.id), `${nameOf(t.ref_id ?? "")} is in again`)
+                }
+                className="rounded-full px-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Include again
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        A unit brings in its head, its members and those of the units within it. The list follows
+        changes: someone who joins a covered unit or team, or the company, is in the scheme too.
+      </p>
+    </div>
   );
 }
