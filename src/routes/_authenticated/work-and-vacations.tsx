@@ -455,7 +455,7 @@ function CalendarTab({
   );
   const grid = weeks.flat();
   /** Rows share the screen height left over, so the month fits without scrolling. */
-  const rowHeight = `clamp(4.25rem, calc((100dvh - 21rem) / ${weeks.length}), 8rem)`;
+  const rowHeight = `clamp(4.25rem, calc((100dvh - 22.5rem) / ${weeks.length}), 8rem)`;
   const SHOWN = 2;
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = absences.filter((a) => {
