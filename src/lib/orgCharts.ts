@@ -489,27 +489,54 @@ export function samePerson(
 }
 
 /**
- * The reporting lines the units imply. A line drawn on Reporting lines wins:
- * someone who holds a role there gets no implied line, and the people who
- * report to them hang under that role. A unit without a head of its own
- * reports through the nearest unit above it that has one.
+ * The reporting lines the units imply, every one of them: someone in two
+ * units appears under the head of each (Mikko in HR and in a project shows
+ * under both heads). A unit's head reports to the head of the nearest unit
+ * above with one; a member to the head of their unit, or of the nearest unit
+ * above it with one.
+ * A line drawn on Reporting lines wins: a relationship already drawn there
+ * (someone's role reports to that manager's role, directly or as a dotted
+ * line) isn't shown twice, and the people who report to someone with a role
+ * hang under that role. The same person under the same manager shows once.
  */
 export function impliedReporting(
   nodes: ChartNode[],
   members: ChartMember[],
   nameOf: (n: ChartNode) => string | null,
   memberName: (m: ChartMember) => string,
+  dotted: DottedLine[] = [],
 ): ImpliedLine[] {
   const units = nodes.filter((n) => n.kind === "unit");
   const unitById = new Map(units.map((u) => [u.id, u]));
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const roleOf = new Map<string, ChartNode>();
+  const rolesOf = new Map<string, ChartNode[]>();
   for (const r of nodes) {
     const name = r.kind === "role" ? nameOf(r) : null;
     if (name) {
       const k = personKey(r.person_id, name);
       if (!roleOf.has(k)) roleOf.set(k, r);
+      rolesOf.set(k, [...(rolesOf.get(k) ?? []), r]);
     }
   }
+  const holderKey = (n: ChartNode | undefined) => {
+    const name = n ? nameOf(n) : null;
+    return n && name ? personKey(n.person_id, name) : null;
+  };
+  /** Whom someone already reports to on Reporting lines, through any role they hold. */
+  const drawnManagers = (who: string) => {
+    const out = new Set<string>();
+    for (const r of rolesOf.get(who) ?? []) {
+      const main = holderKey(r.parent_id ? nodeById.get(r.parent_id) : undefined);
+      if (main) out.add(main);
+      for (const d of dotted) {
+        if (d.role_id !== r.id) continue;
+        const also = holderKey(nodeById.get(d.reports_to_id));
+        if (also) out.add(also);
+      }
+    }
+    return out;
+  };
   const headKey = (u: ChartNode) => {
     const name = nameOf(u);
     return name ? personKey(u.person_id, name) : null;
@@ -542,8 +569,13 @@ export function impliedReporting(
   );
   for (const u of sorted) {
     const hk = headKey(u);
-    if (!hk || roleOf.has(hk)) continue;
-    const m = manager(nearestHeaded(u.parent_id, hk));
+    if (!hk) continue;
+    const boss = nearestHeaded(u.parent_id, hk);
+    // A head with a role is already on the chart; add a box only for a
+    // relationship that isn't drawn yet.
+    if (roleOf.has(hk) && (!boss || drawnManagers(hk).has(headKey(boss)!))) continue;
+    const m = manager(boss);
+    if (placed.has(`${hk}|${m.parent}`)) continue;
     placed.add(`${hk}|${m.parent}`);
     out.push({
       key: `${IMPLIED}head:${u.id}`,
@@ -560,9 +592,10 @@ export function impliedReporting(
     for (const mem of members.filter((x) => x.node_id === u.id)) {
       const name = memberName(mem);
       const mk = personKey(mem.person_id, name);
-      if (roleOf.has(mk)) continue;
       const boss = nearestHeaded(u.id, mk);
       if (!boss) continue;
+      // Already drawn: one of their roles reports to this head's role.
+      if (drawnManagers(mk).has(headKey(boss)!)) continue;
       const m = manager(boss);
       // Someone already shown under this manager, e.g. as head of a unit within.
       if (placed.has(`${mk}|${m.parent}`)) continue;

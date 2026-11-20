@@ -723,7 +723,7 @@ function OrgChartPage() {
         : new Set();
 
   // Worked out on either tab, so the Reporting lines tab can count them; drawn only there.
-  const allImplied = impliedReporting(nodes, members, nameOf, memberName);
+  const allImplied = impliedReporting(nodes, members, nameOf, memberName, dotted);
   const impliedLines = kind === "role" ? allImplied : [];
   const implied = new Map<string, ImpliedLine[]>();
   for (const l of impliedLines) implied.set(l.parent, [...(implied.get(l.parent) ?? []), l]);
