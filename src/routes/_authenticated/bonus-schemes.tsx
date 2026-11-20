@@ -186,7 +186,7 @@ function BonusPage() {
       kind: "percent",
       target: "10",
       currency: "EUR",
-      max_payout_pct: "150",
+      max_payout_pct: "100",
       status: "draft",
     };
   };
