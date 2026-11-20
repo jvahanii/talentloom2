@@ -2716,6 +2716,18 @@ function ImpliedCard({
           )}
           <span className="truncate">{line.name}</span>
         </span>
+        {(view.spanOf(line.key)?.direct ?? 0) > 0 && (
+          <span
+            className={
+              "mt-1 block text-[11px] " +
+              (view.spanOf(line.key)!.direct > WIDE_SPAN
+                ? "font-semibold text-amber-700 dark:text-amber-400"
+                : "text-muted-foreground")
+            }
+          >
+            {view.spanOf(line.key)!.direct} direct · {view.spanOf(line.key)!.total} in total
+          </span>
+        )}
       </button>
       {hasKids && <FoldButton k={line.key} view={view} />}
     </div>
