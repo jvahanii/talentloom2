@@ -46,6 +46,18 @@ import {
   Info,
   Boxes,
   Map as MapIcon,
+  Workflow,
+  CalendarDays,
+  Wallet,
+  Coins,
+  Percent,
+  GitCompare,
+  Gift,
+  Undo2,
+  Globe,
+  Route as RouteIcon,
+  UserCheck,
+  Palmtree,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,7 +68,7 @@ export const Route = createFileRoute("/docs")({
       {
         name: "description",
         content:
-          "Learn how to find roles, run your hiring organisation, and follow people over time with Talentloom Pulse surveys.",
+          "Learn how to find roles, run your hiring organisation, organise and pay your people, and follow them over time with Talentloom Pulse surveys.",
       },
     ],
   }),
@@ -164,9 +176,12 @@ const CONTENTS = [
   { id: "candidates", label: "For candidates" },
   { id: "recruiting", label: "For recruiting teams" },
   { id: "organisations", label: "Organisations & people" },
-  { id: "teams", label: "Teams" },
+  { id: "org-chart", label: "Org chart & teams" },
+  { id: "work", label: "Work and vacations" },
   { id: "skills", label: "Skills" },
   { id: "learning", label: "Learning together" },
+  { id: "careers", label: "Career paths" },
+  { id: "compensation", label: "Compensation" },
   { id: "pulse", label: "Talentloom Pulse" },
   { id: "settings", label: "Settings" },
   { id: "good-to-know", label: "Good to know" },
@@ -193,8 +208,8 @@ function Docs() {
             Talentloom <span className="text-duotone">user guide</span>
           </h1>
           <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-            Everything you need to find a role, run a clear hiring process, or follow how people
-            feel over time with Pulse — explained step by step.
+            Everything you need to find a role, run a clear hiring process, organise and pay your
+            people, or follow how they feel over time with Pulse — explained step by step.
           </p>
           <nav aria-label="Contents" className="mt-6 flex flex-wrap justify-center gap-2">
             {CONTENTS.map((c) => (
@@ -241,8 +256,9 @@ function Docs() {
                   icon: Mail,
                   text: (
                     <>
-                      Invited to a team? Open the link in your invitation and sign in with the email
-                      it was sent to. You join that organisation directly.
+                      Invited by email? Open the link in your invitation and sign in with the email
+                      it was sent to. You join that organisation directly. A shared invite link only
+                      creates your account; you join once someone in the organisation adds you.
                     </>
                   ),
                 },
@@ -251,8 +267,8 @@ function Docs() {
                   text: (
                     <>
                       After signing in you land where you belong: the organisation you last used, if
-                      you're in one; otherwise your Pulse surveys, if you have any; otherwise the
-                      job board to explore open roles. Brand-new accounts are first asked whether
+                      you're in one; otherwise your surveys, if you have any; otherwise the job
+                      board to explore open roles. Brand-new accounts are first asked whether
                       they're a recruiter or a candidate.
                     </>
                   ),
@@ -262,8 +278,8 @@ function Docs() {
                   text: (
                     <>
                       You don't need an organisation to use <a href="#pulse">Pulse surveys</a>.
-                      Without one, the menu shows only Pulse surveys and Settings, plus a link to
-                      create an organisation when you want one.
+                      Without one, the menu shows only Surveys and Settings, plus a link to create
+                      an organisation when you want one.
                     </>
                   ),
                 },
@@ -283,9 +299,32 @@ function Docs() {
                   icon: Search,
                   text: (
                     <>
-                      Select <strong>Explore open roles</strong> to browse public positions. Search
-                      by title, department, or company, filter by organisation, and sort the
-                      results.
+                      Select <strong>Explore open roles</strong> to browse the job board: positions
+                      posted on Talentloom and job ads imported every morning from public lists.
+                      Every matching role is listed, with a count above the list, and each card
+                      shows the day it was added. An imported ad opens the original ad on its own
+                      site.
+                    </>
+                  ),
+                },
+                {
+                  icon: Search,
+                  text: (
+                    <>
+                      Search by title, department or company. Separate several titles with commas —{" "}
+                      <em>designer, product manager</em> shows roles matching either. Words in{" "}
+                      <strong>Exclude</strong>, such as <em>senior, intern</em>, hide every ad that
+                      contains them, and the count says how many were hidden. Filter by company and
+                      sort by newest, rating, deadline or company.
+                    </>
+                  ),
+                },
+                {
+                  icon: History,
+                  text: (
+                    <>
+                      <strong>Active</strong> shows open roles, <strong>Past</strong> closed ones
+                      (deadline passed, or no longer listed), and <strong>All</strong> both.
                     </>
                   ),
                 },
@@ -320,8 +359,12 @@ function Docs() {
                   icon: Star,
                   text: (
                     <>
-                      When signed in, rate positions on the job board, sort by your ratings, and
-                      discard the ones you're not interested in.
+                      Rate positions with the stars. Signed out, your rating is kept in this browser
+                      for an hour and saved to your account when you select <strong>Sign in</strong>
+                      . Signed in, sort by your ratings, see them under <strong>Rated</strong>, and
+                      discard roles you're not interested in (they move to{" "}
+                      <strong>Discarded</strong>). Your search, exclusions and filters are
+                      remembered.
                     </>
                   ),
                 },
@@ -443,8 +486,9 @@ function Docs() {
                       The <strong>People</strong> page lists everyone in the organisation: name,
                       email, when they joined, their title and <a href="#teams">teams</a>, their{" "}
                       <a href="#skills">skills</a> and who they're{" "}
-                      <a href="#learning">learning with</a>. Search finds people by name, email,
-                      skill or level. On a phone each person shows as a card.
+                      <a href="#learning">learning with</a>, and their{" "}
+                      <a href="#salaries">salary</a>. Search finds people by name, email, skill or
+                      level. On a phone each person shows as a card.
                     </>
                   ),
                 },
@@ -500,20 +544,297 @@ function Docs() {
           </Section>
 
           <Section
-            id="teams"
-            icon={Network}
-            title="Teams"
-            blurb="Who works together, and what the team knows."
+            id="org-chart"
+            icon={Workflow}
+            title="Org chart & teams"
+            blurb="How the organisation is built, who supervises whom, and who works together."
           >
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              <strong>Org chart & teams</strong> in the side menu has three tabs:{" "}
+              <a href="#org-chart-units">Units</a>, <a href="#supervisors">Supervisors</a> and{" "}
+              <a href="#teams">Teams</a>. It opens on the tab you used last.
+            </p>
+
+            <Topic id="org-chart-charts" title="Charts">
+              <StepList
+                steps={[
+                  {
+                    icon: Workflow,
+                    text: (
+                      <>
+                        Keep as many charts as you like, for example today's and a planned one.{" "}
+                        <strong>New chart</strong>, <strong>Rename</strong>, <strong>Copy</strong>{" "}
+                        and <strong>Delete</strong> sit beside the chart picker. An empty chart can
+                        also be filled with a copy of another chart. Everyone in the organisation
+                        can see and edit the charts.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Star,
+                    text: (
+                      <>
+                        Each chart is <strong>Active</strong>, <strong>Past</strong> or{" "}
+                        <strong>Planned</strong>. Only one chart is active: it is today's
+                        organisation, and bonus schemes count people by its units. A new chart
+                        starts as planned (the first one is active), and the page opens on the
+                        active chart. On a past or planned chart, the bar under the picker offers{" "}
+                        <strong>Make active</strong> and <strong>Mark as past</strong> or{" "}
+                        <strong>Mark as planned</strong>. Making a chart active turns the old active
+                        one into a past chart.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: GitCompare,
+                    text: (
+                      <>
+                        <strong>Compare</strong> lists what changes from another chart to this one,
+                        matching units by name. <strong>Print / PDF</strong> prints just the chart
+                        across a landscape page.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="org-chart-units" title="Units and their people">
+              <StepList
+                steps={[
+                  {
+                    icon: Building2,
+                    text: (
+                      <>
+                        A unit, such as Finance or Accounting, has a name, an optional head, its
+                        members and a note. Pick people from People or type a name by hand. Someone
+                        is either a unit's head or one of its members, not both. Click a unit to
+                        edit it; <strong>+</strong> adds a unit within it.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Layers,
+                    text: (
+                      <>
+                        Drag a unit onto another to make it part of it, or to its left or right edge
+                        to place it beside it. While you drag, every place it can land is outlined
+                        and the box under the pointer says what a drop there does.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Users,
+                    text: (
+                      <>
+                        The <strong>People</strong> list beside the chart shows everyone in People.
+                        Drag someone onto a unit to add them, or drag members between units. People
+                        in no unit are shown in amber, with a count. Sort the list by name or by
+                        unit.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Undo2,
+                    text: (
+                      <>
+                        The small × on a member or a head takes them off the chart straight away.
+                        You have 8 seconds to select <strong>Undo</strong>.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Search,
+                    text: (
+                      <>
+                        <strong>Find a unit or person</strong> outlines what matches and opens
+                        folded branches; Enter jumps to the first match. Fold any branch, or use{" "}
+                        <strong>Collapse all</strong> and <strong>Expand all</strong>. Zoom out and
+                        in, or <strong>Fit</strong> the chart to the width. Switch from{" "}
+                        <strong>Tree</strong> to <strong>List</strong> to see the chart as an
+                        indented list. You can edit in both.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="org-chart-pay" title="Salaries on the chart">
+              <StepList
+                steps={[
+                  {
+                    icon: Coins,
+                    text: (
+                      <>
+                        Turn on <strong>Show salaries</strong> to see salary costs a month and a
+                        year: for the whole company, for each unit, and for each unit together with
+                        the units within it. Someone in several units is counted once. Salaries come
+                        from <a href="#salaries">People</a>.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Percent,
+                    text: (
+                      <>
+                        People whose title may change titles can select{" "}
+                        <strong>Bulk adjust %</strong> to raise or lower pay by a percentage for the
+                        whole company, for everyone placed in the chart, or for one unit. Pick the
+                        people and an effective date, select <strong>Preview on chart</strong> to
+                        see the new costs on the chart, then apply. Undo is offered right after.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: CalendarRange,
+                    text: (
+                      <>
+                        On a past or planned chart, pay changes are only a plan. They are saved on
+                        that chart and never change anyone's real pay or bonus. The cost summary
+                        shows the chart's own people at their planned pay, next to today's real
+                        costs and the difference. A pay button on a person plans their pay one by
+                        one, and pay from a plan is tagged <strong>planned</strong>.{" "}
+                        <strong>Discard planned pay</strong> removes the plans. When you make the
+                        chart active, you can make its planned pay real or keep it as a plan.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="supervisors" title="Supervisors">
+              <StepList
+                steps={[
+                  {
+                    icon: UserCheck,
+                    text: (
+                      <>
+                        The <strong>Supervisors</strong> tab lists everyone and their supervisors. A
+                        person can have several. It says how many have a supervisor, and people
+                        without one are highlighted.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Sparkles,
+                    text: (
+                      <>
+                        Suggestions come from the active org chart: a unit's head supervises its
+                        members and is supervised by the head of the unit above. Accept them one by
+                        one, or select <strong>Accept all</strong>. Supervisor relationships can't
+                        go round in a circle, so those aren't offered.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="teams" title="Teams">
+              <StepList
+                steps={[
+                  {
+                    icon: Network,
+                    text: (
+                      <>
+                        The <strong>Teams</strong> tab shows the organisation's teams and who is in
+                        each. Teams belong to the whole organisation, not to a chart. A person can
+                        be in several teams; people in no team are listed at the bottom. Old links
+                        to the Teams page open this tab.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Plus,
+                    text: (
+                      <>
+                        People whose title may change titles create a team with a name and an
+                        optional description, rename or describe it right on its card, add people
+                        with <strong>+ Add person</strong>, take them out with ×, or delete the
+                        team. Its people stay in the organisation.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Users,
+                    text: (
+                      <>
+                        On the <strong>People</strong> page, each person's teams show under their
+                        title, with <strong>+ Team</strong> and × to change them.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Sparkles,
+                    text: (
+                      <>
+                        Each team card lists the <strong>skills in the team</strong> — see{" "}
+                        <a href="#skills-in-teams">Skills in teams</a>.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Boxes,
+                    text: (
+                      <span id="teams-of-teams" className="scroll-mt-24">
+                        <strong>Teams of teams</strong>, below the teams, put several teams together
+                        — for example a product area. Name one, pick its teams and select{" "}
+                        <strong>Create</strong>; add or remove teams on its card later. A team can
+                        be in many teams of teams, but a team of teams holds only teams. Each card
+                        shows how many people it has and the skills they share, and{" "}
+                        <a href="#skills-development">Skill development</a> and{" "}
+                        <a href="#bonus-schemes">bonus schemes</a> can treat a team of teams as one.
+                      </span>
+                    ),
+                  },
+                  {
+                    icon: MapIcon,
+                    text: (
+                      <>
+                        Teams can place themselves on the{" "}
+                        <a href="#skills-topology">Org topology map</a> on the Skills page.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: ShieldCheck,
+                    text: (
+                      <>
+                        Everyone in the organisation can see the teams; only titles that may change
+                        titles can change them. Leaving the organisation takes a person out of its
+                        teams.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+          </Section>
+
+          <Section
+            id="work"
+            icon={CalendarDays}
+            title="Work and vacations"
+            blurb="Working time, holidays, absences and vacation days."
+          >
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              <strong>Work and vacations</strong> in the side menu covers the organisation's working
+              time and everyone's absences. Everyone in the organisation can see and edit it. Dates,
+              month and day names and the first day of the week follow your own browser's settings,
+              for example 20.11.2026 with Monday first in Finland.
+            </p>
             <StepList
               steps={[
                 {
-                  icon: Network,
+                  icon: CalendarDays,
                   text: (
                     <>
-                      The <strong>Teams</strong> page in the side menu shows the organisation's
-                      teams and who is in each. A person can be in several teams; people in no team
-                      are listed at the bottom.
+                      The <strong>Calendar</strong> shows a month of national holidays, the
+                      organisation's own days off and everyone's absences, sized to fit the screen.
+                      Each day shows two absences and <strong>+N more</strong>; click a day to see
+                      all of it. Find a person or a kind of absence with the search.
                     </>
                   ),
                 },
@@ -521,61 +842,63 @@ function Docs() {
                   icon: Plus,
                   text: (
                     <>
-                      People whose title may change titles create a team with a name and an optional
-                      description, rename or describe it right on its card, add people with{" "}
-                      <strong>+ Add person</strong>, take them out with ×, or delete the team. Its
-                      people stay in the organisation.
+                      <strong>Add an absence</strong>: pick the person, the kind of absence, the
+                      dates and an optional note. The dialog shows how many vacation days the person
+                      has left. A person can't have two absences on the same day: you are warned and
+                      offered the existing one to edit instead.
                     </>
                   ),
                 },
                 {
-                  icon: Users,
+                  icon: Palmtree,
                   text: (
                     <>
-                      On the <strong>People</strong> page, each person's teams show under their
-                      title, with <strong>+ Team</strong> and × to change them.
+                      <strong>Vacation days</strong> lists each person's days earned, used and left
+                      this vacation year. It is a demo calculation: by default 2.5 days for each
+                      month from 1 April. Open a person to set their own working week, hours,
+                      holidays and days a month, or enter earned and used days by hand.
                     </>
                   ),
                 },
                 {
-                  icon: Sparkles,
+                  icon: Globe,
                   text: (
                     <>
-                      Each team card lists the <strong>skills in the team</strong> — see{" "}
-                      <a href="#skills-in-teams">Skills in teams</a>.
+                      <strong>Holidays and days off</strong> lists national holidays for one or more
+                      countries (Finland by default). Any holiday can be made a working day, and the
+                      organisation can add its own days off, once or every year.
                     </>
                   ),
                 },
                 {
-                  icon: Boxes,
-                  text: (
-                    <span id="teams-of-teams" className="scroll-mt-24">
-                      <strong>Teams of teams</strong>, below the teams, put several teams together —
-                      for example a product area. Name one, pick its teams and select{" "}
-                      <strong>Create</strong>; add or remove teams on its card later. A team can be
-                      in many teams of teams, but a team of teams holds only teams. Each card shows
-                      how many people it has and the skills they share, and{" "}
-                      <a href="#skills-development">Skill development</a> can show a team of teams
-                      as one.
-                    </span>
-                  ),
-                },
-                {
-                  icon: MapIcon,
+                  icon: Palette,
                   text: (
                     <>
-                      Teams can place themselves on the{" "}
-                      <a href="#skills-topology">Org topology map</a> on the Skills page.
+                      <strong>Kinds of absence</strong> has the built-in kinds: annual, unpaid, sick
+                      and other, plus the statutory leave of the person's country. Add the
+                      organisation's own, such as <em>pekkasvapaa</em>, with a name, a colour and
+                      whether it uses vacation days. A removed kind is no longer offered, but
+                      absences already marked with it keep it, and it can be brought back.
                     </>
                   ),
                 },
                 {
-                  icon: ShieldCheck,
+                  icon: Clock3,
                   text: (
                     <>
-                      Everyone in the organisation can see the teams; only titles that may change
-                      titles can change them. Leaving the organisation takes a person out of its
-                      teams.
+                      <strong>Working time</strong> sets the working days, hours a day, vacation
+                      days a month and the month the vacation year starts.
+                    </>
+                  ),
+                },
+                {
+                  icon: History,
+                  text: (
+                    <>
+                      <strong>History</strong> records every change: who made it, when, and what it
+                      was before and after. Filter it by kind of record and by person. Each
+                      absence's dialog also shows its own history. The history can't be edited or
+                      deleted.
                     </>
                   ),
                 },
@@ -883,7 +1206,7 @@ function Docs() {
                     icon: Network,
                     text: (
                       <>
-                        Each card on the <a href="#teams">Teams</a> page lists every skill its
+                        Each card on the <a href="#teams">Teams</a> tab lists every skill its
                         members have, most widely held first, with how many have it. The colour is
                         the best level in the team; point at a skill to see who has it and at what
                         level.
@@ -1006,6 +1329,179 @@ function Docs() {
           </Section>
 
           <Section
+            id="careers"
+            icon={RouteIcon}
+            title="Career paths"
+            blurb="Where people can go next, and how ready they are."
+          >
+            <StepList
+              steps={[
+                {
+                  icon: RouteIcon,
+                  text: (
+                    <>
+                      <strong>Career paths</strong> in the side menu is a career map. Job families,
+                      such as Engineering or Sales, are columns, and levels go from bottom to top.
+                      Moving up a column is a promotion; an arrow is a move sideways to another
+                      family. Start with <strong>Job family</strong>, then add its roles level by
+                      level. <strong>Levels</strong> names the levels.
+                    </>
+                  ),
+                },
+                {
+                  icon: Sparkles,
+                  text: (
+                    <>
+                      A role has a name, a family, a level, an optional description and salary
+                      range, and the <a href="#skills">skills</a> it asks for, each at a level.
+                      Click a role to see its skills, its people and its moves sideways. You can
+                      also edit it, place someone in it, or add a move to another role there.
+                    </>
+                  ),
+                },
+                {
+                  icon: UserRound,
+                  text: (
+                    <>
+                      Pick a person in <strong>Show the map for</strong> to see where they are and
+                      what's next. Every role is coloured by how their skills fit:{" "}
+                      <strong>Ready</strong> when they meet every skill it asks for,{" "}
+                      <strong>Close</strong> when they meet at least half, and{" "}
+                      <strong>Further</strong> otherwise. Their next options are outlined. A role
+                      that asks for no skills stays neutral.
+                    </>
+                  ),
+                },
+                {
+                  icon: ShieldCheck,
+                  text: <>Everyone in the organisation can edit the career map for now.</>,
+                },
+              ]}
+            />
+          </Section>
+
+          <Section
+            id="compensation"
+            icon={Wallet}
+            title="Compensation"
+            blurb="Salaries, their history, and bonus schemes."
+          >
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              <strong>Compensation</strong> in the side menu has two tabs,{" "}
+              <a href="#salaries">Salaries</a> and <a href="#bonus-schemes">Bonus schemes</a>.
+            </p>
+
+            <Topic id="salaries" title="Salaries">
+              <StepList
+                steps={[
+                  {
+                    icon: Coins,
+                    text: (
+                      <>
+                        Click the <strong>Salary</strong> column on the People page, or a row under
+                        Compensation → Salaries, to open a person's salary history, newest first.{" "}
+                        <strong>Add salary</strong> or <strong>Change salary</strong> records an
+                        amount, a currency, whether it's monthly, annual or hourly, the date it
+                        takes effect and an optional note, such as <em>Annual review</em>. The
+                        dialog shows the change from the previous salary. A salary with a later date
+                        is shown as scheduled.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: KeyRound,
+                    text: (
+                      <>
+                        People whose title may change titles can change anyone's salary, and entries
+                        can be edited or deleted.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: BarChart3,
+                    text: (
+                      <>
+                        The <strong>Salaries</strong> tab lists everyone's current salary, its cost
+                        a year, since when, the salary before and the change in per cent and in
+                        money. Totals at the top show the people with a salary, the cost a year, the
+                        average change and the number of raises and decreases. Find a person or sort
+                        by name, salary, change or latest change.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Workflow,
+                    text: (
+                      <>
+                        The org chart can show salary costs per unit and plan changes in bulk; see{" "}
+                        <a href="#org-chart-pay">Salaries on the chart</a>.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+
+            <Topic id="bonus-schemes" title="Bonus schemes">
+              <StepList
+                steps={[
+                  {
+                    icon: Gift,
+                    text: (
+                      <>
+                        A scheme has a name, a period, a target bonus (a per cent of annual salary,
+                        or a fixed sum), a threshold, a cap and a status: Draft, Active or Closed.
+                        Below the threshold nothing is paid. Above it, the bonus grows with the
+                        results, up to the cap. New schemes are capped at 100% of the target.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: Users,
+                    text: (
+                      <>
+                        <strong>Who the scheme covers</strong>: the entire company (where a new
+                        scheme starts), org chart units with the units within them, teams,{" "}
+                        <a href="#teams-of-teams">teams of teams</a> or people by name. Anyone can
+                        be left out. People are worked out again each time, so someone who joins a
+                        covered unit or team is included, and each person shows why. Units come from
+                        the active org chart only, so a planned chart never changes anyone's bonus.
+                        Targeting a unit or team carries a warning about local optimisation, and
+                        targeting named people a strong one.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: ListChecks,
+                    text: (
+                      <>
+                        A scheme has three steps. <strong>Measures and people</strong>: what the
+                        bonus is paid for, each with a weight. A company-wide measure (EBITDA, cash
+                        flow) has one result for everyone; a per-person measure (customer
+                        satisfaction, own sales) has a result for each person.{" "}
+                        <strong>Results</strong>: enter each achievement in per cent.{" "}
+                        <strong>Payouts</strong>: each person's bonus and its status, with a{" "}
+                        <strong>CSV</strong> download. Missing results count as 0 until they're in.
+                      </>
+                    ),
+                  },
+                  {
+                    icon: BarChart3,
+                    text: (
+                      <>
+                        Each scheme shows a summary: its people, the results completed, the average
+                        achievement and the total payout. Annual salaries come from{" "}
+                        <a href="#salaries">Salaries</a>. Everyone in the organisation can edit
+                        bonus schemes for now.
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </Topic>
+          </Section>
+
+          <Section
             id="pulse"
             icon={Activity}
             title="Talentloom Pulse"
@@ -1013,7 +1509,7 @@ function Docs() {
           >
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               Pulse asks the same people the same questions again and again, so you can see what
-              moved. Open <strong>Pulse surveys</strong> in the menu, or read the overview on the{" "}
+              moved. Open <strong>Surveys</strong> in the menu, or read the overview on the{" "}
               <Link to="/pulse" className="font-medium text-primary hover:underline">
                 Pulse page
               </Link>
@@ -1166,7 +1662,7 @@ function Docs() {
                     text: (
                       <>
                         Invited people with a Talentloom account also see open rounds under{" "}
-                        <strong>Waiting for your answer</strong> on their Pulse surveys page.
+                        <strong>Waiting for your answer</strong> on their Surveys page.
                       </>
                     ),
                   },
@@ -1455,8 +1951,18 @@ function Docs() {
                 icon={Layers}
                 text={
                   <>
-                    Pages with tabs, such as Skills and Admin, open on the tab you used last in this
-                    browser.
+                    Pages with tabs, such as Skills, Org chart & teams, Work and vacations and
+                    Compensation, open on the tab you used last in this browser.
+                  </>
+                }
+              />
+              <Fact
+                icon={Sparkles}
+                text={
+                  <>
+                    Now and then a cat or a pig peeks up from the bottom of the page for a few
+                    seconds. Click to send them off. If you prefer reduced motion, they fade in
+                    instead.
                   </>
                 }
               />
