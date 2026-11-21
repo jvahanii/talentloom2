@@ -330,7 +330,7 @@ export const deletePulseSurvey = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
     // A survey shared with organisations belongs to them too: once its creator has
-    // left every linked org, only an org member who can manage titles may delete it.
+    // left every linked org, only someone in one of them may delete it.
     const { data: survey, error: se } = await sb.from("pulse_surveys").select("owner_id").eq("id", data.id).single();
     fail(se);
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
@@ -341,20 +341,19 @@ export const deletePulseSurvey = createServerFn({ method: "POST" })
     if (orgIds.length) {
       const { data: mem, error: me } = await admin
         .from("organization_members")
-        .select("org_id, title_id, organization_titles(can_manage_titles)")
+        .select("org_id")
         .eq("user_id", context.userId)
         .in("org_id", orgIds);
       fail(me);
       const memberships = (mem ?? []) as Loose[];
       const isCreator = survey.owner_id === context.userId;
-      const canManage = memberships.some((m) => m.organization_titles?.can_manage_titles);
       if (isCreator && memberships.length === 0) {
         throw new Error(
-          "This survey is shared with an organisation you have left. Ask someone in that organisation who can manage titles to delete it.",
+          "This survey is shared with an organisation you have left. Ask someone in that organisation to delete it.",
         );
       }
-      if (!isCreator && !canManage) {
-        throw new Error("Only someone who can manage titles in a linked organisation can delete this survey.");
+      if (!isCreator && memberships.length === 0) {
+        throw new Error("Only someone in a linked organisation can delete this survey.");
       }
     }
     const { error } = await sb.from("pulse_surveys").delete().eq("id", data.id);

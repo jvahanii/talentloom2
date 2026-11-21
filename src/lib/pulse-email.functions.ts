@@ -21,7 +21,7 @@ function siteOrigin(): string {
  * Emails invited people their personal link for the survey's open round.
  * Only people who haven't answered that round get one, so it serves both as
  * the round invitation and as a reminder. Limited to people who may see the
- * invited list: the survey's owners and its organisations' owners and admins.
+ * invited list: the survey's owners and everyone in its organisations.
  */
 export const sendPulseRoundEmails = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

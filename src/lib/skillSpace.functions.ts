@@ -6,8 +6,8 @@ import { MAX_SKILL_LEVELS, MAX_SKILL_LEVEL_NAME_LENGTH, MIN_SKILL_LEVELS } from 
 
 /**
  * Connecting organisations into one skill space, so they share their skill
- * list, level names and people's skills. An owner or admin of one
- * organisation creates a code; an owner or admin of the other enters it.
+ * list, level names and people's skills. Someone in one organisation
+ * creates a code; someone in the other enters it.
  * Either can disconnect later, and the leaving organisation keeps a copy of
  * the shared skills.
  */
@@ -20,28 +20,10 @@ async function admin(): Promise<Loose> {
   return supabaseAdmin as Loose;
 }
 
-/**
- * Owners and admins. The Admin title counts even when the stored role is still
- * "member" (titles can change without the role following).
- */
-async function requireOwnerOrAdmin(sb: Loose, orgId: string, userId: string) {
-  const { data: byRole } = await sb.rpc("has_org_role", {
-    _org: orgId,
-    _user: userId,
-    _min: "admin",
-  });
-  if (byRole === true) return;
-  const db = await admin();
-  const { data: member } = await db
-    .from("organization_members")
-    .select("organization_titles(name)")
-    .eq("org_id", orgId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const title = (member?.organization_titles as { name?: string } | null)?.name;
-  if (title !== "Owner" && title !== "Admin") {
-    throw new Error("Only an owner or admin of the organisation can do this");
-  }
+/** Everyone in an organisation may do everything in it; outsiders nothing. */
+async function requireMember(sb: Loose, orgId: string, userId: string) {
+  const { data } = await sb.rpc("is_org_member", { _org: orgId, _user: userId });
+  if (data !== true) throw new Error("You aren't a member of this organisation");
 }
 
 // No 0/O or 1/I, so a code read aloud or typed from a screenshot comes out right.
@@ -54,12 +36,12 @@ function newCode(): string {
 
 const orgOnly = (d: { orgId: string }) => z.object({ orgId: z.string().uuid() }).parse(d);
 
-/** A one-time code, valid 7 days, that another organisation's owner enters to connect. */
+/** A one-time code, valid 7 days, that someone in another organisation enters to connect. */
 export const createSkillConnectionCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(orgOnly)
   .handler(async ({ data, context }) => {
-    await requireOwnerOrAdmin(context.supabase, data.orgId, context.userId);
+    await requireMember(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const code = newCode();
     const { data: row, error } = await db
@@ -87,7 +69,7 @@ export const connectSkillSpace = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await requireOwnerOrAdmin(context.supabase, data.orgId, context.userId);
+    await requireMember(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const code = data.code.includes("-")
       ? data.code
@@ -125,7 +107,7 @@ export const disconnectSkillSpace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(orgOnly)
   .handler(async ({ data, context }) => {
-    await requireOwnerOrAdmin(context.supabase, data.orgId, context.userId);
+    await requireMember(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const { error } = await db.rpc("disconnect_skill_space", { _org: data.orgId });
     if (error) throw new Error(error.message);
@@ -134,8 +116,7 @@ export const disconnectSkillSpace = createServerFn({ method: "POST" })
 
 /**
  * Saves the skill level names, or resets them with null. Connected
- * organisations share one set, stored on the space's root. Needs the
- * "rename organisation" permission.
+ * organisations share one set, stored on the space's root.
  */
 export const saveSkillLevelNames = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -152,15 +133,7 @@ export const saveSkillLevelNames = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: ok } = await context.supabase.rpc(
-      "has_org_permission" as never,
-      {
-        _org: data.orgId,
-        _user: context.userId,
-        _perm: "rename_org",
-      } as never,
-    );
-    if (ok !== true) throw new Error("Your title doesn't allow changing organisation settings");
+    await requireMember(context.supabase, data.orgId, context.userId);
     const db = await admin();
     const root = await spaceRoot(db, data.orgId);
     const { error } = await db

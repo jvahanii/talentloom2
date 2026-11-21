@@ -12,6 +12,7 @@
 <!-- LOVABLE:END -->
 
 - Personal survey answer history is retrieved only after validating a respondent's personal token and the survey's visibility setting; this keeps anonymous and other respondents' answers private.
-- Pulse survey deletion: a survey linked to organisations (pulse_survey_orgs) cannot be deleted by a creator who has left all of them; only a member with can_manage_titles in a linked org may delete it (checked in deletePulseSurvey via supabaseAdmin).
+- No access rights inside an organisation: every member can see and edit everything in it. Creators are Owner, everyone else Admin (org_role has only owner and admin; there is no Member). has_org_permission() now just means is_org_member(); the titles' can_* columns are all true and unused by the app.
+- Pulse survey deletion: a survey linked to organisations (pulse_survey_orgs) cannot be deleted by a creator who has left all of them; only a member of a linked org may delete it (checked in deletePulseSurvey via supabaseAdmin).
 - Schema changes for app data go to the external Supabase database (EXT_SUPABASE_*) via psql, not the managed Cloud instance.
-- Superuser organisation assignment is additive and server-authorized via is_superuser; conflict-ignoring inserts preserve existing membership titles and use each destination's system Member title.
+- Superuser organisation assignment is additive and server-authorized via is_superuser; conflict-ignoring inserts preserve existing membership titles and use each destination's system Admin title.

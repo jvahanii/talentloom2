@@ -15,8 +15,7 @@ export const Route = createFileRoute("/_authenticated/pipeline")({
 
 function Pipeline() {
   const qc = useQueryClient();
-  const { orgId, can } = useOrg();
-  const canEdit = can("edit_candidates");
+  const { orgId } = useOrg();
   const [reqFilter, setReqFilter] = useState<string>("all");
   const [srcFilter, setSrcFilter] = useState<string>("all");
   const [open, setOpen] = useState(false);
@@ -79,14 +78,12 @@ function Pipeline() {
             Keep every candidate moving and every handoff clear.
           </p>
         </div>
-        {canEdit && (
-          <button
-            onClick={() => setOpen(true)}
-            className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
-          >
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add a candidate</span>
-          </button>
-        )}
+        <button
+          onClick={() => setOpen(true)}
+          className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
+        >
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Add a candidate</span>
+        </button>
       </div>
 
       <div className="glass mt-4 flex flex-wrap items-center gap-3 rounded-2xl p-3 text-sm">
@@ -130,13 +127,13 @@ function Pipeline() {
               key={stage}
               onDragOver={(e) => {
                 e.preventDefault();
-                if (canEdit) setDragOverStage(stage);
+                setDragOverStage(stage);
               }}
               onDragLeave={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverStage(null);
               }}
               onDrop={() => {
-                if (canEdit && dragId) {
+                if (dragId) {
                   mutStage.mutate({ id: dragId, stage });
                   setDragId(null);
                 }
@@ -158,8 +155,8 @@ function Pipeline() {
                 {list.map((c) => (
                   <div
                     key={c.id}
-                    draggable={canEdit}
-                    onDragStart={() => canEdit && setDragId(c.id)}
+                    draggable
+                    onDragStart={() => setDragId(c.id)}
                     onDragEnd={() => {
                       setDragId(null);
                       setDragOverStage(null);

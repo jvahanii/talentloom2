@@ -71,7 +71,8 @@ export async function setMemberSkillLevel(
     )
     .select("skill");
   if (error) throw error;
-  if (!data?.length) throw new Error("Your title doesn't allow changing this person's skills");
+  if (!data?.length)
+    throw new Error("Only people in this organisation can change this person's skills");
 }
 
 /**

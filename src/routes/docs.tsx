@@ -425,7 +425,7 @@ function Docs() {
                     <>
                       Open a candidate to edit their contact details, position, source, stage,
                       rating, notes, and resume link. Upload or replace a CV and cover letter,
-                      review stage history, or delete the record when your title allows it.
+                      review stage history, or delete the record.
                     </>
                   ),
                 },
@@ -465,7 +465,7 @@ function Docs() {
             id="organisations"
             icon={Users}
             title="Organisations & people"
-            blurb="Who is in, and what each person can do."
+            blurb="Who is in. Everyone can do everything."
           >
             <StepList
               steps={[
@@ -496,13 +496,12 @@ function Docs() {
                   icon: Mail,
                   text: (
                     <>
-                      To bring someone in, enter their email and a title on the People page. Someone
-                      who already has an account is added straight away; anyone else gets an
-                      invitation email that only they can use, once. Or share an invite link: anyone
-                      who opens it can create an account, but they join only when someone adds them
-                      from <strong>Signed up with a link</strong>, choosing their title. Invites and
-                      links expire after 7 days; you can email an invite again, copy its link, or
-                      revoke it.
+                      To bring someone in, enter their email on the People page. Someone who already
+                      has an account is added straight away; anyone else gets an invitation email
+                      that only they can use, once. Or share an invite link: anyone who opens it can
+                      create an account, but they join only when someone adds them from{" "}
+                      <strong>Signed up with a link</strong>. Invites and links expire after 7 days;
+                      you can email an invite again, copy its link, or revoke it.
                     </>
                   ),
                 },
@@ -510,10 +509,11 @@ function Docs() {
                   icon: KeyRound,
                   text: (
                     <>
-                      Every member has a title — Owner, Admin, Member, or one you define. Under{" "}
-                      <strong>Settings → Titles & permissions</strong> you decide exactly what each
-                      title can do: view, edit and delete candidates and positions, invite, edit and
-                      remove people, import, export, rename the organisation, and more.
+                      There are no access rights: everyone in an organisation can see and edit
+                      everything in it, including candidates, positions, people, salaries, teams,
+                      org charts and settings. Whoever creates an organisation is its{" "}
+                      <strong>Owner</strong>; everyone who joins is an <strong>Admin</strong>. The
+                      two differ in name only.
                     </>
                   ),
                 },
@@ -521,10 +521,8 @@ function Docs() {
                   icon: UserRound,
                   text: (
                     <>
-                      You can always edit your own name and skills. Editing other people — their
-                      names, titles, skills and teams — needs a title that may change titles; only
-                      owners can make Owners and Admins. Anyone can leave an organisation, and an
-                      organisation always keeps at least one person who can manage titles.
+                      Anyone can edit anyone's name, skills and teams, remove people, or leave. An
+                      organisation always keeps at least one person, so the last one can't leave.
                     </>
                   ),
                 },
@@ -532,8 +530,8 @@ function Docs() {
                   icon: Trash2,
                   text: (
                     <>
-                      An owner can <strong>delete the organisation</strong> by typing its name to
-                      confirm. This permanently removes its candidates, positions, history,
+                      Anyone in it can <strong>delete the organisation</strong> by typing its name
+                      to confirm. This permanently removes its candidates, positions, history,
                       organisation surveys, teams and invites. Members keep their accounts and their
                       other organisations.
                     </>
@@ -678,11 +676,11 @@ function Docs() {
                     icon: Percent,
                     text: (
                       <>
-                        People whose title may change titles can select{" "}
-                        <strong>Bulk adjust %</strong> to raise or lower pay by a percentage for the
-                        whole company, for everyone placed in the chart, or for one unit. Pick the
-                        people and an effective date, select <strong>Preview on chart</strong> to
-                        see the new costs on the chart, then apply. Undo is offered right after.
+                        Select <strong>Bulk adjust %</strong> to raise or lower pay by a percentage
+                        for the whole company, for everyone placed in the chart, or for one unit.
+                        Pick the people and an effective date, select{" "}
+                        <strong>Preview on chart</strong> to see the new costs on the chart, then
+                        apply. Undo is offered right after.
                       </>
                     ),
                   },
@@ -750,10 +748,9 @@ function Docs() {
                     icon: Plus,
                     text: (
                       <>
-                        People whose title may change titles create a team with a name and an
-                        optional description, rename or describe it right on its card, add people
-                        with <strong>+ Add person</strong>, take them out with ×, or delete the
-                        team. Its people stay in the organisation.
+                        Create a team with a name and an optional description, rename or describe it
+                        right on its card, add people with <strong>+ Add person</strong>, take them
+                        out with ×, or delete the team. Its people stay in the organisation.
                       </>
                     ),
                   },
@@ -802,9 +799,8 @@ function Docs() {
                     icon: ShieldCheck,
                     text: (
                       <>
-                        Everyone in the organisation can see the teams; only titles that may change
-                        titles can change them. Leaving the organisation takes a person out of its
-                        teams.
+                        Everyone in the organisation can see and change the teams. Leaving the
+                        organisation takes a person out of its teams.
                       </>
                     ),
                   },
@@ -928,8 +924,7 @@ function Docs() {
                         several, you set your skills separately in each — Settings shows the
                         organisation you have selected; switch organisations at the top right. (
                         <a href="#skills-connect">Connected organisations</a> share one list.)
-                        People who may change titles there can also edit your skills on the People
-                        and Skills pages.
+                        Anyone there can also edit your skills on the People and Skills pages.
                       </>
                     ),
                   },
@@ -1026,12 +1021,12 @@ function Docs() {
                       <>
                         Add a skill to someone with <strong>Add a skill</strong> at the top, or{" "}
                         <strong>+ Add person</strong> on a skill's card. Change a level or remove a
-                        skill right on the card. People who may change titles can also add a skill
-                        nobody has yet — choose <strong>Nobody yet</strong> as the person — for
-                        example a skill the organisation wants people to learn. It gets a card of
-                        its own, and an empty card can be removed with its bin icon. The star on a
-                        card marks a skill <strong>strategic</strong> — one the organisation wants
-                        to build up. Strategic skills come first with a badge, the{" "}
+                        skill right on the card. You can also add a skill nobody has yet — choose{" "}
+                        <strong>Nobody yet</strong> as the person — for example a skill the
+                        organisation wants people to learn. It gets a card of its own, and an empty
+                        card can be removed with its bin icon. The star on a card marks a skill{" "}
+                        <strong>strategic</strong> — one the organisation wants to build up.
+                        Strategic skills come first with a badge, the{" "}
                         <strong>Strategic only</strong> filter shows just them, Development has a
                         quick <strong>Strategic skills</strong> choice, and Teams stars them.
                       </>
@@ -1130,14 +1125,13 @@ function Docs() {
                     icon: Merge,
                     text: (
                       <>
-                        At the top of the Skills page, people who may change titles see skills that
-                        look like one thing written differently. It recognises other spellings and
-                        punctuation (<em>Project-management</em>), singular and plural (
-                        <em>Workshop</em> / <em>Workshops</em>), the same word in another form (
-                        <em>Ratsastaminen</em> / <em>Ratsastus</em>, <em>Mentoring</em> /{" "}
-                        <em>Mentorointi</em>), small typos, abbreviations (<em>PM</em> /{" "}
-                        <em>Project management</em>) and <em>.js</em> variants. It doesn't know
-                        synonyms or translations.
+                        At the top of the Skills page, Talentloom suggests skills that look like one
+                        thing written differently. It recognises other spellings and punctuation (
+                        <em>Project-management</em>), singular and plural (<em>Workshop</em> /{" "}
+                        <em>Workshops</em>), the same word in another form (<em>Ratsastaminen</em> /{" "}
+                        <em>Ratsastus</em>, <em>Mentoring</em> / <em>Mentorointi</em>), small typos,
+                        abbreviations (<em>PM</em> / <em>Project management</em>) and <em>.js</em>{" "}
+                        variants. It doesn't know synonyms or translations.
                       </>
                     ),
                   },
@@ -1189,9 +1183,9 @@ function Docs() {
                         choose <strong>Where we are</strong> or <strong>Where we're heading</strong>
                         , then drag the team from the list onto the map or click any spot on it;
                         drag a dot to move it. A dot can sit anywhere within its square, and an
-                        arrow joins where the team is to where it's heading. A team's members can
-                        place it, and so can anyone who may change titles. It's based on the Org
-                        Topologies™ model (orgtopologies.com).
+                        arrow joins where the team is to where it's heading. Anyone in the
+                        organisation can place any team. It's based on the Org Topologies™ model
+                        (orgtopologies.com).
                       </>
                     ),
                   },
@@ -1235,10 +1229,10 @@ function Docs() {
                     icon: KeyRound,
                     text: (
                       <>
-                        An owner or admin opens <strong>Settings → Connected organisations</strong>{" "}
-                        and selects <strong>Create a connection code</strong>. An owner or admin of
-                        the other organisation enters it under <strong>Connect with a code</strong>.
-                        A code works once, for 7 days.
+                        Someone opens <strong>Settings → Connected organisations</strong> and
+                        selects <strong>Create a connection code</strong>. Someone in the other
+                        organisation enters it under <strong>Connect with a code</strong>. A code
+                        works once, for 7 days.
                       </>
                     ),
                   },
@@ -1256,9 +1250,9 @@ function Docs() {
                     icon: Trash2,
                     text: (
                       <>
-                        An owner or admin can <strong>disconnect</strong> their organisation. It
-                        keeps a copy of the shared skill list, level names and its people's skills,
-                        and from then on they're separate again.
+                        Anyone can <strong>disconnect</strong> their organisation. It keeps a copy
+                        of the shared skill list, level names and its people's skills, and from then
+                        on they're separate again.
                       </>
                     ),
                   },
@@ -1412,8 +1406,8 @@ function Docs() {
                     icon: KeyRound,
                     text: (
                       <>
-                        People whose title may change titles can change anyone's salary, and entries
-                        can be edited or deleted.
+                        Anyone in the organisation can change anyone's salary, and entries can be
+                        edited or deleted.
                       </>
                     ),
                   },
@@ -1798,8 +1792,8 @@ function Docs() {
                     text: (
                       <>
                         <strong>Delete survey</strong> removes it with all its answers. If you
-                        created a survey for organisations and have since left all of them, only a
-                        member who can manage titles in one of those organisations can delete it.
+                        created a survey for organisations and have since left all of them, only
+                        someone in one of those organisations can delete it.
                       </>
                     ),
                   },
@@ -1813,17 +1807,8 @@ function Docs() {
                   icon={ShieldCheck}
                   text={
                     <>
-                      Only the survey's owners and the owners and admins of its organisations see
-                      the list of invited people and their personal links.
-                    </>
-                  }
-                />
-                <Fact
-                  icon={EyeOff}
-                  text={
-                    <>
-                      Other members who can open the survey see results without names, and only
-                      their own details in an export.
+                      Only the survey's owners and everyone in its organisations see the list of
+                      invited people and their personal links.
                     </>
                   }
                 />
@@ -1862,10 +1847,10 @@ function Docs() {
                   text: (
                     <>
                       The <strong>Organisation</strong> panel is where you rename the organisation,
-                      choose and name the <a href="#skills-levels">skill levels</a>, set titles and
-                      permissions, <a href="#skills-connect">connect organisations</a>, and delete
-                      the organisation. People, invites and teams are managed on their own pages —
-                      see <a href="#organisations">Organisations & people</a> and{" "}
+                      choose and name the <a href="#skills-levels">skill levels</a>,{" "}
+                      <a href="#skills-connect">connect organisations</a>, and delete the
+                      organisation. People, invites and teams are managed on their own pages — see{" "}
+                      <a href="#organisations">Organisations & people</a> and{" "}
                       <a href="#teams">Teams</a>.
                     </>
                   ),

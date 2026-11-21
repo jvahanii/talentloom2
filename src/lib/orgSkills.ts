@@ -38,7 +38,7 @@ export async function addOrgSkill(orgId: string, name: string, createdBy: string
   if (error && error.code !== "23505") {
     throw new Error(
       error.code === "42501"
-        ? "Your title doesn't allow adding skills to the organisation"
+        ? "Only people in this organisation can add skills to it"
         : error.message,
     );
   }
@@ -47,8 +47,7 @@ export async function addOrgSkill(orgId: string, name: string, createdBy: string
 export async function removeOrgSkill(id: string) {
   const { data, error } = await db.from("org_skills").delete().eq("id", id).select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length)
-    throw new Error("Your title doesn't allow removing skills from the organisation");
+  if (!data?.length) throw new Error("Only people in this organisation can remove its skills");
 }
 
 /**
@@ -79,7 +78,7 @@ export async function setStrategic(
   if (iError) {
     throw new Error(
       iError.code === "42501"
-        ? "Your title doesn't allow marking strategic skills"
+        ? "Only people in this organisation can mark strategic skills"
         : iError.message,
     );
   }

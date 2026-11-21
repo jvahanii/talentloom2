@@ -25,7 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/app-client";
 import { clerkSignOut } from "@/lib/clerk";
 import { useSession, type AppUser } from "@/lib/auth";
-import { ACCOUNT_ROLES, OrgProvider, applyAccountRole, useOrg, type AccountRole } from "@/lib/org";
+import { OrgProvider, useOrg } from "@/lib/org";
 import { OrgPicker } from "@/components/OrgPicker";
 import { amISuperuser } from "@/lib/admin.functions";
 import { toast } from "sonner";
@@ -156,13 +156,11 @@ function OrgSwitcher() {
   const [step, setStep] = useState<1 | 2>(1);
   const [accountType, setAccountType] = useState<"recruiter" | "candidate" | "">("");
   const [companyName, setCompanyName] = useState("");
-  const [accountRole, setAccountRole] = useState<AccountRole>("Owner");
 
   const resetDialog = () => {
     setStep(1);
     setAccountType("");
     setCompanyName("");
-    setAccountRole("Owner");
   };
 
   const handleChange = (value: string) => {
@@ -230,7 +228,6 @@ function OrgSwitcher() {
                   _name: name,
                 });
                 if (error) throw error;
-                await applyAccountRole(newId as string, accountRole);
                 refresh();
                 setOrgId(newId as string);
                 setCreateDialogOpen(false);
@@ -310,27 +307,6 @@ function OrgSwitcher() {
                     disabled={creating}
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account-role" required>
-                    Account role
-                  </Label>
-                  <Select
-                    value={accountRole}
-                    onValueChange={(value) => setAccountRole(value as AccountRole)}
-                    disabled={creating}
-                  >
-                    <SelectTrigger id="account-role">
-                      <SelectValue placeholder="Choose a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ACCOUNT_ROLES.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             )}
@@ -429,7 +405,7 @@ function NoOrganisation() {
         </div>
       </form>
       <p className="mt-5 text-xs text-muted-foreground">
-        Joining an organization? Ask an owner or admin to invite you, then open the link from the
+        Joining an organization? Ask someone in it to invite you, then open the link from the
         invite. Pulse surveys work without an organisation. Or looking for jobs instead?{" "}
         <Link to="/candidate/applications" className="font-medium text-primary hover:underline">
           Go to my applications

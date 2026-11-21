@@ -335,8 +335,7 @@ const boxDomId = (key: string) => `org-box-${key}`;
 
 function OrgChartPage() {
   const qc = useQueryClient();
-  const { orgId, orgs, can } = useOrg();
-  const canEditSalaries = can("change_titles");
+  const { orgId, orgs } = useOrg();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "your organisation";
   const [remembered, remember] = useRememberedChart(orgId);
 
@@ -749,7 +748,6 @@ function OrgChartPage() {
   ]);
 
   const openBulkAdjust = (scope?: BulkSalaryScope) => {
-    if (!canEditSalaries) return;
     if (scope) {
       setBulkDraft((prev) => ({
         ...(bulkPreviewActive ? prev : createInitialBulkDraft(scope)),
@@ -772,7 +770,7 @@ function OrgChartPage() {
   };
 
   const applyBulkAdjustment = async () => {
-    if (!orgId || !canEditSalaries) return;
+    if (!orgId) return;
     if (bulkPlan.signedPct === null || bulkPlan.pctError || bulkPlan.selectedRows.length === 0) {
       toast.error("Select at least one person and enter a valid percentage.");
       return;
@@ -1494,7 +1492,7 @@ function OrgChartPage() {
     onAdd: addBelow,
     showCosts,
     personCost,
-    onEditPay: planning && canEditSalaries ? (id, name) => setPayPerson({ id, name }) : undefined,
+    onEditPay: planning ? (id, name) => setPayPerson({ id, name }) : undefined,
     hasPlan: (id) => !!id && plans.some((p) => p.user_id === id),
     personPreviewDelta,
     unitCost,
@@ -1658,7 +1656,6 @@ function OrgChartPage() {
               chart={chart}
               activeName={list.find((c) => c.status === "active")?.name ?? null}
               planCount={plans.length}
-              canEditPay={canEditSalaries}
               busy={busy}
               onMakeActive={() => setConfirmActivate(true)}
               onMark={(status) =>
@@ -1765,7 +1762,6 @@ function OrgChartPage() {
                           planning={planning ? (chart?.status ?? null) : null}
                           todayCost={todayCost}
                           isLivePreview={isLivePreview}
-                          canEditSalaries={canEditSalaries}
                           onOpenBulkAdjust={() => openBulkAdjust()}
                         />
                       )}
@@ -2209,7 +2205,7 @@ function OrgChartPage() {
                   </div>
                 </>
               )}
-              {boxDialog.mode === "edit" && boxDialog.fields.kind === "unit" && canEditSalaries && (
+              {boxDialog.mode === "edit" && boxDialog.fields.kind === "unit" && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-secondary/40 px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-foreground">
@@ -2257,21 +2253,19 @@ function OrgChartPage() {
         </DialogContent>
       </Dialog>
 
-      {canEditSalaries && (
-        <BulkSalaryAdjustDialog
-          open={bulkDialogOpen}
-          draft={bulkDraft}
-          plan={bulkPlan}
-          unitOptions={unitOptions}
-          busy={bulkSaving}
-          isLivePreview={isLivePreview}
-          onChangeDraft={setBulkDraft}
-          onClose={() => setBulkDialogOpen(false)}
-          onPreviewOnChart={previewBulkOnChart}
-          onApply={() => void applyBulkAdjustment()}
-          planningChart={planning ? (chart?.name ?? null) : null}
-        />
-      )}
+      <BulkSalaryAdjustDialog
+        open={bulkDialogOpen}
+        draft={bulkDraft}
+        plan={bulkPlan}
+        unitOptions={unitOptions}
+        busy={bulkSaving}
+        isLivePreview={isLivePreview}
+        onChangeDraft={setBulkDraft}
+        onClose={() => setBulkDialogOpen(false)}
+        onPreviewOnChart={previewBulkOnChart}
+        onApply={() => void applyBulkAdjustment()}
+        planningChart={planning ? (chart?.name ?? null) : null}
+      />
 
       <Dialog open={!!impliedOpen} onOpenChange={(o) => !o && setImpliedOpen(null)}>
         <DialogContent>
@@ -2431,7 +2425,7 @@ function OrgChartPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            {plans.length > 0 && canEditSalaries && (
+            {plans.length > 0 && (
               <AlertDialogAction
                 onClick={() => {
                   if (!chart) return;
@@ -3937,7 +3931,6 @@ function ChartStatusBar({
   chart,
   activeName,
   planCount,
-  canEditPay,
   busy,
   onMakeActive,
   onMark,
@@ -3946,7 +3939,6 @@ function ChartStatusBar({
   chart: OrgChart;
   activeName: string | null;
   planCount: number;
-  canEditPay: boolean;
   busy: boolean;
   onMakeActive: () => void;
   onMark: (status: "past" | "planned") => void;
@@ -3977,7 +3969,7 @@ function ChartStatusBar({
           ` ${planCount} planned pay ${planCount === 1 ? "change" : "changes"} on this chart.`}
       </span>
       <span className="flex flex-wrap gap-2">
-        {planCount > 0 && canEditPay && (
+        {planCount > 0 && (
           <Button size="sm" variant="outline" disabled={busy} onClick={onDiscardPlans}>
             Discard planned pay
           </Button>
@@ -4395,7 +4387,6 @@ function CompanyCostsBanner({
   planning,
   todayCost,
   isLivePreview,
-  canEditSalaries,
   onOpenBulkAdjust,
 }: {
   orgName: string;
@@ -4410,7 +4401,6 @@ function CompanyCostsBanner({
   /** Today's real costs for the whole organisation, for comparing a plan with. */
   todayCost: CostSummary;
   isLivePreview: boolean;
-  canEditSalaries: boolean;
   onOpenBulkAdjust: () => void;
 }) {
   // A past or planned chart is costed by the people placed in it (with its
@@ -4522,7 +4512,7 @@ function CompanyCostsBanner({
             </div>
           )}
 
-          {canEditSalaries && !isLivePreview && companyCost.pricedCount > 0 && (
+          {!isLivePreview && companyCost.pricedCount > 0 && (
             <Button
               type="button"
               size="sm"

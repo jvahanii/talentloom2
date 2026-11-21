@@ -65,7 +65,7 @@ type SkillGroup = {
 };
 
 function SkillsPage() {
-  const { orgId, orgs, can } = useOrg();
+  const { orgId, orgs } = useOrg();
   const levelNames = useSkillLevelNames();
   const knownSkills = useOrgSkillNames();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
@@ -278,8 +278,6 @@ function SkillsPage() {
     return list;
   }, [people.data, orgSkills.data]);
 
-  const canManageList = can("change_titles");
-
   const refreshList = () =>
     Promise.all([
       qc.invalidateQueries({ queryKey: orgSkillListKey(orgId) }),
@@ -383,18 +381,16 @@ function SkillsPage() {
             or tap one name and then the other.
           </p>
 
-          {can("change_titles") && (
-            <>
-              <SkillMergeSuggestions
-                orgId={orgId}
-                skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
-              />
-              <ManualSkillMerge
-                orgId={orgId}
-                skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
-              />
-            </>
-          )}
+          <>
+            <SkillMergeSuggestions
+              orgId={orgId}
+              skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+            />
+            <ManualSkillMerge
+              orgId={orgId}
+              skills={groups.map((g) => ({ name: g.name, count: g.people.length }))}
+            />
+          </>
 
           <form
             className="flex flex-col gap-2 rounded-2xl border-2 border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-center"
@@ -403,7 +399,7 @@ function SkillsPage() {
               const name = canonicalSkillName(knownSkills, newSkill);
               if (!name) return;
               if (!newPerson) {
-                if (canManageList && (await addToList(name))) setNewSkill("");
+                if (await addToList(name)) setNewSkill("");
                 return;
               }
               if (await addSkill(newPerson, name, toLevel(newLevel))) {
@@ -412,9 +408,7 @@ function SkillsPage() {
               }
             }}
           >
-            <span className="text-sm font-semibold">
-              {canManageList ? "Add a skill" : "Add a skill to a person"}
-            </span>
+            <span className="text-sm font-semibold">Add a skill</span>
             <SkillNameInput
               value={newSkill}
               onChange={setNewSkill}
@@ -427,9 +421,7 @@ function SkillsPage() {
               onChange={(e) => setNewPerson(e.target.value)}
               aria-label="Person"
             >
-              <option value="">
-                {canManageList ? "Nobody yet — just add the skill" : "Choose a person"}
-              </option>
+              <option value="">Nobody yet — just add the skill</option>
               {(people.data ?? []).map((p) => (
                 <option key={p.userId} value={p.userId}>
                   {p.name || p.email || "Unnamed"}
@@ -449,10 +441,7 @@ function SkillsPage() {
                 </option>
               ))}
             </select>
-            <Button
-              type="submit"
-              disabled={busy || !newSkill.trim() || (!newPerson && !canManageList)}
-            >
+            <Button type="submit" disabled={busy || !newSkill.trim()}>
               Add
             </Button>
           </form>
@@ -514,27 +503,23 @@ function SkillsPage() {
                     )}
                   </h2>
                   <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                    {canManageList && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => toggleStrategic(g)}
-                        aria-pressed={!!g.strategic}
-                        className={`rounded-md p-1 hover:bg-primary/10 hover:text-primary ${
-                          g.strategic ? "text-primary" : ""
-                        }`}
-                        aria-label={
-                          g.strategic
-                            ? `${g.name} is strategic — unmark`
-                            : `Mark ${g.name} strategic`
-                        }
-                        title={g.strategic ? "Strategic — click to unmark" : "Mark as strategic"}
-                      >
-                        <Star className={`h-3.5 w-3.5 ${g.strategic ? "fill-current" : ""}`} />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => toggleStrategic(g)}
+                      aria-pressed={!!g.strategic}
+                      className={`rounded-md p-1 hover:bg-primary/10 hover:text-primary ${
+                        g.strategic ? "text-primary" : ""
+                      }`}
+                      aria-label={
+                        g.strategic ? `${g.name} is strategic — unmark` : `Mark ${g.name} strategic`
+                      }
+                      title={g.strategic ? "Strategic — click to unmark" : "Mark as strategic"}
+                    >
+                      <Star className={`h-3.5 w-3.5 ${g.strategic ? "fill-current" : ""}`} />
+                    </button>
                     {g.people.length} {g.people.length === 1 ? "person" : "people"}
-                    {canManageList && g.listId && !g.people.length && (
+                    {g.listId && !g.people.length && (
                       <button
                         type="button"
                         disabled={busy}

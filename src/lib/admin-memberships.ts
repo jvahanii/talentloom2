@@ -18,7 +18,7 @@ export function planMemberships(
   const joined = new Set(existing.map((m) => m.org_id));
   return [...new Set(orgIds)].filter((id) => !joined.has(id)).map((orgId) => {
     const title = titles.find((t) => t.org_id === orgId);
-    if (!title) throw new Error("A selected organisation does not exist or has no Member title");
-    return { org_id: orgId, user_id: userId, role: "member" as const, title_id: title.id };
+    if (!title) throw new Error("A selected organisation does not exist or has no Admin title");
+    return { org_id: orgId, user_id: userId, role: "admin" as const, title_id: title.id };
   });
 }

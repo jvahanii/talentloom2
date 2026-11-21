@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Copy, History, Link2, Mail, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/app-client";
@@ -8,7 +8,7 @@ import { useOrg } from "@/lib/org";
 import { getMyProfileId } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { addPersonToOrg, updatePersonName, updatePersonSkills } from "@/lib/people.functions";
-import { SkillChips, SkillsInput } from "@/components/SkillsInput";
+import { SkillsInput } from "@/components/SkillsInput";
 import { PersonSalaryDialog } from "@/components/PersonSalaryDialog";
 import { fetchMemberSkills, setMemberSkillLevel } from "@/lib/skillLevels";
 import { skillLevelLabel, type Skill } from "@/lib/skills";
@@ -42,16 +42,12 @@ export const Route = createFileRoute("/_authenticated/people")({
   component: PeoplePage,
 });
 
-const PROTECTED_TITLES = ["Owner", "Admin"];
-const isProtected = (name?: string | null) => !!name && PROTECTED_TITLES.includes(name);
-
 type Person = {
   memberId: string;
   userId: string;
   name: string | null;
   email: string | null;
   skills: Skill[];
-  titleId: string | null;
   titleName: string | null;
   joinedAt: string;
   accountCreatedAt: string | null;
@@ -77,8 +73,7 @@ const cellLabel = "mb-1 text-xs font-semibold text-muted-foreground lg:hidden";
 
 function PeoplePage() {
   const qc = useQueryClient();
-  const { orgId, orgs, title, role, can, refresh } = useOrg();
-  const isOwner = title === "Owner" || role === "owner";
+  const { orgId, orgs, refresh } = useOrg();
   const levelNames = useSkillLevelNames();
   const teams = useQuery({
     queryKey: teamsKey(orgId),
@@ -100,20 +95,6 @@ function PeoplePage() {
   const [salaryPersonId, setSalaryPersonId] = useState<string | null>(null);
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
 
-  const titles = useQuery({
-    queryKey: ["org-titles", orgId],
-    enabled: !!orgId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("organization_titles")
-        .select("id, name")
-        .eq("org_id", orgId!)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as { id: string; name: string }[];
-    },
-  });
-
   const people = useQuery({
     queryKey: ["org-people", orgId],
     enabled: !!orgId,
@@ -121,7 +102,7 @@ function PeoplePage() {
       const me = await getMyProfileId();
       const { data: rows, error } = await supabase
         .from("organization_members")
-        .select("id, user_id, title_id, created_at, organization_titles(name)")
+        .select("id, user_id, created_at, organization_titles(name)")
         .eq("org_id", orgId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -150,7 +131,6 @@ function PeoplePage() {
           name: p?.full_name ?? null,
           email: p?.email ?? null,
           skills: skillsOf.get(r.user_id) ?? [],
-          titleId: r.title_id,
           titleName:
             (r as unknown as { organization_titles: { name: string } | null }).organization_titles
               ?.name ?? null,
@@ -164,11 +144,11 @@ function PeoplePage() {
 
   const invites = useQuery({
     queryKey: ["org-invites", orgId],
-    enabled: !!orgId && can("invite_users"),
+    enabled: !!orgId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organization_invites")
-        .select("id, email, title_id, token, expires_at")
+        .select("id, email, token, expires_at")
         .eq("org_id", orgId!)
         .is("accepted_at", null)
         .gt("expires_at", new Date().toISOString())
@@ -177,7 +157,6 @@ function PeoplePage() {
       return (data ?? []) as {
         id: string;
         email: string | null;
-        title_id: string | null;
         token: string;
         expires_at: string;
       }[];
@@ -186,23 +165,14 @@ function PeoplePage() {
 
   // Add / invite form
   const [email, setEmail] = useState("");
-  const [titleId, setTitleId] = useState("");
   const [adding, setAdding] = useState(false);
-  useEffect(() => {
-    if (!titleId && titles.data?.length) {
-      setTitleId(
-        (titles.data.find((t) => t.name === "Member") ?? titles.data[titles.data.length - 1]).id,
-      );
-    }
-  }, [titles.data, titleId]);
-
-  // Sign-up link: creates accounts; an admin then adds each person by hand.
+  // Sign-up link: creates accounts; someone in the organisation then adds each person by hand.
   const [creatingLink, setCreatingLink] = useState(false);
   const [lastLink, setLastLink] = useState<string | null>(null);
 
   const joinRequests = useQuery({
     queryKey: ["org-join-requests", orgId],
-    enabled: !!orgId && can("invite_users"),
+    enabled: !!orgId,
     queryFn: async () => {
       // list_join_requests lives in the external database; the generated types don't know it.
       const client = supabase as unknown as {
@@ -222,7 +192,6 @@ function PeoplePage() {
       }[];
     },
   });
-  const [requestTitles, setRequestTitles] = useState<Record<string, string>>({});
 
   // Name and skill editing
   const [names, setNames] = useState<Record<string, string>>({});
@@ -239,8 +208,6 @@ function PeoplePage() {
   };
 
   if (!orgId) return null;
-  const titleName = new Map((titles.data ?? []).map((t) => [t.id, t.name]));
-  const assignable = (titles.data ?? []).filter((t) => isOwner || !isProtected(t.name));
   const createLink = async () => {
     setCreatingLink(true);
     try {
@@ -282,11 +249,10 @@ function PeoplePage() {
   };
 
   const addRequest = async (r: { id: string; email: string | null; full_name: string | null }) => {
-    const chosen = requestTitles[r.id] ?? titleId;
-    if (!r.email || !chosen) return;
+    if (!r.email) return;
     setBusy(r.id);
     try {
-      const res = await addPersonToOrg({ data: { orgId, email: r.email, titleId: chosen } });
+      const res = await addPersonToOrg({ data: { orgId, email: r.email } });
       if (res.status === "invited") toast.info(`${r.email} was emailed an invite`);
       else if (res.status === "already") {
         toast.info(`${r.full_name || r.email} is already in ${orgName}`);
@@ -300,10 +266,10 @@ function PeoplePage() {
     }
   };
   const addPerson = async () => {
-    if (!email.trim() || !titleId) return;
+    if (!email.trim()) return;
     setAdding(true);
     try {
-      const r = await addPersonToOrg({ data: { orgId, email: email.trim(), titleId } });
+      const r = await addPersonToOrg({ data: { orgId, email: email.trim() } });
       if (r.status === "added") toast.success(`${r.name} added to ${orgName}`);
       else if (r.status === "already") toast.info(`${r.name} is already in ${orgName}`);
       else {
@@ -388,19 +354,6 @@ function PeoplePage() {
     }
   };
 
-  const changeTitle = async (p: Person, newTitleId: string) => {
-    setBusy(p.memberId);
-    const { error } = await supabase
-      .from("organization_members")
-      .update({ title_id: newTitleId })
-      .eq("id", p.memberId);
-    setBusy(null);
-    if (error) return void toast.error(error.message);
-    toast.success("Title updated");
-    reload();
-    refresh();
-  };
-
   const remove = async (p: Person) => {
     const who = p.name || p.email || "this person";
     if (
@@ -451,67 +404,54 @@ function PeoplePage() {
         </p>
       </div>
 
-      {can("invite_users") && (
-        <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
-          <p className="font-medium">Add or invite a person</p>
+      <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
+        <p className="font-medium">Add or invite a person</p>
+        <p className="text-xs text-muted-foreground">
+          Everyone you add is an Admin. If the email already has a Talentloom account, they're added
+          straight away. Otherwise they're emailed an invite link that works once, only for that
+          email address, and expires in 7 days. They are not added to any organisation until they
+          open the link and sign in.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void addPerson()}
+            placeholder="name@company.com"
+            className="min-w-56 flex-1"
+            aria-label="Email"
+          />
+          <Button onClick={addPerson} disabled={adding || !email.trim()}>
+            <UserPlus className="mr-1 h-4 w-4" /> {adding ? "Adding…" : "Add"}
+          </Button>
+        </div>
+        <div className="border-t border-border pt-3">
+          <p className="text-sm font-medium">Or share an invite link</p>
           <p className="text-xs text-muted-foreground">
-            If the email already has a Talentloom account, they're added straight away. Otherwise
-            they're emailed an invite link that works once, only for that email address, and expires
-            in 7 days. They are not added to any organisation until they open the link and sign in.
+            Send this link to anyone you want to invite. They create a Talentloom account with it,
+            but they don't join this organisation until you add them here.
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void addPerson()}
-              placeholder="name@company.com"
-              className="min-w-56 flex-1"
-              aria-label="Email"
-            />
-            <select
-              className={selectCls}
-              value={titleId}
-              onChange={(e) => setTitleId(e.target.value)}
-              aria-label="Title"
-            >
-              {assignable.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <Button onClick={addPerson} disabled={adding || !email.trim() || !titleId}>
-              <UserPlus className="mr-1 h-4 w-4" /> {adding ? "Adding…" : "Add"}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={createLink} disabled={creatingLink}>
+              <Link2 className="mr-1 h-4 w-4" /> {creatingLink ? "Creating…" : "Create link"}
             </Button>
           </div>
-          <div className="border-t border-border pt-3">
-            <p className="text-sm font-medium">Or share an invite link</p>
-            <p className="text-xs text-muted-foreground">
-              Send this link to anyone you want to invite. They create a Talentloom account with it,
-              but they don't join this organisation until you add them here.
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button variant="outline" onClick={createLink} disabled={creatingLink}>
-                <Link2 className="mr-1 h-4 w-4" /> {creatingLink ? "Creating…" : "Create link"}
+          {lastLink && (
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
+              <p className="min-w-0 flex-1 truncate text-xs">{lastLink}</p>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => copyText(lastLink)}
+                aria-label="Copy invite link"
+              >
+                <Copy className="h-4 w-4" />
               </Button>
             </div>
-            {lastLink && (
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
-                <p className="min-w-0 flex-1 truncate text-xs">{lastLink}</p>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => copyText(lastLink)}
-                  aria-label="Copy invite link"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       <Input
         value={filter}
@@ -542,10 +482,6 @@ function PeoplePage() {
               ].some((v) => v.toLowerCase().includes(q));
             })
             .map((p) => {
-              const canEditName = p.isSelf || can("change_titles");
-              const canEditTitle = can("change_titles") && (isOwner || !isProtected(p.titleName));
-              const canRemove =
-                p.isSelf || (can("remove_users") && (isOwner || !isProtected(p.titleName)));
               const draft = names[p.userId];
               const changed =
                 draft !== undefined && draft.trim() !== (p.name ?? "") && draft.trim() !== "";
@@ -553,49 +489,41 @@ function PeoplePage() {
                 <li key={p.memberId} className={`grid gap-3 p-3 sm:grid-cols-2 ${rowGrid}`}>
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-1.5">
-                      {canEditName ? (
-                        <>
-                          <Input
-                            value={draft ?? p.name ?? ""}
-                            placeholder="No name"
-                            onChange={(e) =>
-                              setNames((n) => ({ ...n, [p.userId]: e.target.value }))
-                            }
-                            onKeyDown={(e) => e.key === "Enter" && void saveName(p)}
-                            className="h-9 min-w-0 flex-1"
-                            aria-label={`Name of ${p.email ?? "member"}`}
-                            maxLength={200}
-                          />
-                          {changed && (
-                            <Button
-                              size="sm"
-                              onClick={() => saveName(p)}
-                              disabled={busy === p.memberId}
-                            >
-                              Save
-                            </Button>
-                          )}
-                        </>
-                      ) : (
-                        <span className="min-w-0 flex-1 truncate font-medium">{p.name || "—"}</span>
-                      )}
-                      {canRemove && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          disabled={busy === p.memberId}
-                          onClick={() => remove(p)}
-                          aria-label={
-                            p.isSelf
-                              ? "Leave organisation"
-                              : `Remove ${p.name ?? p.email ?? "member"}`
-                          }
-                          title={p.isSelf ? "Leave organisation" : "Remove from organisation"}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <>
+                        <Input
+                          value={draft ?? p.name ?? ""}
+                          placeholder="No name"
+                          onChange={(e) => setNames((n) => ({ ...n, [p.userId]: e.target.value }))}
+                          onKeyDown={(e) => e.key === "Enter" && void saveName(p)}
+                          className="h-9 min-w-0 flex-1"
+                          aria-label={`Name of ${p.email ?? "member"}`}
+                          maxLength={200}
+                        />
+                        {changed && (
+                          <Button
+                            size="sm"
+                            onClick={() => saveName(p)}
+                            disabled={busy === p.memberId}
+                          >
+                            Save
+                          </Button>
+                        )}
+                      </>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        disabled={busy === p.memberId}
+                        onClick={() => remove(p)}
+                        aria-label={
+                          p.isSelf
+                            ? "Leave organisation"
+                            : `Remove ${p.name ?? p.email ?? "member"}`
+                        }
+                        title={p.isSelf ? "Leave organisation" : "Remove from organisation"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                     <p className="break-all text-sm text-muted-foreground">
                       {p.email || "—"}
@@ -608,48 +536,16 @@ function PeoplePage() {
                   </div>
                   <div className="min-w-0">
                     <p className={cellLabel}>Title & teams</p>
-                    {canEditTitle ? (
-                      <select
-                        className={`${selectCls} w-full`}
-                        value={p.titleId ?? ""}
-                        disabled={busy === p.memberId}
-                        onChange={(e) => changeTitle(p, e.target.value)}
-                        aria-label={`Title of ${p.name ?? p.email ?? "member"}`}
-                      >
-                        {!p.titleId && <option value="">No title</option>}
-                        {assignable
-                          .concat(
-                            p.titleId && !assignable.some((t) => t.id === p.titleId)
-                              ? [{ id: p.titleId, name: p.titleName ?? "Title" }]
-                              : [],
-                          )
-                          .map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.name}
-                            </option>
-                          ))}
-                      </select>
-                    ) : (
-                      <p className="text-sm">{p.titleName ?? "—"}</p>
-                    )}
-                    <PersonTeams
-                      orgId={orgId}
-                      person={p}
-                      teams={teams.data ?? []}
-                      canEdit={can("change_titles")}
-                    />
+                    <p className="text-sm">{p.titleName ?? "—"}</p>
+                    <PersonTeams orgId={orgId} person={p} teams={teams.data ?? []} />
                   </div>
                   <div className="min-w-0">
                     <p className={cellLabel}>Skills</p>
-                    {canEditName ? (
-                      <SkillsInput
-                        value={skillDrafts[p.userId] ?? p.skills}
-                        onChange={(next) => saveSkills(p, next)}
-                        placeholder="Add a skill"
-                      />
-                    ) : (
-                      <SkillChips skills={p.skills} />
-                    )}
+                    <SkillsInput
+                      value={skillDrafts[p.userId] ?? p.skills}
+                      onChange={(next) => saveSkills(p, next)}
+                      placeholder="Add a skill"
+                    />
                   </div>
                   <div className="min-w-0">
                     <p className={cellLabel}>Learning with</p>
@@ -665,7 +561,6 @@ function PeoplePage() {
                     <SalaryCell
                       person={p}
                       entries={salariesByUser.get(p.userId) ?? []}
-                      canEdit={canEditName}
                       onOpen={() => setSalaryPersonId(p.userId)}
                     />
                   </div>
@@ -675,12 +570,11 @@ function PeoplePage() {
         </ul>
       </div>
 
-      {can("invite_users") && (joinRequests.data ?? []).length > 0 && (
+      {(joinRequests.data ?? []).length > 0 && (
         <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
           <p className="font-medium">Signed up with a link</p>
           <p className="text-xs text-muted-foreground">
-            They have a Talentloom account but aren't in {orgName}. Choose a title and add them, or
-            dismiss them.
+            They have a Talentloom account but aren't in {orgName}. Add them, or dismiss them.
           </p>
           <ul className="divide-y divide-border">
             {(joinRequests.data ?? []).map((r) => (
@@ -690,18 +584,6 @@ function PeoplePage() {
                   {r.full_name && r.email ? ` · ${r.email}` : ""} · signed up{" "}
                   {formatDate(r.created_at)}
                 </span>
-                <select
-                  className={selectCls}
-                  value={requestTitles[r.id] ?? titleId}
-                  onChange={(e) => setRequestTitles((m) => ({ ...m, [r.id]: e.target.value }))}
-                  aria-label={`Title for ${r.full_name || r.email}`}
-                >
-                  {assignable.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
                 <Button
                   size="sm"
                   onClick={() => void addRequest(r)}
@@ -724,17 +606,14 @@ function PeoplePage() {
         </div>
       )}
 
-      {can("invite_users") && (invites.data ?? []).length > 0 && (
+      {(invites.data ?? []).length > 0 && (
         <div className="space-y-2 rounded-2xl border-2 border-border bg-card p-4">
           <p className="font-medium">Open invites and links</p>
           <ul className="divide-y divide-border">
             {(invites.data ?? []).map((inv) => (
               <li key={inv.id} className="flex flex-wrap items-center gap-2 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">
-                  {inv.email
-                    ? `${inv.email} · ${inv.title_id ? (titleName.get(inv.title_id) ?? "Title") : "No title"}`
-                    : "Sign-up link"}{" "}
-                  · expires {formatDate(inv.expires_at)}
+                  {inv.email ?? "Sign-up link"} · expires {formatDate(inv.expires_at)}
                 </span>
                 {inv.email && (
                   <Button
@@ -776,7 +655,6 @@ function PeoplePage() {
         person={salaryPerson}
         entries={salaryPerson ? (salariesByUser.get(salaryPerson.userId) ?? []) : []}
         nameOf={nameOf}
-        canEdit={salaryPerson ? salaryPerson.isSelf || can("change_titles") : false}
         onClose={() => setSalaryPersonId(null)}
       />
     </div>
@@ -933,22 +811,12 @@ function LearningWithCell({
 }
 
 /** The teams a person is in, with a way to add and remove them for people who can manage teams. */
-function PersonTeams({
-  orgId,
-  person,
-  teams,
-  canEdit,
-}: {
-  orgId: string;
-  person: Person;
-  teams: Team[];
-  canEdit: boolean;
-}) {
+function PersonTeams({ orgId, person, teams }: { orgId: string; person: Person; teams: Team[] }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const mine = teams.filter((t) => t.members.includes(person.userId));
   const others = teams.filter((t) => !t.members.includes(person.userId));
-  if (!mine.length && !(canEdit && others.length)) return null;
+  if (!mine.length && !others.length) return null;
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -970,20 +838,18 @@ function PersonTeams({
           className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs"
         >
           <span className="truncate">{t.name}</span>
-          {canEdit && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => run(() => removeFromTeam(t.id, person.userId))}
-              className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
-              aria-label={`Take ${person.name ?? person.email ?? "this person"} out of ${t.name}`}
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => run(() => removeFromTeam(t.id, person.userId))}
+            className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+            aria-label={`Take ${person.name ?? person.email ?? "this person"} out of ${t.name}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
         </span>
       ))}
-      {canEdit && others.length > 0 && (
+      {others.length > 0 && (
         <select
           value=""
           disabled={busy}
@@ -1013,12 +879,10 @@ function PersonTeams({
 function SalaryCell({
   person,
   entries,
-  canEdit,
   onOpen,
 }: {
   person: Person;
   entries: SalaryEntry[];
-  canEdit: boolean;
   onOpen: () => void;
 }) {
   const current = currentSalaryOf(entries);
@@ -1029,22 +893,12 @@ function SalaryCell({
       <button
         type="button"
         onClick={onOpen}
-        className={
-          canEdit
-            ? "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 hover:underline"
-            : "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-        }
-        aria-label={
-          canEdit ? `Add salary for ${labelName}` : `View salary history for ${labelName}`
-        }
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 hover:underline"
+        aria-label={`Add salary for ${labelName}`}
       >
-        {canEdit ? (
-          <>
-            <Plus className="h-3.5 w-3.5" /> Add salary
-          </>
-        ) : (
-          <span>—</span>
-        )}
+        <>
+          <Plus className="h-3.5 w-3.5" /> Add salary
+        </>
       </button>
     );
   }

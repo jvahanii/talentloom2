@@ -69,8 +69,7 @@ const selectCls =
  * skills. Shown as the Teams tab of Org chart & teams (/org-chart).
  */
 export function TeamsPanel() {
-  const { orgId, orgs, can } = useOrg();
-  const canManage = can("change_titles");
+  const { orgId, orgs } = useOrg();
   const orgName = orgs.find((o) => o.org_id === orgId)?.name ?? "this organisation";
   const qc = useQueryClient();
 
@@ -158,42 +157,39 @@ export function TeamsPanel() {
       <div>
         <p className="text-sm text-muted-foreground">
           The teams in {orgName} and who is in each. A person can be in several teams.
-          {!canManage && " Your title lets you see the teams but not change them."}
         </p>
       </div>
 
-      {canManage && (
-        <form
-          className="space-y-2 rounded-2xl border-2 border-border bg-card p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void create();
-          }}
-        >
-          <p className="font-medium">Create a team</p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Team name, e.g. Customer success"
-              maxLength={MAX_TEAM_NAME}
-              className="sm:max-w-xs"
-              aria-label="Team name"
-            />
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What the team does (optional)"
-              maxLength={MAX_TEAM_DESCRIPTION}
-              className="min-w-0 flex-1"
-              aria-label="Team description"
-            />
-            <Button type="submit" disabled={busy || !name.trim()}>
-              <Plus className="mr-1 h-4 w-4" /> Create
-            </Button>
-          </div>
-        </form>
-      )}
+      <form
+        className="space-y-2 rounded-2xl border-2 border-border bg-card p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void create();
+        }}
+      >
+        <p className="font-medium">Create a team</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Team name, e.g. Customer success"
+            maxLength={MAX_TEAM_NAME}
+            className="sm:max-w-xs"
+            aria-label="Team name"
+          />
+          <Input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What the team does (optional)"
+            maxLength={MAX_TEAM_DESCRIPTION}
+            className="min-w-0 flex-1"
+            aria-label="Team description"
+          />
+          <Button type="submit" disabled={busy || !name.trim()}>
+            <Plus className="mr-1 h-4 w-4" /> Create
+          </Button>
+        </div>
+      </form>
 
       {teams.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
 
@@ -201,9 +197,7 @@ export function TeamsPanel() {
         <div className="rounded-2xl border-2 border-dashed border-border bg-card p-8 text-center">
           <p className="font-medium">No teams yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {canManage
-              ? "Create the first team above, then add people to it here or on the People page."
-              : "Someone who can manage people can create teams."}
+            Create the first team above, then add people to it here or on the People page.
           </p>
         </div>
       )}
@@ -216,7 +210,6 @@ export function TeamsPanel() {
             team={t}
             people={people}
             label={label}
-            canManage={canManage}
             busy={busy}
             run={run}
           />
@@ -224,14 +217,7 @@ export function TeamsPanel() {
       </div>
 
       {!!(teams.data ?? []).length && (
-        <TeamGroups
-          orgId={orgId}
-          teams={teams.data ?? []}
-          people={people}
-          canManage={canManage}
-          busy={busy}
-          run={run}
-        />
+        <TeamGroups orgId={orgId} teams={teams.data ?? []} people={people} busy={busy} run={run} />
       )}
 
       {!!(teams.data ?? []).length && withoutTeam.length > 0 && (
@@ -255,7 +241,6 @@ function TeamCard({
   team,
   people,
   label,
-  canManage,
   busy,
   run,
 }: {
@@ -263,7 +248,6 @@ function TeamCard({
   team: Team;
   people: Member[];
   label: Map<string, string>;
-  canManage: boolean;
   busy: boolean;
   run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
 }) {
@@ -287,73 +271,59 @@ function TeamCard({
   return (
     <div className="flex flex-col rounded-2xl border-2 border-border bg-card p-4">
       <div className="flex items-start gap-2">
-        {canManage ? (
-          <input
-            defaultValue={team.name}
-            onBlur={(e) => rename(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            maxLength={MAX_TEAM_NAME}
-            className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none hover:border-input focus:border-teal-500"
-            aria-label="Team name"
-          />
-        ) : (
-          <h2 className="min-w-0 flex-1 truncate font-semibold">{team.name}</h2>
-        )}
+        <input
+          defaultValue={team.name}
+          onBlur={(e) => rename(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          maxLength={MAX_TEAM_NAME}
+          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none hover:border-input focus:border-teal-500"
+          aria-label="Team name"
+        />
         <span className="shrink-0 pt-1 text-xs text-muted-foreground">
           {members.length} {members.length === 1 ? "person" : "people"}
         </span>
-        {canManage && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Delete the team "${team.name}"? Its people stay in the organisation.`,
-                )
-              ) {
-                void run(() => deleteTeam(team.id), `Deleted ${team.name}`);
-              }
-            }}
-            className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            aria-label={`Delete ${team.name}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (
+              window.confirm(`Delete the team "${team.name}"? Its people stay in the organisation.`)
+            ) {
+              void run(() => deleteTeam(team.id), `Deleted ${team.name}`);
+            }
+          }}
+          className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          aria-label={`Delete ${team.name}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
 
-      {canManage ? (
-        <textarea
-          defaultValue={team.description ?? ""}
-          onBlur={(e) => describe(e.target.value)}
-          placeholder="Add a description"
-          maxLength={MAX_TEAM_DESCRIPTION}
-          rows={2}
-          className="mt-1 w-full resize-none rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-sm text-muted-foreground outline-none hover:border-input focus:border-teal-500"
-          aria-label={`Description of ${team.name}`}
-        />
-      ) : (
-        team.description && <p className="mt-1 text-sm text-muted-foreground">{team.description}</p>
-      )}
+      <textarea
+        defaultValue={team.description ?? ""}
+        onBlur={(e) => describe(e.target.value)}
+        placeholder="Add a description"
+        maxLength={MAX_TEAM_DESCRIPTION}
+        rows={2}
+        className="mt-1 w-full resize-none rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-sm text-muted-foreground outline-none hover:border-input focus:border-teal-500"
+        aria-label={`Description of ${team.name}`}
+      />
 
       <ul className="mt-2 flex-1 space-y-1">
         {members.map((m) => (
           <li key={m} className="flex items-center justify-between gap-2 text-sm">
             <span className="min-w-0 truncate">{label.get(m)}</span>
-            {canManage && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  run(() => removeFromTeam(team.id, m), `${label.get(m)} left ${team.name}`)
-                }
-                className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-destructive"
-                aria-label={`Take ${label.get(m)} out of ${team.name}`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                run(() => removeFromTeam(team.id, m), `${label.get(m)} left ${team.name}`)
+              }
+              className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-destructive"
+              aria-label={`Take ${label.get(m)} out of ${team.name}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </li>
         ))}
         {!members.length && <li className="text-sm text-muted-foreground">Nobody yet</li>}
@@ -361,7 +331,7 @@ function TeamCard({
 
       {members.length > 0 && <TeamSkills skills={teamSkills(members, people)} />}
 
-      {canManage && others.length > 0 && (
+      {others.length > 0 && (
         <div className="mt-3 flex items-center gap-1.5 border-t-2 border-dashed border-border pt-3">
           <select
             className={`${selectCls} flex-1`}
@@ -453,14 +423,12 @@ function TeamGroups({
   orgId,
   teams,
   people,
-  canManage,
   busy,
   run,
 }: {
   orgId: string;
   teams: Team[];
   people: Member[];
-  canManage: boolean;
   busy: boolean;
   run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
 }) {
@@ -490,46 +458,42 @@ function TeamGroups({
         </p>
       </div>
 
-      {canManage && (
-        <form
-          className="space-y-2 rounded-2xl border-2 border-border bg-card p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void create();
-          }}
-        >
-          <p className="font-medium">Create a team of teams</p>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name, e.g. Product & Engineering"
-            maxLength={MAX_TEAM_NAME}
-            className="sm:max-w-xs"
-            aria-label="Team of teams name"
-          />
-          <div className="flex flex-wrap gap-1.5">
-            {teams.map((t) => {
-              const on = picked.includes(t.id);
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() =>
-                    setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))
-                  }
-                  className={`rounded-full border-2 px-2.5 py-0.5 text-xs font-medium ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary"}`}
-                  aria-pressed={on}
-                >
-                  {t.name}
-                </button>
-              );
-            })}
-          </div>
-          <Button type="submit" disabled={busy || !name.trim()}>
-            <Plus className="mr-1 h-4 w-4" /> Create
-          </Button>
-        </form>
-      )}
+      <form
+        className="space-y-2 rounded-2xl border-2 border-border bg-card p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void create();
+        }}
+      >
+        <p className="font-medium">Create a team of teams</p>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name, e.g. Product & Engineering"
+          maxLength={MAX_TEAM_NAME}
+          className="sm:max-w-xs"
+          aria-label="Team of teams name"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {teams.map((t) => {
+            const on = picked.includes(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setPicked((p) => (on ? p.filter((x) => x !== t.id) : [...p, t.id]))}
+                className={`rounded-full border-2 px-2.5 py-0.5 text-xs font-medium ${on ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary"}`}
+                aria-pressed={on}
+              >
+                {t.name}
+              </button>
+            );
+          })}
+        </div>
+        <Button type="submit" disabled={busy || !name.trim()}>
+          <Plus className="mr-1 h-4 w-4" /> Create
+        </Button>
+      </form>
 
       {!groups.isLoading && !(groups.data ?? []).length && (
         <p className="text-sm text-muted-foreground">No teams of teams yet.</p>
@@ -543,7 +507,6 @@ function TeamGroups({
             group={g}
             teams={teams}
             people={people}
-            canManage={canManage}
             busy={busy}
             run={run}
           />
@@ -558,7 +521,6 @@ function GroupCard({
   group,
   teams,
   people,
-  canManage,
   busy,
   run,
 }: {
@@ -566,7 +528,6 @@ function GroupCard({
   group: TeamGroup;
   teams: Team[];
   people: Member[];
-  canManage: boolean;
   busy: boolean;
   run: (action: () => Promise<void>, ok?: string) => Promise<boolean>;
 }) {
@@ -580,40 +541,34 @@ function GroupCard({
   return (
     <div className="flex flex-col rounded-2xl border-2 border-border bg-card p-4">
       <div className="flex items-start gap-2">
-        {canManage ? (
-          <input
-            defaultValue={group.name}
-            onBlur={(e) => {
-              const next = e.target.value.trim();
-              if (next && next !== group.name)
-                void run(() => updateTeamGroup(group.id, { name: next }), "Renamed");
-            }}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            maxLength={MAX_TEAM_NAME}
-            className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none hover:border-input focus:border-teal-500"
-            aria-label="Team of teams name"
-          />
-        ) : (
-          <h3 className="min-w-0 flex-1 truncate font-semibold">{group.name}</h3>
-        )}
+        <input
+          defaultValue={group.name}
+          onBlur={(e) => {
+            const next = e.target.value.trim();
+            if (next && next !== group.name)
+              void run(() => updateTeamGroup(group.id, { name: next }), "Renamed");
+          }}
+          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          maxLength={MAX_TEAM_NAME}
+          className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-0.5 font-semibold outline-none hover:border-input focus:border-teal-500"
+          aria-label="Team of teams name"
+        />
         <span className="shrink-0 pt-1 text-xs text-muted-foreground">
           {inGroup.length} {inGroup.length === 1 ? "team" : "teams"} · {memberIds.length}{" "}
           {memberIds.length === 1 ? "person" : "people"}
         </span>
-        {canManage && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (window.confirm(`Delete "${group.name}"? Its teams stay as they are.`))
-                void run(() => deleteTeamGroup(group.id), `Deleted ${group.name}`);
-            }}
-            className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            aria-label={`Delete ${group.name}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (window.confirm(`Delete "${group.name}"? Its teams stay as they are.`))
+              void run(() => deleteTeamGroup(group.id), `Deleted ${group.name}`);
+          }}
+          className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          aria-label={`Delete ${group.name}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
 
       <ul className="mt-2 flex-1 space-y-1">
@@ -622,17 +577,15 @@ function GroupCard({
             <span className="min-w-0 truncate">
               {t.name} <span className="text-xs text-muted-foreground">({t.members.length})</span>
             </span>
-            {canManage && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => run(() => removeTeamFromGroup(group.id, t.id), `${t.name} removed`)}
-                className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-destructive"
-                aria-label={`Take ${t.name} out of ${group.name}`}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(() => removeTeamFromGroup(group.id, t.id), `${t.name} removed`)}
+              className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-destructive"
+              aria-label={`Take ${t.name} out of ${group.name}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </li>
         ))}
         {!inGroup.length && <li className="text-sm text-muted-foreground">No teams yet</li>}
@@ -640,7 +593,7 @@ function GroupCard({
 
       {memberIds.length > 0 && <TeamSkills skills={teamSkills(memberIds, people)} />}
 
-      {canManage && others.length > 0 && (
+      {others.length > 0 && (
         <div className="mt-3 flex items-center gap-1.5 border-t-2 border-dashed border-border pt-3">
           <select
             className={`${selectCls} flex-1`}

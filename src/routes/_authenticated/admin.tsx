@@ -192,7 +192,7 @@ function AddOrganisationsDialog({ account, organisations, onClose, onAdded }: {
             <Label key={o.id} className="flex items-center gap-3 rounded-lg border border-border p-3" htmlFor={`join-${o.id}`}>
               <Checkbox id={`join-${o.id}`} checked={joined.has(o.id) || selected.includes(o.id)} disabled={saving || joined.has(o.id)}
                 onCheckedChange={(checked) => setSelected((ids) => checked === true ? [...ids, o.id] : ids.filter((id) => id !== o.id))} />
-              <span className="min-w-0 break-words">{o.name}<span className="block text-xs text-muted-foreground">{joined.has(o.id) ? "Already a member" : "Member"}</span></span>
+              <span className="min-w-0 break-words">{o.name}<span className="block text-xs text-muted-foreground">{joined.has(o.id) ? "Already a member" : "Admin"}</span></span>
             </Label>
           ))}
         </div>

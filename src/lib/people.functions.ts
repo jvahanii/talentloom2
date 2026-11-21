@@ -12,8 +12,6 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = any;
 
-const PROTECTED_TITLES = ["Owner", "Admin"];
-
 /** The organisation skills are stored on: the root of its skill space (itself unless connected). */
 export async function spaceRoot(admin: Loose, orgId: string): Promise<string> {
   const { data, error } = await admin.rpc("skill_space_of", { _org: orgId });
@@ -21,51 +19,40 @@ export async function spaceRoot(admin: Loose, orgId: string): Promise<string> {
   return (data as string | null) ?? orgId;
 }
 
-async function hasPermission(sb: Loose, orgId: string, userId: string, perm: string) {
-  const { data } = await sb.rpc("has_org_permission", { _org: orgId, _user: userId, _perm: perm });
-  return data === true;
+/** Everyone in an organisation may do everything in it; outsiders nothing. */
+async function requireMember(sb: Loose, orgId: string, userId: string) {
+  const { data } = await sb.rpc("is_org_member", { _org: orgId, _user: userId });
+  if (data !== true) throw new Error("You aren't a member of this organisation");
 }
 
 /**
- * Adds a person to the organisation by email. If the email already has a
- * Talentloom account they become a member straight away with the chosen title;
- * otherwise an invite is created and its id returned so the caller can email it.
- * Needs the "invite users" permission; Owner and Admin titles need an owner.
+ * Adds a person to the organisation by email, as an Admin. If the email already
+ * has a Talentloom account they join straight away; otherwise an invite is
+ * created and its id returned so the caller can email it.
  */
 export const addPersonToOrg = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { orgId: string; email: string; titleId: string }) =>
+  .inputValidator((d: { orgId: string; email: string }) =>
     z
       .object({
         orgId: z.string().uuid(),
         email: z.string().trim().toLowerCase().email().max(255),
-        titleId: z.string().uuid(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Loose;
-    if (!(await hasPermission(sb, data.orgId, context.userId, "invite_users"))) {
-      throw new Error("Your title doesn't allow adding people to this organisation");
-    }
-    const { data: title, error: titleError } = await sb
-      .from("organization_titles")
-      .select("id, name")
-      .eq("id", data.titleId)
-      .eq("org_id", data.orgId)
-      .maybeSingle();
-    if (titleError) throw new Error(titleError.message);
-    if (!title) throw new Error("That title doesn't belong to this organisation");
-    if (PROTECTED_TITLES.includes(title.name)) {
-      const { data: owner } = await sb.rpc("is_org_owner", {
-        _org: data.orgId,
-        _user: context.userId,
-      });
-      if (owner !== true) throw new Error("Only an owner can add Owners and Admins");
-    }
-
+    await requireMember(sb, data.orgId, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
+    const { data: title, error: titleError } = await admin
+      .from("organization_titles")
+      .select("id")
+      .eq("org_id", data.orgId)
+      .eq("name", "Admin")
+      .maybeSingle();
+    if (titleError) throw new Error(titleError.message);
+    if (!title) throw new Error("This organisation has no Admin title");
     const { data: matches, error: findError } = await admin
       .from("profiles")
       .select("id, full_name, email, clerk_user_id")
@@ -83,7 +70,8 @@ export const addPersonToOrg = createServerFn({ method: "POST" })
         .insert({
           org_id: data.orgId,
           email: data.email,
-          title_id: data.titleId,
+          title_id: title.id,
+          role: "admin",
           invited_by: context.userId,
         })
         .select("id")
@@ -104,18 +92,17 @@ export const addPersonToOrg = createServerFn({ method: "POST" })
         name: (person.full_name as string | null) ?? data.email,
       };
 
-    const roleByTitle: Record<string, string> = { Owner: "owner", Admin: "admin" };
     const { error: insertError } = await admin.from("organization_members").insert({
       org_id: data.orgId,
       user_id: person.id,
-      title_id: data.titleId,
-      role: roleByTitle[title.name] ?? "member",
+      title_id: title.id,
+      role: "admin",
     });
     if (insertError) throw new Error(insertError.message);
     return { status: "added" as const, name: (person.full_name as string | null) ?? data.email };
   });
 
-/** Changes a member's full name. Needs the "change titles" permission in an organisation they belong to. */
+/** Changes a member's full name. Anyone in the organisation may. */
 export const updatePersonName = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { orgId: string; userId: string; fullName: string }) =>
@@ -128,13 +115,7 @@ export const updatePersonName = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const sb = context.supabase as Loose;
-    if (
-      data.userId !== context.userId &&
-      !(await hasPermission(sb, data.orgId, context.userId, "change_titles"))
-    ) {
-      throw new Error("Your title doesn't allow editing other people");
-    }
+    await requireMember(context.supabase as Loose, data.orgId, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
     const { data: member } = await admin
@@ -152,7 +133,7 @@ export const updatePersonName = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Replaces a member's skills and levels. Same rule as names: yourself, or the "change titles" permission. */
+/** Replaces a member's skills and levels. Anyone in the organisation may. */
 export const updatePersonSkills = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { orgId: string; userId: string; skills: Skill[] }) =>
@@ -172,13 +153,7 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const sb = context.supabase as Loose;
-    if (
-      data.userId !== context.userId &&
-      !(await hasPermission(sb, data.orgId, context.userId, "change_titles"))
-    ) {
-      throw new Error("Your title doesn't allow editing other people");
-    }
+    await requireMember(context.supabase as Loose, data.orgId, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;
     const { data: member } = await admin
@@ -251,7 +226,7 @@ export const updatePersonSkills = createServerFn({ method: "POST" })
  * learning groups and skill list follow the kept name; someone who ends up in
  * two learning groups stays in the first. Organisations connected to this one
  * share its skills, so its people's skills change there too; others aren't
- * touched. Needs "change titles".
+ * touched.
  */
 export const mergeSkills = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -265,10 +240,7 @@ export const mergeSkills = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const sb = context.supabase as Loose;
-    if (!(await hasPermission(sb, data.orgId, context.userId, "change_titles"))) {
-      throw new Error("Your title doesn't allow editing other people's skills");
-    }
+    await requireMember(context.supabase as Loose, data.orgId, context.userId);
     const variants = new Set([...data.variants, data.into].map((v) => v.toLowerCase()));
     const { supabaseAdmin } = await import("@/integrations/supabase/app-admin.server");
     const admin = supabaseAdmin as Loose;

@@ -333,7 +333,7 @@ export const adminAddMemberships = createServerFn({ method: "POST" })
     const orgIds = [...new Set(data.orgIds)];
     const [memberships, titles] = await Promise.all([
       admin.from("organization_members").select("org_id").eq("user_id", data.userId).in("org_id", orgIds),
-      admin.from("organization_titles").select("id, org_id").in("org_id", orgIds).eq("name", "Member").eq("is_system", true),
+      admin.from("organization_titles").select("id, org_id").in("org_id", orgIds).eq("name", "Admin").eq("is_system", true),
     ]);
     must(memberships, "Memberships");
     must(titles, "Organisation titles");
@@ -352,7 +352,7 @@ export const adminDeleteOrganisation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireSuperuser(context);
     // Deleted as the signed-in superuser, not with the service role: the database's
-    // "only an owner can remove admins" rule checks who is signed in.
+    // rules check who is signed in.
     const { data: gone, error } = await (context.supabase as Loose)
       .from("organizations")
       .delete()
@@ -383,31 +383,29 @@ export const adminRemoveAccount = createServerFn({ method: "POST" })
     if (profileError) throw new Error(profileError.message);
     if (!profile) throw new Error("Account not found");
 
-    // An organisation must keep someone who can manage titles. Refuse if this
-    // person is the only one anywhere, and say where.
+    // An organisation must keep at least one person. Refuse if this person is
+    // the only one in any, and say where.
     const { data: memberships, error: memError } = await admin
       .from("organization_members")
-      .select("org_id, organization_titles(can_manage_titles), organizations(name)")
+      .select("org_id, organizations(name)")
       .eq("user_id", data.id);
     if (memError) throw new Error(memError.message);
-    const managed = ((memberships ?? []) as Loose[]).filter(
-      (m) => m.organization_titles?.can_manage_titles,
-    );
+    const managed = (memberships ?? []) as Loose[];
     const stuck: string[] = [];
     for (const m of managed) {
       const { data: others, error: othersError } = await admin
         .from("organization_members")
-        .select("user_id, organization_titles(can_manage_titles)")
+        .select("user_id")
         .eq("org_id", m.org_id)
         .neq("user_id", data.id);
       if (othersError) throw new Error(othersError.message);
-      if (!((others ?? []) as Loose[]).some((o) => o.organization_titles?.can_manage_titles)) {
+      if (!(others ?? []).length) {
         stuck.push((m.organizations?.name as string) ?? "an organisation");
       }
     }
     if (stuck.length) {
       throw new Error(
-        `This person is the only one who can manage ${stuck.join(", ")}. Delete ${stuck.length === 1 ? "that organisation" : "those organisations"} or make someone else an owner first.`,
+        `This person is the only one in ${stuck.join(", ")}. Delete ${stuck.length === 1 ? "that organisation" : "those organisations"} or add someone else first.`,
       );
     }
 
@@ -501,14 +499,14 @@ export const adminAddAccount = createServerFn({ method: "POST" })
         .from("organization_titles")
         .select("id")
         .eq("org_id", data.orgId)
-        .eq("name", "Member")
+        .eq("name", "Admin")
         .maybeSingle();
       if (titleError) throw new Error(titleError.message);
-      if (!title) throw new Error("That organisation has no Member title");
+      if (!title) throw new Error("That organisation has no Admin title");
       must(
         await admin
           .from("organization_members")
-          .insert({ org_id: data.orgId, user_id: created.id, role: "member", title_id: title.id }),
+          .insert({ org_id: data.orgId, user_id: created.id, role: "admin", title_id: title.id }),
         "Organisation membership",
       );
     }

@@ -58,13 +58,13 @@ export async function updateTeam(
 ) {
   const { data, error } = await db.from("org_teams").update(change).eq("id", id).select("id");
   if (error) throw explain(error);
-  if (!data?.length) throw new Error("Your title doesn't allow editing teams");
+  if (!data?.length) throw new Error("Only people in this organisation can edit its teams");
 }
 
 export async function deleteTeam(id: string) {
   const { data, error } = await db.from("org_teams").delete().eq("id", id).select("id");
   if (error) throw explain(error);
-  if (!data?.length) throw new Error("Your title doesn't allow deleting teams");
+  if (!data?.length) throw new Error("Only people in this organisation can delete its teams");
 }
 
 export async function addToTeam(orgId: string, teamId: string, userId: string) {
@@ -132,13 +132,13 @@ export async function createTeamGroup(orgId: string, name: string, teamIds: stri
 export async function updateTeamGroup(id: string, change: { name?: string; description?: string | null }) {
   const { data, error } = await db.from("org_team_groups").update(change).eq("id", id).select("id");
   if (error) throw explainGroup(error);
-  if (!data?.length) throw new Error("Your title doesn't allow editing teams");
+  if (!data?.length) throw new Error("Only people in this organisation can edit its teams");
 }
 
 export async function deleteTeamGroup(id: string) {
   const { data, error } = await db.from("org_team_groups").delete().eq("id", id).select("id");
   if (error) throw explainGroup(error);
-  if (!data?.length) throw new Error("Your title doesn't allow deleting teams");
+  if (!data?.length) throw new Error("Only people in this organisation can delete its teams");
 }
 
 export async function addTeamToGroup(orgId: string, groupId: string, teamId: string) {

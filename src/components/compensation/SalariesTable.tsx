@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { useOrg } from "@/lib/org";
-import { useSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { fetchOrgPeople, orgPeopleKey } from "@/lib/orgCharts";
 import { fetchWorkSettings, workSettingsKey } from "@/lib/workVacations";
@@ -55,8 +54,7 @@ const dateText = (iso: string) =>
   new Intl.DateTimeFormat(undefined, { timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
 
 export function SalariesTable() {
-  const { orgId, can } = useOrg();
-  const { user } = useSession();
+  const { orgId } = useOrg();
   const peopleQ = useQuery({
     queryKey: orgPeopleKey(orgId),
     enabled: !!orgId,
@@ -297,7 +295,6 @@ export function SalariesTable() {
         }
         entries={openRow?.entries ?? []}
         nameOf={nameOf}
-        canEdit={openRow ? openRow.id === user?.id || can("change_titles") : false}
         onClose={() => setOpen(null)}
       />
     </div>

@@ -24,9 +24,7 @@ function CandidateDetail() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { orgId, can } = useOrg();
-  const canEdit = can("edit_candidates");
-  const canDelete = can("delete_candidates");
+  const { orgId } = useOrg();
 
   const cand = useQuery({
     queryKey: ["candidate", id],
@@ -242,27 +240,23 @@ function CandidateDetail() {
               </Field>
             </div>
           </div>
-          {canEdit && (
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                onClick={() => save.mutate()}
-                disabled={save.isPending}
-                className="btn-teal rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
-              >
-                Save changes
-              </button>
-              {canDelete && (
-                <button
-                  onClick={() => {
-                    if (confirm("Delete this candidate?")) del.mutate();
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
-                >
-                  <Trash2 className="h-4 w-4" /> Delete
-                </button>
-              )}
-            </div>
-          )}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+              className="btn-teal rounded-xl px-5 py-2.5 text-sm font-semibold disabled:opacity-60"
+            >
+              Save changes
+            </button>
+            <button
+              onClick={() => {
+                if (confirm("Delete this candidate?")) del.mutate();
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </button>
+          </div>
         </div>
 
         <div className="glass rounded-2xl p-5">
@@ -271,14 +265,12 @@ function CandidateDetail() {
             <DocRow
               label="CV"
               path={cand.data.cv_path}
-              canEdit={canEdit}
               busy={uploading === "cv"}
               onPick={(f) => uploadDoc("cv", f)}
             />
             <DocRow
               label="Cover letter"
               path={cand.data.cover_letter_path}
-              canEdit={canEdit}
               busy={uploading === "cover_letter"}
               onPick={(f) => uploadDoc("cover_letter", f)}
             />
@@ -332,13 +324,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function DocRow({
   label,
   path,
-  canEdit,
   busy,
   onPick,
 }: {
   label: string;
   path: string | null;
-  canEdit: boolean;
   busy: boolean;
   onPick: (f: File) => void;
 }) {
@@ -359,23 +349,21 @@ function DocRow({
           <span className="text-xs text-muted-foreground">Not uploaded</span>
         )}
       </div>
-      {canEdit && (
-        <label className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-input bg-white/70 px-2 py-1 text-xs font-medium">
-          <Paperclip className="h-3 w-3" />
-          {busy ? "Uploading…" : path ? "Replace" : "Upload"}
-          <input
-            type="file"
-            accept={ACCEPTED_FILE_TYPES}
-            className="hidden"
-            disabled={busy}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onPick(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
-      )}
+      <label className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-input bg-white/70 px-2 py-1 text-xs font-medium">
+        <Paperclip className="h-3 w-3" />
+        {busy ? "Uploading…" : path ? "Replace" : "Upload"}
+        <input
+          type="file"
+          accept={ACCEPTED_FILE_TYPES}
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onPick(f);
+            e.target.value = "";
+          }}
+        />
+      </label>
     </div>
   );
 }

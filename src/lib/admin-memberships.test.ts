@@ -7,14 +7,14 @@ describe("admin organisation assignments", () => {
     deepStrictEqual(planMemberships("user", ["org-a", "org-b"], [], [
       { id: "title-a", org_id: "org-a" }, { id: "title-b", org_id: "org-b" },
     ]), [
-      { org_id: "org-a", user_id: "user", role: "member", title_id: "title-a" },
-      { org_id: "org-b", user_id: "user", role: "member", title_id: "title-b" },
+      { org_id: "org-a", user_id: "user", role: "admin", title_id: "title-a" },
+      { org_id: "org-b", user_id: "user", role: "admin", title_id: "title-b" },
     ]);
   });
   test("preserves existing memberships and ignores duplicate selections", () => {
     deepStrictEqual(planMemberships("user", ["org-a", "org-b", "org-b"], [{ org_id: "org-a" }], [
       { id: "title-b", org_id: "org-b" },
-    ]), [{ org_id: "org-b", user_id: "user", role: "member", title_id: "title-b" }]);
+    ]), [{ org_id: "org-b", user_id: "user", role: "admin", title_id: "title-b" }]);
   });
   test("rejects missing organisations or Member titles before any insert", () => {
     throws(() => planMemberships("user", ["org-a", "missing"], [], [{ id: "title-a", org_id: "org-a" }]));

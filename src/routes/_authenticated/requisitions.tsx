@@ -38,8 +38,7 @@ interface Req {
 
 function Reqs() {
   const qc = useQueryClient();
-  const { orgId, can } = useOrg();
-  const canEdit = can("edit_positions");
+  const { orgId } = useOrg();
   const navigate = useNavigate({ from: "/requisitions" });
   const { position } = Route.useSearch();
   const [open, setOpen] = useState(false);
@@ -105,17 +104,15 @@ function Reqs() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {canEdit && (
-            <button
-              onClick={() => {
-                setEditing(null);
-                setOpen(true);
-              }}
-              className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
-            >
-              <Plus className="h-4 w-4" /> New
-            </button>
-          )}
+          <button
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+            className="btn-teal inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" /> New
+          </button>
         </div>
       </div>
 
@@ -142,19 +139,17 @@ function Reqs() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {canEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditing(r);
-                      setOpen(true);
-                    }}
-                    className="rounded-lg p-1.5 hover:bg-muted"
-                    aria-label="Edit"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditing(r);
+                    setOpen(true);
+                  }}
+                  className="rounded-lg p-1.5 hover:bg-muted"
+                  aria-label="Edit"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">

@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/app-client";
  * skills mandate (across: 1 functional … 4 expanding) by scope of work mandate
  * (up: 1 tasks … 4 expanding), now and, optionally, where they're heading.
  * A spot is free within its square: x runs 0–4 across and y 0–4 up, so
- * x 2.5 lies in the third column. A team's members can place it, and so can
- * anyone who may change titles.
+ * x 2.5 lies in the third column. Anyone in the organisation can place a team.
  */
 export type Spot = { x: number; y: number };
 export type Cell = { skills: number; work: number };
@@ -83,7 +82,7 @@ export async function placeTeam(
   if (error) {
     throw new Error(
       error.code === "42501"
-        ? "Only the team's members, or someone who may change titles, can place this team"
+        ? "Only people in this organisation can place its teams"
         : error.message,
     );
   }

@@ -2,7 +2,6 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getMyProfileId } from "@/lib/auth";
-import { useOrg } from "@/lib/org";
 import { fetchTeams, teamsKey, type Team } from "@/lib/teams";
 import {
   cellOf,
@@ -73,12 +72,8 @@ const where = (s: Spot | null) => {
   return `${WORK[c.work - 1]} · ${SKILLS[c.skills - 1]}`;
 };
 
-const NOT_ALLOWED =
-  "Only the team's members, or someone who may change titles, can place this team";
-
 export function OrgTopology({ orgId }: { orgId: string }) {
   const qc = useQueryClient();
-  const { can } = useOrg();
   const me = useQuery({ queryKey: ["topology-me"], queryFn: () => getMyProfileId() });
   const teams = useQuery({ queryKey: teamsKey(orgId), queryFn: () => fetchTeams(orgId) });
   const placements = useQuery({
@@ -114,7 +109,6 @@ export function OrgTopology({ orgId }: { orgId: string }) {
   };
   const placeOf = (id: string): TeamPlacement =>
     placements.data?.find((p) => p.teamId === id) ?? { teamId: id, now: null, target: null };
-  const canPlace = (t: Team) => can("change_titles") || (!!me.data && t.members.includes(me.data));
   const chosen = list.find((t) => t.id === selected) ?? null;
 
   /** The spot under a pointer, or null when it's outside the map. */
@@ -147,12 +141,8 @@ export function OrgTopology({ orgId }: { orgId: string }) {
     }
   };
 
-  /** Puts a team's dot (now or heading) at a spot, if the viewer may. */
+  /** Puts a team's dot (now or heading) at a spot. */
   const placeAt = (team: Team, kind: "now" | "target", spot: Spot) => {
-    if (!canPlace(team)) {
-      toast.error(NOT_ALLOWED);
-      return;
-    }
     const p = placeOf(team.id);
     void save(team, kind === "now" ? spot : p.now, kind === "target" ? spot : p.target);
   };
@@ -178,7 +168,7 @@ export function OrgTopology({ orgId }: { orgId: string }) {
   const startDrag = (e: ReactPointerEvent, m: Marker) => {
     e.stopPropagation();
     setSelected(m.team.id);
-    if (!canPlace(m.team) || busy) return;
+    if (busy) return;
     svgRef.current?.setPointerCapture(e.pointerId);
     const p = placeOf(m.team.id);
     const spot = (m.kind === "now" ? p.now : p.target) ?? { x: 2, y: 2 };
@@ -386,16 +376,13 @@ export function OrgTopology({ orgId }: { orgId: string }) {
             {markers.map((m) => {
               const color = colorOf(m.team.id);
               const isChosen = m.team.id === selected;
-              const movable = canPlace(m.team);
               return (
                 <g
                   key={`${m.team.id}-${m.kind}`}
-                  className={movable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
+                  className="cursor-grab active:cursor-grabbing"
                   onPointerDown={(e) => startDrag(e, m)}
                 >
-                  <title>{`${m.team.name}: ${m.kind === "now" ? "now" : "heading"}${
-                    movable ? " — drag to move" : ""
-                  }`}</title>
+                  <title>{`${m.team.name}: ${m.kind === "now" ? "now" : "heading"} — drag to move`}</title>
                   {isChosen && (
                     <circle
                       cx={m.x}
@@ -457,13 +444,12 @@ export function OrgTopology({ orgId }: { orgId: string }) {
               {list.map((t) => {
                 const p = placeOf(t.id);
                 const on = t.id === selected;
-                const editable = canPlace(t);
                 return (
                   <li
                     key={t.id}
-                    className={editable ? "cursor-grab active:cursor-grabbing" : ""}
+                    className="cursor-grab active:cursor-grabbing"
                     onPointerDown={(e) => {
-                      if (!editable || e.button !== 0) return;
+                      if (e.button !== 0) return;
                       // On touch, only the badge drags, so the list still scrolls.
                       if (
                         e.pointerType !== "mouse" &&
@@ -518,12 +504,12 @@ export function OrgTopology({ orgId }: { orgId: string }) {
                       className={`w-full rounded-xl border-2 p-2 text-left text-sm ${
                         on ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                       }`}
-                      title={editable ? "Drag onto the map, or click to pick" : undefined}
+                      title="Drag onto the map, or click to pick"
                     >
                       <span className="flex items-center gap-2 font-medium">
                         <span
                           data-drag-handle
-                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white ${editable ? "touch-none" : ""}`}
+                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white touch-none`}
                           style={{ background: colorOf(t.id) }}
                         >
                           {initials(t.name)}
@@ -538,26 +524,22 @@ export function OrgTopology({ orgId }: { orgId: string }) {
                     </button>
                     {on && (
                       <div className="mt-1 flex flex-wrap items-center gap-2 px-1 text-xs">
-                        {editable ? (
-                          <>
-                            <span className="text-muted-foreground">
-                              Click the map to set{" "}
-                              {placing === "now" ? "where you are" : "where you're heading"}.
-                            </span>
-                            {(p.now || p.target) && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => save(t, null, null)}
-                                className="font-medium text-destructive underline-offset-4 hover:underline"
-                              >
-                                Take off the map
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">{NOT_ALLOWED}.</span>
-                        )}
+                        <>
+                          <span className="text-muted-foreground">
+                            Click the map to set{" "}
+                            {placing === "now" ? "where you are" : "where you're heading"}.
+                          </span>
+                          {(p.now || p.target) && (
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => save(t, null, null)}
+                              className="font-medium text-destructive underline-offset-4 hover:underline"
+                            >
+                              Take off the map
+                            </button>
+                          )}
+                        </>
                       </div>
                     )}
                   </li>

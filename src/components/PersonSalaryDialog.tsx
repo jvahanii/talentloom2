@@ -67,14 +67,12 @@ export function PersonSalaryDialog({
   person,
   entries,
   nameOf,
-  canEdit,
   onClose,
 }: {
   orgId: string;
   person: SalaryDialogPerson | null;
   entries: SalaryEntry[];
   nameOf: (userId: string) => string;
-  canEdit: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -101,7 +99,7 @@ export function PersonSalaryDialog({
     setPeriod(latest?.period ?? "monthly");
     setEffectiveDate(todayIsoDate());
     setNote("");
-    setShowForm(canEdit && sortedDesc.length === 0);
+    setShowForm(sortedDesc.length === 0);
   }, [person?.userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openAddForm = () => {
@@ -297,7 +295,7 @@ export function PersonSalaryDialog({
                   )}
                 </p>
               </div>
-              {canEdit && !showForm && (
+              {!showForm && (
                 <Button size="sm" onClick={openAddForm}>
                   <Plus className="mr-1 h-4 w-4" /> Change salary
                 </Button>
@@ -308,9 +306,7 @@ export function PersonSalaryDialog({
           <div className="rounded-xl border border-dashed border-border p-4 text-center">
             <p className="text-sm font-medium text-foreground">No salary set yet</p>
             <p className="mt-0.5 text-xs text-foreground/75">
-              {canEdit
-                ? "Add a starting salary below to begin tracking changes over time."
-                : "No salary entries have been added for this person."}
+              Add a starting salary below to begin tracking changes over time.
             </p>
           </div>
         )}
@@ -372,7 +368,7 @@ export function PersonSalaryDialog({
         )}
 
         {/* Add / edit salary form */}
-        {canEdit && showForm && (
+        {showForm && (
           <div className="space-y-3 rounded-xl border-2 border-primary/25 bg-card p-3.5">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-foreground">
@@ -596,32 +592,30 @@ export function PersonSalaryDialog({
                       {entry.note && <p className="text-xs text-foreground">{entry.note}</p>}
                     </div>
 
-                    {canEdit && (
-                      <div className="flex shrink-0 items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          disabled={busy}
-                          onClick={() => openEditForm(entry)}
-                          title="Edit entry"
-                          aria-label={`Edit salary entry from ${formatDate(entry.effective_date)}`}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          disabled={busy}
-                          onClick={() => void handleDelete(entry)}
-                          title="Delete entry"
-                          aria-label={`Delete salary entry from ${formatDate(entry.effective_date)}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        disabled={busy}
+                        onClick={() => openEditForm(entry)}
+                        title="Edit entry"
+                        aria-label={`Edit salary entry from ${formatDate(entry.effective_date)}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        disabled={busy}
+                        onClick={() => void handleDelete(entry)}
+                        title="Delete entry"
+                        aria-label={`Delete salary entry from ${formatDate(entry.effective_date)}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </li>
                 );
               })}

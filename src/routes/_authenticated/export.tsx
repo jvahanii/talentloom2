@@ -31,7 +31,7 @@ function download(filename: string, content: string) {
 }
 
 function ExportPage() {
-  const { orgId, can } = useOrg();
+  const { orgId } = useOrg();
 
   const exportCands = async () => {
     if (!orgId) {
@@ -103,18 +103,6 @@ function ExportPage() {
       ]),
     );
   };
-
-  if (!can("export")) {
-    return (
-      <div className="glass mx-auto mt-10 max-w-md rounded-2xl p-6 text-center">
-        <h1 className="font-display text-lg font-semibold">Not available for your title</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your organisation title doesn't allow you to export data. Ask an administrator to update
-          it.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div>
