@@ -958,11 +958,11 @@ function Docs() {
                     icon: Settings2,
                     text: (
                       <>
-                        Anyone who can rename the organisation can choose how many levels it uses —
-                        from 2 to 7 — and what they're called under{" "}
-                        <strong>Settings → Skill levels</strong>, for example in Finnish, or reset
-                        them. If the organisation lowers the number of levels, anyone above it shows
-                        at the highest level until it's raised again.
+                        Anyone in the organisation can choose how many levels it uses — from 2 to 7
+                        — and what they're called on the <strong>Levels</strong> tab of the Skills
+                        page, for example in Finnish, or reset them. If the organisation lowers the
+                        number of levels, anyone above it shows at the highest level until it's
+                        raised again.
                       </>
                     ),
                   },
@@ -1007,10 +1007,11 @@ function Docs() {
                       <>
                         The <strong>Skills</strong> page in the side menu has a card for every skill
                         in the organisation, with who has it and at what level, most widely held
-                        first. Search finds both skills and people. The page has three tabs —{" "}
-                        <strong>Skills</strong>, <a href="#skills-development">Development</a> and
-                        the <a href="#skills-topology">Org topology map</a> — and opens on the one
-                        you used last.
+                        first. Search finds both skills and people. The page has four tabs —{" "}
+                        <strong>Skills</strong>, <a href="#skills-levels">Levels</a>,{" "}
+                        <a href="#skills-development">Development</a> and the{" "}
+                        <a href="#skills-topology">Org topology map</a> — and opens on the one you
+                        used last.
                       </>
                     ),
                   },
@@ -1846,7 +1847,6 @@ function Docs() {
                   text: (
                     <>
                       The <strong>Organisation</strong> panel is where you rename the organisation,
-                      choose and name the <a href="#skills-levels">skill levels</a>,{" "}
                       <a href="#skills-connect">connect organisations</a>, and delete the
                       organisation. People, invites and teams are managed on their own pages — see{" "}
                       <a href="#organisations">Organisations & people</a> and{" "}

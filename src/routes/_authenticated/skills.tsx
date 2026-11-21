@@ -37,6 +37,7 @@ import { orgSkillNamesKey, useOrgSkillNames } from "@/hooks/useOrgSkillNames";
 import { SkillNameInput } from "@/components/SkillsInput";
 import { SkillDevelopment } from "@/components/SkillDevelopment";
 import { OrgTopology } from "@/components/OrgTopology";
+import { SkillLevelsPanel } from "@/components/SkillLevelsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRememberedTab } from "@/hooks/useRememberedTab";
 import { ManualSkillMerge, SkillMergeSuggestions } from "@/components/SkillMergeSuggestions";
@@ -72,10 +73,10 @@ function SkillsPage() {
   const [filter, setFilter] = useState("");
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
-  // Skills or Development, remembered in this browser.
+  // The tab last used, remembered in this browser.
   const [tab, chooseTab] = useRememberedTab(
     "skills",
-    ["skills", "development", "topology"] as const,
+    ["skills", "levels", "development", "topology"] as const,
     "skills",
   );
   const [newSkill, setNewSkill] = useState("");
@@ -356,9 +357,14 @@ function SkillsPage() {
       <Tabs value={tab} onValueChange={chooseTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="skills">Skills ({groups.length})</TabsTrigger>
+          <TabsTrigger value="levels">Levels</TabsTrigger>
           <TabsTrigger value="development">Development</TabsTrigger>
           <TabsTrigger value="topology">Org topology map</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="levels">
+          <SkillLevelsPanel orgId={orgId} />
+        </TabsContent>
 
         <TabsContent value="topology">
           <OrgTopology orgId={orgId} />
