@@ -302,7 +302,7 @@ function AdminPage() {
   const q = search.trim().toLowerCase();
   const has = (...values: (string | null | undefined)[]) =>
     !q || values.some((v) => v?.toLowerCase().includes(q));
-  const organisations = data.organisations.filter((o) => has(o.name, o.creator, ...o.owners));
+  const organisations = data.organisations.filter((o) => has(o.name, o.creator));
   const accounts = data.accounts.filter((a) =>
     has(a.name, a.email, ...a.types, ...a.organisations.map((o) => o.name)),
   );
@@ -355,7 +355,7 @@ function AdminPage() {
           <Table
             head={[
               "Organisation",
-              "Owners",
+              "Created by",
               "Members",
               "Candidates",
               "Positions",
@@ -368,7 +368,7 @@ function AdminPage() {
             {organisations.map((o) => (
               <tr key={o.id}>
                 <td className={`${td} font-medium`}>{o.name}</td>
-                <td className={td}>{o.owners.join(", ") || "—"}</td>
+                <td className={td}>{o.creator ?? "—"}</td>
                 <td className={td}>{o.members}</td>
                 <td className={td}>{o.candidates}</td>
                 <td className={td}>{o.positions}</td>

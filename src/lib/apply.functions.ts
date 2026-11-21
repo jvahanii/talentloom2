@@ -327,11 +327,11 @@ export const submitApplication = createServerFn({ method: "POST" })
       }
     }
 
+    // The application is filed under the organisation's longest-standing member.
     const { data: owner } = await supabaseAdmin
       .from("organization_members")
       .select("user_id")
       .eq("org_id", data.org_id)
-      .eq("role", "owner")
       .order("created_at")
       .limit(1)
       .maybeSingle();

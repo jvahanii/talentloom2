@@ -3,11 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/clerk-react";
 import { supabase } from "@/integrations/supabase/app-client";
 
-/**
- * Everyone in an organisation can see and edit everything in it. Its creator is
- * its Owner and everyone else an Admin; the two differ in name only.
- */
-export type OrgRole = "owner" | "admin";
+/** Everyone in an organisation is an Admin and can see and edit everything in it. */
+export type OrgRole = "admin";
 
 export interface OrgMembership {
   org_id: string;
@@ -93,10 +90,10 @@ async function fetchMemberships(signedIn: boolean): Promise<OrgMembership[]> {
       .filter((o) => !mine.has(o.id))
       .map((o) => ({
         org_id: o.id,
-        role: "owner" as OrgRole,
+        role: "admin" as OrgRole,
         name: o.name,
         title_id: null,
-        title_name: "Owner",
+        title_name: "Admin",
         viaSuperuser: true,
       })),
   ];

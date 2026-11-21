@@ -248,7 +248,7 @@ function Docs() {
                   text: (
                     <>
                       Hiring? Select <strong>Create organisation</strong> on the home page. After
-                      your account is created you name your organisation and become its owner.
+                      your account is created you name your organisation and become an Admin in it.
                     </>
                   ),
                 },
@@ -511,9 +511,8 @@ function Docs() {
                     <>
                       There are no access rights: everyone in an organisation can see and edit
                       everything in it, including candidates, positions, people, salaries, teams,
-                      org charts and settings. Whoever creates an organisation is its{" "}
-                      <strong>Owner</strong>; everyone who joins is an <strong>Admin</strong>. The
-                      two differ in name only.
+                      org charts and settings. Everyone in it, including whoever created it, is an{" "}
+                      <strong>Admin</strong>.
                     </>
                   ),
                 },

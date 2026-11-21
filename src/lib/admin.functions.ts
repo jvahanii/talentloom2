@@ -15,7 +15,6 @@ export type AdminOverview = {
     createdAt: string;
     creator: string | null;
     members: number;
-    owners: string[];
     candidates: number;
     positions: number;
     surveys: number;
@@ -191,7 +190,6 @@ export const getAdminOverview = createServerFn({ method: "GET" })
       invites.filter((i) => !i.accepted_at && (i.expires_at as string) > now),
       (i) => i.org_id,
     );
-    const isOwnerRow = (m: Loose) => m.role === "owner" || titleName.get(m.title_id) === "Owner";
 
     const superuserIds = new Set(superusers.map((s) => s.profile_id as string));
     const applicationsByUser = tally(candidates, (c) => c.applicant_user_id);
@@ -212,9 +210,6 @@ export const getAdminOverview = createServerFn({ method: "GET" })
           createdAt: o.created_at as string,
           creator: label(o.created_by),
           members: membersByOrg.get(o.id) ?? 0,
-          owners: members
-            .filter((m) => m.org_id === o.id && isOwnerRow(m))
-            .map((m) => label(m.user_id) ?? "Unknown"),
           candidates: candidatesByOrg.get(o.id) ?? 0,
           positions: positionsByOrg.get(o.id) ?? 0,
           surveys: surveysByOrg.get(o.id) ?? 0,

@@ -195,7 +195,7 @@ function Onboarding() {
     const next = step === 1 && orgId ? 3 : step + 1;
     await persist({ onboarding_step: next });
     if (step === 2 && uid && !orgId) {
-      // Create the organisation as soon as we know its name; the creator is its Owner.
+      // Create the organisation as soon as we know its name; the creator is an Admin in it.
       const id = await ensureOrg(uid, orgName);
       setOrgId(id);
     }
